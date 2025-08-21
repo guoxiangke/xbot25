@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'xbot' => [
+        'license' => env('XBOT_LICENSE', 'JGTYsDndJVYxCk/iJgTsYh+mdM84y4K3wtBcjfw=='),
+        // 'xGroup' => env('XBOT_GROUP', 'xxx@chatroom'),
+        // 'endpoint' => env('XBOT_ENDPOINT', 'http://localhost/api'),
+        // 'resource_endpoint' => env('XBOT_RESOURCE_ENDPOINT', 'http://localhost/api/resources/'),
+        // 'redirect' => env('XBOT_REDIRECT', 'http://localhost/redirect'),
+        // 'test_endpoint' => env('XBOT_TEST_ENDPOINT', 'http://localhost/api/wechat/send'),
+    ],
+
 ];

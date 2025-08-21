@@ -21,6 +21,15 @@ Route::post('/xbot/login', function (Request $request) {
         "expired_in"=> 2499184
     ];
 });
+//Route::post('/xbot/heartbeat', function (Request $request) {
+//    Log::warning('XBOT_HEARTBEAT',[$request->all()]);
+//    return [];
+//    // {"secret":"x x x x"}
+//    return [
+//        "err_code"=> 0,
+//        "expired_in"=> 2499184
+//    ];
+//});
 Route::post('/xbot/license/info', function (Request $request) {
     Log::warning('XBOT_LICENSE_INFO',[$request->all()]);
     return [
