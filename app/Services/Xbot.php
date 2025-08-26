@@ -123,7 +123,9 @@ final class Xbot
             ['client_id' => $this->clientId],
             get_defined_vars()
         );
-        Log::info(__FUNCTION__, $requestData);
+        Log::info(__FUNCTION__, [$type, '已延迟0.5秒']);
+        // 延迟0.5秒，从根源上避免请求过快
+        usleep(500000);
         return rescue(
             fn() => $this->httpClient->post(self::API_ENDPOINT, $requestData),
             null,

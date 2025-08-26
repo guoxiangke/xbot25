@@ -16,22 +16,39 @@ class XbotMessageContext
     public string $msgType;
     public ?string $msgId;
     public string $isRepliedKey;
-    public bool $isRoom;
     public bool $isGh;
-    public bool $isSelf;
+    public bool $isSelfToSelf;
+    public bool $isFromBot;
     public bool $isProcessed = false;
     public array $metadata = [];
+    public string $wxid; // 消息发送者的微信ID
+    public bool $isRoom;
+    public bool $fromWxid; //群信息的消息发送者的微信ID
 
-    public function __construct(WechatBot $wechatBot, array $requestRawData)
+    public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType)
     {
         $this->wechatBot = $wechatBot;
         $this->requestRawData = $requestRawData;
-        $this->msgType = $requestRawData['type'] ?? '';
+        $this->msgType = $msgType;
         $this->msgId = $requestRawData['msgid'] ?? null;
         $this->isRoom = !empty($requestRawData['room_wxid']);
         $this->isGh = str_starts_with($requestRawData['from_wxid'] ?? '', 'gh_');
-        $this->isSelf = ($requestRawData['from_wxid'] ?? '') === ($requestRawData['to_wxid'] ?? '');
+        $this->isSelfToSelf = ($requestRawData['from_wxid'] ?? '') === ($requestRawData['to_wxid'] ?? '');
+        $this->isFromBot = ($requestRawData['from_wxid'] ?? '') === $wechatBot->wxid;
         $this->isRepliedKey = 'replied.' . $wechatBot->id . '.' . $this->msgId;
+
+        $toWxid   = $requestRawData['to_wxid']   ?? '';
+        $fromWxid = $requestRawData['from_wxid'] ?? '';
+        $roomWxid = $requestRawData['room_wxid'] ?? '';
+        if ($this->isRoom) {// 群消息，直接用群wxid
+            $wxid = $roomWxid;
+        } elseif ($this->isFromBot) { // 机器人发送，取接收者
+            $wxid = $toWxid;
+        } else {// 用户发送，取发送者
+            $wxid = $fromWxid;
+        }
+        $this->wxid = $wxid;
+        $this->fromWxid = $fromWxid;
     }
 
     /**
@@ -113,8 +130,8 @@ class XbotMessageContext
             'msgId' => $this->msgId,
             'isRoom' => $this->isRoom,
             'isGh' => $this->isGh,
-            'isSelf' => $this->isSelf,
-            'isProcessed' => $this->isProcessed,
+            'isSelfToSelf' => $this->isSelfToSelf,
+            'isFromBot' => $this->isFromBot,
             'metadata' => $this->metadata,
         ];
     }

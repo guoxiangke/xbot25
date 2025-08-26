@@ -43,5 +43,7 @@ return [
         // 'redirect' => env('XBOT_REDIRECT', 'http://localhost/redirect'),
         // 'test_endpoint' => env('XBOT_TEST_ENDPOINT', 'http://localhost/api/wechat/send'),
     ],
-
+    'chatwoot' => [
+        'base_url' => env('CHATWOOT_BASE_URL', 'https://demo.chatwoot.com'),
+    ],
 ];

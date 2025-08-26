@@ -109,3 +109,34 @@ The system handles various WeChat message types including:
 - QR code management uses Laravel Cache
 - Message processing uses Laravel Queues
 - Timezone is set to Asia/Shanghai for WeChat operations
+
+## Guidelines for Claude Code by Developers
+- 不要改动app.old 文件夹的内容，里面的内容是旧的，可以参考
+- 对于每个长的重构需求，请你先帮我分析一下这个需求
+- 设计到删除文件的，先不删除，继续执行下一步，任务结束后列出要删除的文件
+- 这是一个 laravel 重构项目，重构时请遵循 laravel 的最佳实践
+- 原来的laravel 我放在了 app.old 目录下，可以参考
+- 重构主要变动：
+-   1. 移除的models：
+       use App\Models\WechatContact;
+       use App\Models\WechatContent;
+       use App\Models\WechatBotContact;
+       use App\Models\WechatMessage;
+       use App\Models\WechatMessageFile;
+       use App\Models\WechatMessageVoice;
+- WechatContact 用 $wechatBot->setMeta('contacts', $contacts); 代替。 同时同步到 chatwoot上
+- WechatBotContact 不再需要。
+- WechatContent 暂时不提供指引
+- WechatMessage WechatMessageFile WechatMessageVoice等各种消息，不再存数据库，直接通过队列处理后，以文本形式发送到 chatwoot 上
+- 不再使用 $wechatBot->getMeta('xbot.config'
+- 反馈时使用中文
+- 请注意代码的可读性和可维护性
+- 我不喜欢try catch，如非特别必要，请不要使用
+- 请注意代码的依赖管理
+- 请注意代码的架构设计
+- 请注意代码的设计模式
+- 请注意代码的服务提供者管理
+- 请注意代码的依赖注入
+- 请注意代码的服务容器
+- 请注意代码的性能优化
+- 请注意代码的可读性优化

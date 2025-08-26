@@ -1,11 +1,10 @@
 <?php
 
-namespace App\Pipelines\Xbot\Handlers;
+namespace App\Pipelines\Xbot;
 
 use App\Pipelines\Xbot\Contracts\XbotHandlerInterface;
-use App\Pipelines\Xbot\XbotMessageContext;
-use Illuminate\Support\Facades\Log;
 use Closure;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Xbot消息处理器基类

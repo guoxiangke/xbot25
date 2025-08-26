@@ -27,20 +27,21 @@ class WechatBot extends Model
         return new Xbot($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
     }
 
-    public function initContacts(){
-        $xbot = $this->xbot();
-
-        $xbot->getFriendsList();
-        sleep(1);
-        $xbot->getChatroomsList();
-        sleep(1);
-        $xbot->getPublicAccountsList();
+    public function wechatClient()
+    {
+        return $this->belongsTo(WechatClient::class);
     }
 
 
-    public function handleContactsInit($data){
+
+    // 返回 以wxid为key的联系人数组
+    public function handleContacts($data){
         $contacts = $this->getMeta('contacts', []);
         foreach ($data as $contact){
+            // 确保头像URL使用https协议
+            if (isset($contact['avatar'])) {
+                $contact['avatar'] = str_replace('http://', 'https://', $contact['avatar']);
+            }
             $contacts[$contact['wxid']] = $contact;
         }
         $this->setMeta('contacts', $contacts);
