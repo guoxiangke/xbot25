@@ -23,7 +23,7 @@ class XbotMessageContext
     public array $metadata = [];
     public string $wxid; // 消息发送者的微信ID
     public bool $isRoom;
-    public bool $fromWxid; //群信息的消息发送者的微信ID
+    public string $fromWxid; //群信息的消息发送者的微信ID
 
     public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType)
     {

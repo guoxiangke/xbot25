@@ -98,18 +98,15 @@ class TextMessageHandler extends BaseXbotHandler
             if ($context->isFromBot) {
                 // 机器人发送的消息：以客服身份发送
                 $chatwoot->sendMessageAsAgentToContact($contact, $content);
+
             } else {
                 // 接收的消息：以联系人身份发送
                 $chatwoot->sendMessageAsContact($contact, $content, $isHost);
             }
 
-            $this->log(__FILE__ .':'. __LINE__, [
-                'msg'=>'Message sent to Chatwoot',
-                'wxid' => $wxid,
-                'content' => $content,
-                'isHost' => $isHost
+            $this->log(__FILE__, [
+                'msg'=>'Message sent to Chatwoot'
             ]);
-
         } catch (\Exception $e) {
             $this->logError('Failed to send message to Chatwoot: ' . $e->getMessage());
         }
