@@ -65,4 +65,60 @@ abstract class BaseXbotHandler implements XbotHandlerInterface
     {
         cache()->put($context->isRepliedKey, true, $ttl);
     }
+
+    /**
+     * 从 XML 消息中提取链接 URL
+     * 参考 XbotCallbackController.php 第35-39行的逻辑
+     */
+    protected function extractUrlFromXml(string $rawMsg): ?string
+    {
+        if (empty($rawMsg)) {
+            return null;
+        }
+
+        try {
+            // 检查是否包含 URL 标签
+            if (!str_contains($rawMsg, '<url>')) {
+                return null;
+            }
+
+            // 使用正则表达式提取 URL（支持多行和HTML实体）
+            if (preg_match('/<url>(.*?)<\/url>/s', $rawMsg, $matches)) {
+                $url = trim($matches[1]);
+                if (!empty($url)) {
+                    // 解码HTML实体（如 &amp; 转换为 &）
+                    $url = html_entity_decode($url);
+                    return $url;
+                }
+            }
+
+            // 如果正则表达式失败，尝试使用字符串操作
+            $urlStart = strpos($rawMsg, '<url>');
+            $urlEnd = strpos($rawMsg, '</url>');
+            
+            if ($urlStart !== false && $urlEnd !== false && $urlEnd > $urlStart) {
+                $url = substr($rawMsg, $urlStart + 5, $urlEnd - $urlStart - 5);
+                $url = trim($url);
+                if (!empty($url)) {
+                    // 解码HTML实体
+                    $url = html_entity_decode($url);
+                    return $url;
+                }
+            }
+
+            // 调试信息：记录无法解析的XML
+            $this->logError('URL not found in XML structure', [
+                'raw_msg_preview' => substr($rawMsg, 0, 200) . '...',
+                'has_appmsg' => str_contains($rawMsg, '<appmsg>'),
+                'has_url_tag' => str_contains($rawMsg, '<url>')
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logError('Error extracting URL from XML: ' . $e->getMessage(), [
+                'raw_msg' => $rawMsg
+            ]);
+        }
+
+        return null;
+    }
 }

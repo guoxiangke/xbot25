@@ -6,9 +6,10 @@ use App;
 use App\Models\WechatBot;
 use App\Models\WechatClient;
 use App\Pipelines\Xbot\VoiceMessageHandler;
+use App\Pipelines\Xbot\VoiceTransMessageHandler;
 use App\Pipelines\Xbot\BuiltinCommandHandler;
 use App\Pipelines\Xbot\EmojiMessageHandler;
-use App\Pipelines\Xbot\FileMessageHandler;
+use App\Pipelines\Xbot\FileVideoMessageHandler;
 use App\Pipelines\Xbot\ImageMessageHandler;
 use App\Pipelines\Xbot\LinkMessageHandler;
 use App\Pipelines\Xbot\NotificationHandler;
@@ -16,7 +17,6 @@ use App\Pipelines\Xbot\OtherAppMessageHandler;
 use App\Pipelines\Xbot\SelfMessageHandler;
 use App\Pipelines\Xbot\SystemMessageHandler;
 use App\Pipelines\Xbot\TextMessageHandler;
-use App\Pipelines\Xbot\VideoMessageHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Jobs\XbotContactHandleQueue;
 use App\Services\Xbot;
@@ -78,20 +78,32 @@ class XbotController extends Controller
                 "MT_DATA_WXID_MSG" => '从网络获取信息',
                 "MT_TALKER_CHANGE_MSG" => '客户端点击头像切换对话',
                 "MT_RECV_REVOKE_MSG" => 'xx 撤回了一条消息',
-                "MT_DECRYPT_IMG_MSG_TIMEOUT" => '图片解密超时',
                 "MT_ROOM_MEMBER_DISPLAY_UPDATE_NOTIFY_MSG" => 'member_list changed',
                 "MT_ROOM_DEL_MEMBER_NOTIFY_MSG" => '',
 
-                "MT_RECV_PICTURE_MSG" =>'暂时忽略',
-                "MT_RECV_FILE_MSG" => "暂时忽略",
-                "MT_RECV_OTHER_APP_MSG" => '包含 引用回复的文本！<msgsource><refermsg>"wx_sub_type":57,"wx_type":49<type>57</type>',
-                "MT_RECV_EMOJI_MSG" => 'emoji',
-                "MT_RECV_LINK_MSG" => '公众号图文',
+
+                'MT_DECRYPT_IMG_MSG' => '请求图片解密',
+                "MT_DECRYPT_IMG_MSG_SUCCESS" => '图片解密成功',
+                "MT_DECRYPT_IMG_MSG_TIMEOUT" => '图片解密超时',
+
+
+
+
+
+                //"MT_RECV_LINK_MSG" => '公众号图文',
 
             ];
             if(in_array($msgType, array_keys($ignoreMessageTypes)))  return $this->reply("忽略的消息类型:{$msgType}");
             $this->msgType = $msgType;
         }
+// 已处理：
+        $isDoneMessageTypes = [
+            "MT_RECV_PICTURE_MSG" => '图片消息',
+            "MT_RECV_FILE_MSG" => '文件消息',
+            "MT_TRANS_VOICE_MSG" => '请求语音转文字',
+            "MT_RECV_EMOJI_MSG" => 'emoji',
+            "MT_RECV_OTHER_APP_MSG" => '包含 引用回复的文本！<msgsource><refermsg>"wx_sub_type":57,"wx_type":49<type>57</type>',
+        ];
 
         // 第x号微信客户端ID
         $clientId = $this->clientId = $request['client_id']??false;
@@ -336,7 +348,7 @@ class XbotController extends Controller
     private function processMessageWithPipeline(WechatBot $wechatBot, array $requestRawData, string $msgType): void
     {
         $context = new XbotMessageContext($wechatBot, $requestRawData, $msgType);
-
+        Log::error(__LINE__, [$msgType]);
         // 定义消息处理管道 - 按优先级排序
         $pipeline = [
             NotificationHandler::class,       // 通知消息
@@ -348,9 +360,9 @@ class XbotController extends Controller
             SystemMessageHandler::class,      // 系统消息 系统自动生成的通知 MT_RECV_SYSTEM_MSG
             // {"data":{"from_wxid":"26299514940@chatroom","is_pc":0,"msgid":"6454519846508614775","raw_msg":"你邀请\"AI天空蔚蓝\"加入了群聊  ","room_name":"微信机器人","room_wxid":"26299514940@chatroom","timestamp":1756137390,"to_wxid":"26299514940@chatroom","wx_type":10000},"type":"MT_RECV_SYSTEM_MSG","client_id":1}
             ImageMessageHandler::class,       // 图片消息
-            FileMessageHandler::class,        // 文件消息
-            VideoMessageHandler::class,       // 视频消息
+            FileVideoMessageHandler::class,   // 文件/视频消息
             VoiceMessageHandler::class,       // 语音消息
+            VoiceTransMessageHandler::class,  // 语音转换结果消息
             EmojiMessageHandler::class,       // 表情消息
             LinkMessageHandler::class,        // 链接消息
 //            'MT_TRANS_VOICE_MSG',

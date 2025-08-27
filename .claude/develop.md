@@ -8,3 +8,6 @@ valet link
     https://github.com/beyondcode/herd-community/discussions/212
 
 # 
+
+
+# 用 prompt 最佳实践总结当前的所有要求为 system prompt，然后再人工过一遍优化一次。

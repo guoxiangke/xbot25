@@ -522,7 +522,7 @@ final class Xbot
     public function decryptImageFile(string $sourceFile, string $destinationFile, int $fileSize): ?Response
     {
         // 根据文件大小计算延迟时间，避免处理过快
-        $delaySeconds = ceil($fileSize / 1000000) + 1;
+        $delaySeconds = (int) ceil($fileSize / 1000000) + 1;
         sleep($delaySeconds);
 
         return $this->sendRequest(

@@ -27,7 +27,6 @@ class DatabaseSeeder extends Seeder
             'token' => 'win11',
             'endpoint' => 'http://100.96.141.89:8001',
             'file_url' => 'http://localhost:8004',
-            'voice_url' => 'http://localhost:8003',
         ]);
     }
 }

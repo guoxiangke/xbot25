@@ -15,6 +15,12 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/help' => 'handleHelpCommand',
         '/whoami' => 'handleWhoamiCommand',
         '/check online' => 'handleCheckOnlineCommand',
+        '/sync contacts' => 'handleSyncContactsCommand',
+        // 写一个群指令，让机器人自己设置是否监听群消息，而且还需要机器人自己来发，自己响应:已监听群xxx@chatroom，
+        // 这个配置要存到
+        // $contacts = $wechatBot->getMeta('contacts', $contacts);
+        // $contacts[$thisRoomWxid]['listen_this_room'] = true/false;
+        // '/set listen_this_room 0/1' => '',
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -53,6 +59,13 @@ class BuiltinCommandHandler extends BaseXbotHandler
         // 处理 /set 开头的命令（权限检查）
         if (str_starts_with($keyword, '/set ') && !$context->isFromBot) {
             $this->handleSetCommandHint($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /set 开头的命令（机器人执行）
+        if (str_starts_with($keyword, '/set ') && $context->isFromBot) {
+            $this->handleSetCommand($context, $keyword);
             $context->markAsProcessed(static::class);
             return $context;
         }
@@ -96,7 +109,9 @@ class BuiltinCommandHandler extends BaseXbotHandler
             . "/help - 显示帮助信息\n"
             . "/whoami - 显示当前登录信息\n"
             . "/check online - 检查微信在线状态\n"
+            . "/sync contacts - 同步联系人列表\n"
             . "-========系统设置=======- \n"
+            . "/set listen_this_room 0/1 - 设置当前群监听开关\n"
             . "/set room_msg 0/1 - 群消息处理开关\n"
             . "/set chatwoot 0/1 - Chatwoot同步开关";
 
@@ -114,5 +129,96 @@ class BuiltinCommandHandler extends BaseXbotHandler
 //        $this->sendTextMessage($context, "已发送状态检查请求");
     }
 
+    /**
+     * 处理 /sync contacts 命令
+     * 同步联系人列表
+     */
+    private function handleSyncContactsCommand(XbotMessageContext $context): void
+    {
+        $xbot = $context->wechatBot->xbot();
 
+        // 调用三个同步API
+        $xbot->getFriendsList();
+        $xbot->getChatroomsList();
+        $xbot->getPublicAccountsList();
+
+        $this->sendTextMessage($context, '已请求同步，请稍后确认！');
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理机器人 set 命令
+     */
+    private function handleSetCommand(XbotMessageContext $context, string $keyword): void
+    {
+        // 解析命令: /set listen_this_room 0/1
+        $parts = explode(' ', $keyword);
+        
+        if (count($parts) < 3) {
+            $this->sendTextMessage($context, '⚠️ 命令格式错误\n正确格式：/set listen_this_room 0/1');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $command = $parts[1] ?? '';
+        $value = $parts[2] ?? '';
+
+        if ($command === 'listen_this_room') {
+            $this->handleSetListenRoomCommand($context, $value);
+        } else {
+            $this->sendTextMessage($context, '⚠️ 未知的设置命令');
+            $this->markAsReplied($context);
+        }
+    }
+
+    /**
+     * 处理群消息监听设置命令
+     */
+    private function handleSetListenRoomCommand(XbotMessageContext $context, string $value): void
+    {
+        // 检查是否在群聊中
+        $roomWxid = $context->requestRawData['room_wxid'] ?? '';
+        if (empty($roomWxid)) {
+            $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 检查参数值
+        if (!in_array($value, ['0', '1'])) {
+            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $wechatBot = $context->wechatBot;
+        $isListen = $value === '1';
+
+        // 获取现有的联系人数据
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        // 设置群聊监听状态
+        if (!isset($contacts[$roomWxid])) {
+            $contacts[$roomWxid] = [];
+        }
+        $contacts[$roomWxid]['listen_this_room'] = $isListen;
+        
+        // 保存设置
+        $wechatBot->setMeta('contacts', $contacts);
+
+        // 发送确认消息
+        if ($isListen) {
+            $this->sendTextMessage($context, "✅ 已监听群{$roomWxid}");
+        } else {
+            $this->sendTextMessage($context, "❌ 已停止监听群{$roomWxid}");
+        }
+        
+        $this->markAsReplied($context);
+        
+        $this->log('Set room listening status', [
+            'room_wxid' => $roomWxid,
+            'listen_status' => $isListen,
+            'command_value' => $value
+        ]);
+    }
 }

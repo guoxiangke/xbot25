@@ -26,230 +26,10 @@ class XbotCallbackController extends Controller
 {
 
     public function __invoke(Request $request, $token){
-        $type = $request['type']??false;
-        $clientId = $request['client_id']??false;
-        if(!($clientId && $type)){
-            Log::error(__CLASS__, [__LINE__, $clientId, $request->all(), '参数错误']);
-            return response()->json(null);
-        }
-
-        $wechatClient = WechatClient::where('token', $token)->first();
-        if(!$wechatClient) {
-            Log::error(__CLASS__, [__LINE__, $clientId, $request->all(), '找不到windows机器']);
-            return response()->json(null);
-        }
-        $wechatClientId = $wechatClient->id;
-        $wechatClientName = $wechatClient->token;
-        $data = $request['data'];
-        $requestData = $request['data'];
-
-        $QrPoolCacheKey = $wechatClientId;
-        // 1.获取到登陆二维码
-        // 缓存以供前端调用扫码（2个client同一个id，如果已登陆的，不显示二维码！）
-        $whoNeedQrKey = 'who_need_qr'; // 谁获取了二维码
-        if($type == 'MT_RECV_QRCODE_MSG') {
-            // 首次初始化时发来的 二维码，data为空，需要响应为空即可
-            if(!$data) return response()->json(null);
-            // TODO 发送到管理群里
-            // 3号windows10发过来的二维码
-            if($wechatClientId == 8){
-                $whoNeedQr = Cache::get($whoNeedQrKey, []);
-                if($who = array_pop($whoNeedQr)){
-                    $wechatBotAdmin = WechatBot::find(7);// a个人微信AI应用定制解决方案
-                    $wechatBotAdmin->xbot()->sendText($who, '2.请点击链接打开，使用申请体验的微信来扫码登陆！二维码将1分钟内将失效，登陆成功请等待初始化完毕后体验智能AI回复，更多功能请付费体验！ https://api.qrserver.com/v1/create-qr-code/?data='.$data['code']);
-                    Cache::put($whoNeedQrKey, $whoNeedQr, 30); // 重新写入
-                }
-                // return response()->json(null);
-            }
-            $qr = [
-                'qr' => $data['code'],
-                'client_id' => $clientId,
-            ];
-            $qrPool = Cache::get("xbots.{$QrPoolCacheKey}.qrPool", []);
-            // 一台机器，多个客户端，使用二维码池, 池子大小==client数量，接收到1个新的，就把旧的1个弹出去
-            array_unshift($qrPool, $qr);
-            Cache::put("xbots.{$QrPoolCacheKey}.qrPool", $qrPool);
-            // 前端刷新获取二维码总是使用第一个QR，登陆成功，则弹出对于clientId的QR
-            // '获取到登陆二维码，已压入qrPool',
-            Log::debug(__CLASS__, [__LINE__, $request->all()]);
-
-            //如果登陆中！
-            $wechatBot = WechatBot::where('wechat_client_id', $wechatClientId)
-                ->where('client_id', $clientId)
-                ->first();
-            if($wechatBot) $wechatBot->logout();
-            return response()->json(null);
-        }
-        // 2.登陆成功 写入数据库
-        $cliendWxid = $data['wxid']??null; //从raw-data中post过来的wxid, 部分消息没有，设为null
-        if($type == 'MT_USER_LOGIN'){
-            // 登陆成功，则弹出对于clientId的所有 QR
-            $qrPool = Cache::get("xbots.{$QrPoolCacheKey}.qrPool", []);
-            // $key = array_search($clientId, array_column($qrPool, 'clientId'));
-            foreach ($qrPool as $key => $value) {
-                if($value['client_id'] == $clientId){
-                    unset($qrPool[$key]);
-                }
-            }
-            Cache::set("xbots.{$QrPoolCacheKey}.qrPool", $qrPool);
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $data['nickname'], '登陆成功','，已弹出qrPool']);
-
-            // Or没有提前绑定
-            $wechatBot = WechatBot::firstOrNew(
-                ['wxid' =>  $cliendWxid],
-                [
-                    'user_id' => 1, //TODO 默认绑定1号假用户
-                    'wechat_client_id' => $wechatClientId,
-                ],
-            );
-            // 登陆成功，通知前端刷新页面
-            $wechatBot->login($clientId);
-            $data['avatar'] = str_replace('http://','https://', $data['avatar']);
-            $wechatBot->setMeta('xbot', $data);
-
-            $wechatBot->xbot()->sendText($cliendWxid, "恭喜！登陆成功，正在初始化...");
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $data['nickname'], '下面执行初始化']);
-            $wechatBot->init();
-            Cache::put('initing-'.$wechatBot->id, true, 120);
-            return response()->json(null);
-        }
-
-        if($type == 'MT_USER_LOGOUT'){
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $cliendWxid, 'MT_USER_LOGOUT']);
-            $wechatClient->close($clientId); // 退出windows的client！
-            $wechatBot = WechatBot::where('wxid', $cliendWxid)->first();
-            $wechatBot->logout();
-            return response()->json(null);
-        }
-        // {"type":"MT_CLIENT_DISCONTECTED","client_id":4}
-        if($type == 'MT_CLIENT_DISCONTECTED'){
-            Log::info(__CLASS__, [__LINE__, $wechatClientName, '主动退出windows微信客户端']);
-            $wechatBot = WechatBot::where('wechat_client_id', $wechatClientId)
-                ->where('client_id', $clientId)
-                ->first();
-            if($wechatBot){
-                $wechatBot->logout();
-            }else{
-                Log::info(__CLASS__, [__LINE__, $wechatClientName, '主动退出还未登陆的windows微信客户端']);
-            }
-            return response()->json(null);
-        }
-
-        // MT_DATA_OWNER_MSG
-        if($type == 'MT_DATA_OWNER_MSG') {
-            $wechatBot = WechatBot::where('wxid', $cliendWxid)->first();
-            $wechatBot->update(['is_live_at'=>now()]);
-            Log::debug('XbotIsLive',[$wechatBot->name,$wechatBot->wxid, __CLASS__]);
-        }
-
-        // 忽略1小时以上的信息 60*60
-        if(isset($data['timestamp']) && $data['timestamp']>0 &&  now()->timestamp - $data['timestamp'] > 1*60*60 ) {
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName,now()->timestamp, $data['timestamp'], '忽略1小时以上的信息']);
-            return response()->json(null);
-        }
-
-        $isSelf = false;
-        $msgid = $data['msgid']??-1;
-        $toWxid = $data['to_wxid']??null;
-        $isRoom = $data['room_wxid']??false; //群
-
-        $fromWxid = $data['from_wxid']??'';
-        $isGh = false; // 公众号
-        // MT_RECV_LINK_MSG 公众号消息  "from_wxid":"gh_3abcfc192f55",
-        if($fromWxid && Str::startsWith($fromWxid, 'gh_')){
-            $isGh = true;
-            Log::debug(__CLASS__, [__LINE__, "忽略 公众号 消息"]);
-            return response()->json(null);
-        }
-
-        //**********************DEBUG IGNORE BEGIN***********************************
-        $ignoreHooks = [
-            'MT_RECV_MINIAPP_MSG' => '小程序信息',
-            "MT_WX_WND_CHANGE_MSG"=>'',
-            "MT_DEBUG_LOG" =>'调试信息',
-            "MT_UNREAD_MSG_COUNT_CHANGE_MSG" => '未读消息',
-            "MT_TALKER_CHANGE_MSG" => '客户端点击头像',
-            "MT_RECV_REVOKE_MSG" => 'xx 撤回了一条消息',
-            "MT_DECRYPT_IMG_MSG_TIMEOUT" => '图片解密超时',
-        ];
-        if(in_array($type, array_keys($ignoreHooks)) || $isGh){
-            return response()->json(null);
-        }
-        $ignoreRAW = [
-            'MT_ROOM_ADD_MEMBER_NOTIFY_MSG',
-            'MT_ROOM_DEL_MEMBER_NOTIFY_MSG', //退群
-            'MT_CONTACT_ADD_NOITFY_MSG', // 同意好友请求 发送 欢迎信息
-            'MT_ADD_FRIEND_MSG', // 主动+好友
-            'MT_SEARCH_CONTACT_MSG', //添加好友
-            'MT_RECV_VOICE_MSG',
-            // 'MT_RECV_FRIEND_MSG',
-            'MT_RECV_SYSTEM_MSG', // 群名修改
-            'MT_RECV_TEXT_MSG',
-            'MT_RECV_OTHER_APP_MSG', //音乐消息🎵  "wx_sub_type":3, "wx_type":49
-            'MT_DATA_FRIENDS_MSG',
-            'MT_DATA_CHATROOMS_MSG',
-            'MT_DATA_PUBLICS_MSG',
-            'MT_RECV_PICTURE_MSG',
-            'MT_RECV_EMOJI_MSG',
-            'MT_RECV_FILE_MSG',
-            'MT_DECRYPT_IMG_MSG',
-            'MT_DECRYPT_IMG_MSG_SUCCESS',
-            // 'MT_DECRYPT_IMG_MSG_TIMEOUT',
-            'MT_DATA_OWNER_MSG', // 获取到bot信息
-            'MT_RECV_VIDEO_MSG',
-            'MT_ROOM_CREATE_NOTIFY_MSG',
-            'MT_CLIENT_CONTECTED', // 新增加一个客户端，调用获取QR，以供web登陆
-            // {"type":"MT_CLIENT_DISCONTECTED","client_id":4}
-            'MT_RECV_REVOKE_MSG', //默认开启 消息防撤回！不再处理这个
-            'MT_DATA_CHATROOM_MEMBERS_MSG',
-            'MT_ZOMBIE_CHECK_MSG', //僵尸检测
-            'MT_DATA_WXID_MSG' //获取单个好友信息
-        ];
-        if(!in_array($type, $ignoreRAW)){
-            // MT_INVITE_TO_ROOM_MSG : wait for group owner or admin approval to send invitations.
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $type, $request->all()]);
-        }
-        //**********************DEBUG IGNORE END***********************************
-        // 新增加一个客户端，主动调用获取QR，压入缓存，以供web登陆
-        // {"type":"MT_CLIENT_CONTECTED","client_id":8}
-        if($type == 'MT_CLIENT_CONTECTED'){
-            $xbot = new Xbot($wechatClient->xbot, 'null', $clientId);
-            $respose = $xbot->loadQR();
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $type, '新增加一个客户端，主动调用获取QR']);
-            return response()->json(null);
-        }
-        // 主动关闭 一个clientId
-        // {"type":"MT_CLIENT_DISCONTECTED","client_id":4}
-        //*********************************************************
-        // 通过clientId 找到对应的wechatBot
-        // 群消息中，没有Bot的wxid  "from_wxid":"xxx"  "to_wxid":"23887@chatroom"
-        $wechatBot = WechatBot::where('wechat_client_id', $wechatClientId)
-            ->where('client_id', $clientId)
-            ->first();
-        if(!$wechatBot) {
-            Log::error(__CLASS__, [__LINE__, $wechatClientName, $wechatClientId, $clientId, ' 不存在wechatBot？设备已下线！']);
-            return response()->json(null);
-        }
-        $cacheKeyIsRelpied = 'xbot.replied-'.$wechatBot->id.'-'.$msgid;
-
-        if($fromWxid == $toWxid || $fromWxid == $wechatBot->wxid){
-            $isSelf = true;
-            //自己发给自己消息，即不发送给develope
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, "isSelf={$isSelf}"]);
-            //因bot发的信息（通过关键词响应的信息）也要记录，所以继续走下去吧！不return了！
-            // return response()->json(null);
-        }
 
         //*********************************************************
 
-        $content = ''; //写入 WechatMessage 的 content
-
-        // 其他特殊卡片消息
-        if($type == 'MT_RECV_LINK_MSG' && !$isGh) { // 收到卡片消息，转发公众号消息/LINK消息
-            $xml = xStringToArray($data['raw_msg']);
-            $content = $xml['appmsg']['url'];
-            Log::debug(__CLASS__, [__LINE__, "转发公众号消息/LINK消息", $content]);
-        }
+        $content = ''; //写入 WechatMessage 的 content 
 
         $config = $wechatBot->getMeta('xbot.config', [
             'isAutoWcpay' => false, // MT_RECV_WCPAY_MSG
@@ -273,48 +53,13 @@ class XbotCallbackController extends Controller
         $islistenMsg = true; //默认是记录消息，但是在群里，需要判断
         $isAutoReply = $config['isAutoReply']??false;
 
-        if($isRoom){
-            $isListenRooms = $wechatBot->getMeta('isListenRooms', []);
-            $isReplyRooms = $wechatBot->getMeta('isReplyRooms', []);
-            $isListenMemberChangeRooms = $wechatBot->getMeta('isListenMemberChangeRooms', []);
-            $roomWelcomeMessages = $wechatBot->getMeta('roomWelcomeMessages', []);
-
-            $replyTo = $data['room_wxid'];
-            $isAutoReply = $isReplyRooms[$replyTo]??false; // 选择某些群来响应关键词
-            if(!$config['isListenRoomAll']) //如果不是监听所有群消息，则从配置中取
-                $islistenMsg = $isListenRooms[$replyTo]??false; // 选择某些群来记录消息
-
-            // Log::error(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid,  $isSelf, '自己响应的群消息，只记录，不响应autoprely']);
-            if(!$isSelf){
-                // 接收到群消息！群消息里，没有wxid, from_wxid = 发送者，to_wxid=wx@room room_wxid=wx@room
-                Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, '接收到群消息']);
-                // 是否记录群消息: isListenRoom
-                // 是否记录所有的群消息: isListenRoomAll
-                if(!$config['isListenRoom']){
-                    Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, '没有监听群消息: $islistenMsg = false']);
-                    $islistenMsg = false;
-                }
-            }
-        }
-
-        // 初始化 联系人数据
-        $xbotContactCallbackTypes = ['MT_DATA_FRIENDS_MSG', 'MT_DATA_CHATROOMS_MSG', 'MT_DATA_PUBLICS_MSG' ];
-        if(in_array($type, $xbotContactCallbackTypes)){
-            if(Cache::get('initing-'.$wechatBot->id, false)){
-                Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, '获取联系人ignore! 已经在init里了！等待2分钟', $type]);
-                return response()->json(null);
-            }
-            $wechatBot->syncContacts($data, $type);
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, '获取联系人', $type]);
-            return response()->json(null);
-        }
         // 获取或更新单个联系人信息
         if($type == 'MT_DATA_WXID_MSG') return $wechatBot->syncContact($data);
-        
-        // 0 正常状态(不是僵尸粉) 
-        // 1 检测为僵尸粉(对方把我拉黑了) 
-        // 2 检测为僵尸粉(对方把我从他的好友列表中删除了) 
-        // 3 检测为僵尸粉(原因未知,如遇到3请反馈给我) 
+
+        // 0 正常状态(不是僵尸粉)
+        // 1 检测为僵尸粉(对方把我拉黑了)
+        // 2 检测为僵尸粉(对方把我从他的好友列表中删除了)
+        // 3 检测为僵尸粉(原因未知,如遇到3请反馈给我)
         if($type == 'MT_ZOMBIE_CHECK_MSG'){
             switch ($data['status']) {
                 case 0:
@@ -447,40 +192,12 @@ class XbotCallbackController extends Controller
         }
 
 
-        //??? 说明是被动响应的信息，丢弃，不然自己给自己聊天了！
-        // if(!$wechatBot) {
-        //     Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $type, '被动响应的信息', '已丢弃']);
-        //     return response()->json(null);
-        // }
-        if(!($wechatBot || $toWxid)){
-            Log::error(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $request->all()]);
-        }
-
         //************************************************
         $xbot = $wechatBot->xbot($clientId);
         //************************************************
-        if(isset($data['raw_msg'])){
-            $tmpData = $data['raw_msg'];
-            if(Str::startsWith($tmpData, '<?xml ') || Str::startsWith($tmpData, '<msg')) {
-                 $xml = xStringToArray($tmpData);
-            }else{
-                Log::debug(__CLASS__, [__LINE__, $wechatClientName, $type, $wechatBot->wxid, $data, 'raw data not xml']);
-                // MT_RECV_SYSTEM_MSG 
-                    // 同意好友：你已添加了天空蔚蓝，现在可以开始聊天了。"
-                    // 群名修改：changed the group name to 
-                $content = $data['raw_msg'];
-            }
-        }
-        if($toWxid == "filehelper") {
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $type, '自己发给自己的filehelper消息，暂不处理！']);
-            if($type == 'MT_RECV_TEXT_MSG' && $data['msg'] =='同步通讯录'){
-                $wechatBot->init();
-                $wechatBot->xbot()->sendText('filehelper', '已请求同步，请稍后确认！');
-            }
-
-            return response()->json(null);
-        }
-
+        // MT_RECV_SYSTEM_MSG
+        // 同意好友：你已添加了天空蔚蓝，现在可以开始聊天了。"
+        // 群名修改：changed the group name to
 
         // 微信支付
         // 一次转账自动首款后，会产生2条消息：[收到转账]和[已收款]
@@ -493,7 +210,7 @@ class XbotCallbackController extends Controller
             $feedesc = $xml['appmsg']['wcpayinfo']['feedesc'];
             $amount = substr($feedesc, 3) * 100;
             //TODO 只退回1 分钱 ,退款测试
-            if($amount == 1) { 
+            if($amount == 1) {
                 //自动退款，如果数字不对
                 $xbot->refund($transferid);
                 return response()->json(null);
@@ -518,7 +235,7 @@ class XbotCallbackController extends Controller
                     'wechat_bot_id' => $wechatBot->id,
                     'from' => $isSelf?NULL:$conversation->id, // 消息发送者:Null为bot发送的
                     'conversation' => $conversation->id,
-                    'content' => $content, 
+                    'content' => $content,
                     'msgid' => $msgid,
                 ];
                 Log::debug('MT_RECV_WCPAY_MSG', ['微信转账', $transferid, $amount, $data]);
@@ -526,7 +243,7 @@ class XbotCallbackController extends Controller
             // 保存到message里 end
             return response()->json(null);
         }
-        
+
         // 收到位置消息
         if($type == 'MT_RECV_LOCATION_MSG'){
             $content = '[位置消息]:'. implode(':', $xml['location']['@attributes']);
@@ -536,13 +253,13 @@ class XbotCallbackController extends Controller
                 ->where('wechat_bot_id', $wechatBot->id)
                 ->where('wxid', $wxid)
                 ->first();
-                
+
             $data = [
                 'type' => array_search($type, WechatMessage::TYPES), // 7:location
                 'wechat_bot_id' => $wechatBot->id,
                 'from' => $isSelf?NULL:$conversation->id, // 消息发送者:Null为bot发送的
                 'conversation' => $conversation->id,
-                'content' => $content, 
+                'content' => $content,
                 'msgid' => $msgid,
             ];
             Log::debug('MT_RECV_LOCATION_MSG', ['收到位置消息', $xml['location']['@attributes']]);
@@ -550,7 +267,7 @@ class XbotCallbackController extends Controller
             // 保存到message里 end
             return response()->json(null);
         }
-        
+
 
         // ✅ 搜索用户信息后的callback，主动+好友
         // 同意好友请求后，好像也有这个 MT_SEARCH_CONTACT_MSG
@@ -626,75 +343,6 @@ class XbotCallbackController extends Controller
             Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $type, '主动删除好友']);
         }
 
-
-        // ✅ 收到语音消息，即刻调用转文字
-        // 监控上传文件夹2 C:\Users\Administrator\AppData\Local\Temp\ =》/xbot/silk/ => /xbot/voice/
-        if($type == 'MT_RECV_VOICE_MSG'){
-            return;
-            $silk_file = $data['silk_file'];
-            // "silk_file":"C:\\Users\\Administrator\\AppData\\Local\\Temp\\2\\wxs40F9.tmp" =>  \1\wxs40F9.tmp
-            $file = str_replace($wechatClient->silk_path, '', $silk_file);
-            $xbot->toVoiceText($msgid);
-            $date = date("ym");
-            $content = "/storage/voices/{$date}/{$wechatBot->wxid}/{$msgid}.mp3";
-            $silkDomain = $wechatClient->silk;
-            SilkConvertQueue::dispatch($file, $wechatBot->wxid, $msgid, $silkDomain, $date);
-
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $file, $content, '语音消息=》SilkConvertQueue']);
-        }
-        // ✅ 提取转成的文字
-        // TODO 下面的post要带上 转换后的文字
-        if($type == 'MT_TRANS_VOICE_MSG' && isset($data['text'])){
-            Log::error(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $type, '语音消息转文本', $data]);
-            WechatMessageVoice::create([
-                'msgid' => $msgid,
-                'content' => $data['text'],
-            ]);
-            $content = "【语音消息】". $data['text'];
-            // return response()->json(null);
-        }
-        // ✅ 收到gif表情
-        if($type == 'MT_RECV_EMOJI_MSG'){
-            $content = $xml['emoji']['@attributes']['cdnurl'];
-        }
-        // ✅ 收到图片
-        // caddy file-server --listen :8003 --root "C:\Users\Public\Pictures\WeChat Files"   --browse
-        // caddy file-server --listen :8004 --root "D:\Users\dguo\AppData\Local\Temp"   --browse
-        if($type == 'MT_RECV_PICTURE_MSG'){
-            $date = date("Y-m");
-            $src_file = $data['image'];
-            $size = $xml['img']['@attributes']['hdlength']??$xml['img']['@attributes']['length'];
-            $md5 = $xml['img']['@attributes']['md5']??$msgid;
-            $path = "\\{$wechatBot->wxid}\\FileStorage\\Image\\{$date}";
-            $dest_file = $wechatClient->file_path . $path . "\\{$md5}.png";
-            // if file_exist($md5), 则不再下载！
-            $xbot->decryptImage($src_file, $dest_file, $size);
-            $content = "https://webot.image.51chat.net" . str_replace('\\', '/', $path) . "/{$md5}.png";
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $type, '收到|发送图片', $src_file, $dest_file, $size, $content]);
-
-            WechatMessageFile::create([
-                'wechat_bot_id' => $wechatBot->id,
-                'msgid' => $msgid,
-                'path' => $dest_file, //Windows路径
-                'url' => $content, //文件链接
-            ]);
-        }
-        // ✅  文件消息
-        // caddy file-server --listen :8003 --root "C:\Users\Public\Pictures\WeChat Files"   --browse
-        if($type == 'MT_RECV_FILE_MSG' || $type == 'MT_RECV_VIDEO_MSG'){
-            $originPath = $data['file']??$data['video'];
-            $file = str_replace($wechatClient->file_path, '', $originPath);
-            $content =  str_replace('\\', '/', $file);
-            $content = "https://webot.image.51chat.net" . $content;
-            WechatMessageFile::create([
-                'wechat_bot_id' => $wechatBot->id,
-                'msgid' => $msgid,
-                'path' => $originPath, //Windows路径
-                'url' => $content, //文件链接
-            ]);
-            Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, $clientId, $type, '文件|视频消息', $originPath, $content]);
-        }
-
         if($type == 'MT_RECV_TEXT_MSG'){ //接收到 个人/群 文本消息
             $content = $data['msg'];
             $replyTo = $fromWxid;//消息发送者
@@ -763,13 +411,14 @@ class XbotCallbackController extends Controller
         }
         // 把接收的消息写入 WechatMessage
         $recordWechatMessageTypes = [
+            'MT_RECV_SYSTEM_MSG',
+
             'MT_RECV_TEXT_MSG',
             'MT_RECV_VOICE_MSG',
             'MT_RECV_EMOJI_MSG',
             'MT_RECV_PICTURE_MSG',
             'MT_RECV_FILE_MSG',
             'MT_RECV_VIDEO_MSG',
-            'MT_RECV_SYSTEM_MSG',
             'MT_RECV_LINK_MSG',
             'MT_TRANS_VOICE_MSG',
         ];
@@ -894,7 +543,7 @@ class XbotCallbackController extends Controller
                     }
                     return response()->json(null);
                 }
-                
+
                 $roomJoinKeys = $wechatBot->getMeta('roomJoinKeys', []);
                 if(Str::startsWith($content, '入群') && $roomJoinKeys){
                     $joinMenu = '回复对应加群暗号即可入群';
@@ -916,7 +565,7 @@ class XbotCallbackController extends Controller
                     $client = WechatClient::find(8);
                     $client->new();
                     $wechatBot->xbot()->sendText($conversation->wxid, '1.已向腾讯请求获取二维码，请耐心等待, 2.请添加微信 ');
-                    
+
                     $whoNeedQr = Cache::get($whoNeedQrKey, []);
                     $whoNeedQr[] = $conversation->wxid;
 
@@ -954,13 +603,6 @@ class XbotCallbackController extends Controller
                     }
                 }
 
-                if(!$isReplied && $isRoom) {// $isRoom = roomwxid
-                    //各位兄弟姐妹早上好！
-                    if(Str::containsAll($content, ['早','各位兄弟姐妹'])){
-                        // $keyword = 808;
-                        // return $wechatBot->sendResouce([$conversation->wxid], $keyword);
-                    }
-                }
 
                 // begin send message to chatwoot
                 // 只记录机器人收到的消息
@@ -997,7 +639,7 @@ class XbotCallbackController extends Controller
                         }
                         // 如果是群，加上by xx
                         if($isRoom){
-                            // TODO save 群陌生人 
+                            // TODO save 群陌生人
                             $wechatBotContact = WechatBotContact::query()
                                 ->where('wechat_bot_id', $wechatBot->id)
                                 ->where('wxid', $fromWxid)

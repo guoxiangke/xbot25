@@ -111,11 +111,9 @@ The system handles various WeChat message types including:
 - Timezone is set to Asia/Shanghai for WeChat operations
 
 ## Guidelines for Claude Code by Developers
-- 不要改动app.old 文件夹的内容，里面的内容是旧的，可以参考
-- 对于每个长的重构需求，请你先帮我分析一下这个需求
-- 设计到删除文件的，先不删除，继续执行下一步，任务结束后列出要删除的文件
-- 这是一个 laravel 重构项目，重构时请遵循 laravel 的最佳实践
-- 原来的laravel 我放在了 app.old 目录下，可以参考
+- 这是一个laravel 重构项目，旧的部分代码放在了old.app中以供参考，不要改动app.old 下的内容
+- 请你先帮我分析一下需求，找出并描述bug后，提出修改方案，得到我的允许后再改动代码
+- 设计到删除文件的，先不删除，继续执行下一步，任务结束后列出需要手动删除的文件
 - 重构主要变动：
 -   1. 移除的models：
        use App\Models\WechatContact;
@@ -140,3 +138,15 @@ The system handles various WeChat message types including:
 - 请注意代码的服务容器
 - 请注意代码的性能优化
 - 请注意代码的可读性优化
+
+- 不要执行 php artisan lint Bash(./vendor/bin/pint) 等
+- 在clear和compact时， •结束会话前：总是告诉Claude：“请更新.claude/activeContext.md和./claude/progress.md，总结完成的工作并概述后续步骤。
+
+- done：
+  1.给 BuiltinCommandHandler 加一个命令，\sync contacts
+  调用的是 ：
+    $this->xbot->getFriendsList();
+    $this->xbot->getChatroomsList();
+    $this->xbot->getPublicAccountsList();
+    回应文本是：'已请求同步，请稍后确认！'
+  2. 在每种消息Handler处理后，发给最后一个TextMessageHandler前，需要保留一个origin_msg_type,以后后来扩展功能时使用。
