@@ -2,38 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App;
+use App\Models\WechatBot;
 use App\Services\Xbot;
-use App\Services\XbotServices\RequestValidator;
-use App\Services\XbotServices\BotManager;
+use App\Http\Requests\XbotRequest;
 use App\Services\XbotServices\MessageProcessor;
-use Illuminate\Http\Request;
 
 class XbotController extends Controller
 {
-    private $requestValidator;
-    private $botManager;
     private $messageProcessor;
 
     public function __construct(
-        RequestValidator $requestValidator,
-        BotManager $botManager,
         MessageProcessor $messageProcessor
     ) {
-        $this->requestValidator = $requestValidator;
-        $this->botManager = $botManager;
         $this->messageProcessor = $messageProcessor;
     }
 
-    public function __invoke(Request $request, string $winToken)
+    public function __invoke(XbotRequest $request, string $winToken)
     {
         try {
             // 验证和准备请求参数
-            $validatedData = $this->requestValidator->validateAndPrepare($request, $winToken);
+            $validatedData = $request->validateAndPrepare($winToken);
             extract($validatedData);
 
             // 获取 WechatBot 实例
-            $wechatBot = $this->botManager->getWechatBot($xbotWxid, $wechatClient, $clientId, $requestAllData);
+            $wechatBot = $this->getWechatBot($xbotWxid, $wechatClient->id, $clientId);
 
             // 创建 Xbot 实例
             $xbot = new Xbot($wechatClient->endpoint, $xbotWxid, $clientId);
@@ -51,9 +43,18 @@ class XbotController extends Controller
             );
 
             return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
-            
+
         } catch (\Exception $e) {
             return response()->json($e->getMessage(), 200, [], JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    private function getWechatBot(?string $xbotWxid, int $wechatClientId, int $clientId): ?WechatBot
+    {
+        return $xbotWxid 
+            ? WechatBot::where('wxid', $xbotWxid)->first()
+            : WechatBot::where('wechat_client_id', $wechatClientId)
+                      ->where('client_id', $clientId)
+                      ->first();
     }
 }

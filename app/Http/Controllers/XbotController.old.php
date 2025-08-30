@@ -9,18 +9,13 @@ use App\Models\WechatContact;
 use App\Models\WechatContent;
 use App\Models\WechatBotContact;
 use App\Models\WechatMessage;
-use App\Models\WechatMessageFile;
-use App\Models\WechatMessageVoice;
 use App\Models\XbotSubscription;
 use App\Chatwoot\Chatwoot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use App\Services\Xbot;
-use App\Services\Icr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Jobs\SilkConvertQueue;
 
 class XbotCallbackController extends Controller
 {

@@ -1,18 +1,39 @@
 <?php
 
-namespace App\Services\XbotServices;
+namespace App\Http\Requests;
 
 use App\Models\WechatClient;
-use Illuminate\Http\Request;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Xbot 请求验证处理器
+ * Xbot 请求验证
  * 负责验证和初始化请求参数
  */
-class RequestValidator
+class XbotRequest extends FormRequest
 {
-    public function validateAndPrepare(Request $request, string $winToken): array
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'type' => 'required|string',
+            'client_id' => 'required|integer',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'type.required' => '参数错误: no msg.type',
+            'client_id.required' => '参数错误: no client_id',
+        ];
+    }
+
+    public function validateAndPrepare(string $winToken): array
     {
         $currentWindows = $winToken;
 
@@ -22,20 +43,9 @@ class RequestValidator
             throw new \Exception('找不到windows机器');
         }
 
-        // 验证消息类型
-        $msgType = $request['type'] ?? false;
-        $requestAllData = $request->all();
-        if(!$msgType) {
-            $errorMsg = '参数错误: no msg.type';
-            Log::warning(__LINE__, compact('currentWindows', 'errorMsg', 'requestAllData'));
-            throw new \Exception($errorMsg);
-        }
-
-        // 验证客户端ID（先验证基本参数）
-        $clientId = $request['client_id'] ?? false;
-        if(!$clientId) {
-            throw new \Exception('参数错误: no client_id');
-        }
+        $msgType = $this->input('type');
+        $clientId = $this->input('client_id');
+        $requestAllData = $this->all();
 
         // 检查忽略的消息类型
         $ignoreMessageTypes = [
@@ -74,7 +84,7 @@ class RequestValidator
         $requestData = $requestAllData['data'] ?? null;
         $xbotWxid = is_array($requestData) ? ($requestData['wxid'] ?? $requestData['to_wxid'] ?? null) : null;
 
-        $preparedData = [
+        return [
             'wechatClient' => $wechatClient,
             'currentWindows' => $currentWindows,
             'msgType' => $msgType,
@@ -82,8 +92,5 @@ class RequestValidator
             'xbotWxid' => $xbotWxid,
             'requestAllData' => $requestAllData,
         ];
-        //Log::debug('收到Wechat消息', $requestAllData);
-        return $preparedData;
-
     }
 }
