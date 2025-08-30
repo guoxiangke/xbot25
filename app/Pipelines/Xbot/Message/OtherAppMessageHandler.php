@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Pipelines\Xbot;
+namespace App\Pipelines\Xbot\Message;
 
+use App\Pipelines\Xbot\BaseXbotHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
 
 /**
@@ -90,6 +92,30 @@ class OtherAppMessageHandler extends BaseXbotHandler
             $xmlData['finderFeed']['desc'] = html_entity_decode($matches[1]);
         }
 
+        // 提取refermsg中的引用消息信息（用于引用回复）
+        if (preg_match('/<refermsg>(.*?)<\/refermsg>/s', $rawMsg, $matches)) {
+            $refermsgXml = $matches[1];
+            
+            // 解析引用消息的内容
+            if (preg_match('/<content>(.*?)<\/content>/s', $refermsgXml, $contentMatches)) {
+                $referContent = html_entity_decode($contentMatches[1]);
+                
+                // 如果引用的内容是XML格式，进一步解析
+                if (str_contains($referContent, '<title>')) {
+                    if (preg_match('/<title>(.*?)<\/title>/', $referContent, $titleMatches)) {
+                        $xmlData['refermsg']['content'] = html_entity_decode($titleMatches[1]);
+                    }
+                } else {
+                    $xmlData['refermsg']['content'] = $referContent;
+                }
+            }
+            
+            // 解析引用消息的发送者
+            if (preg_match('/<displayname>(.*?)<\/displayname>/', $refermsgXml, $nameMatches)) {
+                $xmlData['refermsg']['displayname'] = html_entity_decode($nameMatches[1]);
+            }
+        }
+
         return $xmlData;
     }
 
@@ -124,7 +150,17 @@ class OtherAppMessageHandler extends BaseXbotHandler
                 return "[视频号]👉[{$nickname}]👈\r\n{$desc}";
                 
             case 57: // 引用回复
-                return "[引用回复]👉[{$title}]👈";
+                $referContent = $xmlData['refermsg']['content'] ?? '';
+                $referDisplayName = $xmlData['refermsg']['displayname'] ?? '';
+                
+                // 格式化为两行显示：第一行是回复内容，第二行是引用内容
+                $formattedMessage = $title;
+                if (!empty($referContent)) {
+                    $quotedContent = !empty($referDisplayName) ? "{$referDisplayName}: {$referContent}" : $referContent;
+                    $formattedMessage .= "\n「{$quotedContent}」";
+                }
+                
+                return $formattedMessage;
                 
             default: // 其他未处理消息
                 return "[其他消息]👉[请到手机查看]👈";

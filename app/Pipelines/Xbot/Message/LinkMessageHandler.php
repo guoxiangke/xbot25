@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Pipelines\Xbot;
+namespace App\Pipelines\Xbot\Message;
 
+use App\Pipelines\Xbot\BaseXbotHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
 
 /**
@@ -19,21 +21,30 @@ class LinkMessageHandler extends BaseXbotHandler
 
         $fromWxid = $context->requestRawData['from_wxid'] ?? '';
         $rawMsg = $context->requestRawData['raw_msg'] ?? '';
+        $wxSubType = $context->requestRawData['wx_sub_type'] ?? 0;
+        $wxType = $context->requestRawData['wx_type'] ?? 0;
 
         // 判断是否来自公众号（公众号wxid以gh_开头）
         $isGh = str_starts_with($fromWxid, 'gh_');
 
         // 从 XML 中提取链接信息
         $linkData = $this->extractLinkDataFromXml($rawMsg);
-        $url = $linkData['url'] ?? '';
+        
+        // 判断是否为邀请入群消息 (wx_sub_type=5, wx_type=49)
+        $isGroupInvite = ($wxSubType == 5 && $wxType == 49);
+        
+        // 如果是邀请入群消息，使用thumburl作为链接，否则使用url
+        $url = $isGroupInvite ? ($linkData['thumburl'] ?? '') : ($linkData['url'] ?? '');
 
         if ($url) {
             $title = $linkData['title'] ?? '';
             $desc = $linkData['des'] ?? '';
             $sourceName = $linkData['sourcedisplayname'] ?? '';
             
-            // 根据是否来自公众号格式化消息
-            if ($isGh || str_starts_with($url, 'http://mp.weixin.qq.com/s?')) {
+            // 根据消息类型格式化消息
+            if ($isGroupInvite) {
+                $formattedMessage = "[群邀请]👉[点击查看]({$url})👈\r\n标题：{$title}\r\n描述：{$desc}";
+            } elseif ($isGh || str_starts_with($url, 'http://mp.weixin.qq.com/s?')) {
                 $formattedMessage = "[公众号消息]👉[点击查看]({$url})👈\r\n来源：{$sourceName}\r\n标题：{$title}";
             } else {
                 $formattedMessage = "[链接消息]👉[点击查看]({$url})👈\r\n标题：{$title}\r\n描述：{$desc}";
@@ -76,17 +87,19 @@ class LinkMessageHandler extends BaseXbotHandler
 
         $linkData = [];
 
-        // 提取appmsg中的各种信息
+        // 提取appmsg中的各种信息，支持CDATA格式
         $fields = [
-            'url' => '/<url>(.*?)<\/url>/',
-            'title' => '/<title>(.*?)<\/title>/',
-            'des' => '/<des>(.*?)<\/des>/',
-            'sourcedisplayname' => '/<sourcedisplayname>(.*?)<\/sourcedisplayname>/',
+            'url' => '/<url>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/url>/',
+            'thumburl' => '/<thumburl>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/thumburl>/',
+            'title' => '/<title>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/title>/',
+            'des' => '/<des>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/des>/',
+            'sourcedisplayname' => '/<sourcedisplayname>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/sourcedisplayname>/',
         ];
 
         foreach ($fields as $field => $pattern) {
             if (preg_match($pattern, $rawMsg, $matches)) {
-                $value = trim($matches[1]);
+                // 优先使用CDATA内容，如果没有CDATA则使用普通内容
+                $value = trim($matches[1] ?? $matches[2] ?? '');
                 if (!empty($value)) {
                     $linkData[$field] = html_entity_decode($value);
                 }

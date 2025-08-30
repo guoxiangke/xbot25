@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Pipelines\Xbot;
+namespace App\Pipelines\Xbot\Message;
 
+use App\Pipelines\Xbot\BaseXbotHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
 use Illuminate\Support\Str;
 

@@ -1,8 +1,10 @@
 <?php
 
-namespace App\Pipelines\Xbot;
+namespace App\Pipelines\Xbot\Message;
 
 use App\Models\WechatBot;
+use App\Pipelines\Xbot\BaseXbotHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Chatwoot;
 use Closure;
 use Illuminate\Support\Facades\Log;

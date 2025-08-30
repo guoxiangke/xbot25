@@ -53,8 +53,18 @@ class XbotContactHandleQueue implements ShouldQueue
             // 创建新联系人
             $savedContact = $this->chatwoot->saveContact($contact);
         }
-        // 设置联系人标签
-        $this->chatwoot->setLabel($savedContact['id'], $this->label);
+        
+        // 检查联系人是否保存成功
+        if ($savedContact && isset($savedContact['id'])) {
+            // 设置联系人标签
+            $this->chatwoot->setLabel($savedContact['id'], $this->label);
+        } else {
+            Log::error('Failed to save contact, skipping label assignment', [
+                'wxid' => $contact['wxid'],
+                'label' => $this->label,
+                'saved_contact' => $savedContact
+            ]);
+        }
     }
 
     /**

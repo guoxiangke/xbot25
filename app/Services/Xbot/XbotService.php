@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services;
+namespace App\Services\Xbot;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -20,7 +20,7 @@ use Illuminate\Support\Arr;
  * - 群组管理（创建、邀请、删除成员）
  * - 朋友圈操作（发布、点赞、评论）
  */
-final class Xbot
+final class XbotService
 {
     private const API_ENDPOINT = '/';
 
@@ -123,9 +123,9 @@ final class Xbot
             ['client_id' => $this->clientId],
             get_defined_vars()
         );
-        Log::info(__FUNCTION__, [$type, '已延迟0.5秒']);
+        Log::debug(__FUNCTION__, [$type, '已延迟0.1秒']);
         // 延迟0.5秒，从根源上避免请求过快
-        usleep(500000);
+        usleep(100000);
         return rescue(
             fn() => $this->httpClient->post(self::API_ENDPOINT, $requestData),
             null,

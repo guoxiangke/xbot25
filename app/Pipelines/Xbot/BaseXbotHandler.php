@@ -49,6 +49,7 @@ abstract class BaseXbotHandler implements XbotHandlerInterface
         Log::error(static::class, array_merge(['message' => $message], $context));
     }
 
+
     /**
      * 发送文本消息的便捷方法
      */

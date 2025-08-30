@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Pipelines\Xbot;
+namespace App\Pipelines\Xbot\Message;
 
+use App\Pipelines\Xbot\BaseXbotHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Chatwoot;
 use Closure;
 use Illuminate\Support\Facades\Cache;
@@ -86,8 +88,21 @@ class TextMessageHandler extends BaseXbotHandler
             if ($context->isRoom && !$context->isFromBot) {
                 $senderContacts = $context->wechatBot->getMeta('contacts', []);
                 $senderData = $senderContacts[$fromWxid] ?? null;
+                
+                // 获取发送者名称：优先使用备注名 > 昵称 > wxid
+                $senderName = $fromWxid; // 默认使用wxid
+                $senderAvatar = '';
+                
                 if ($senderData) {
                     $senderName = $senderData['remark'] ?? $senderData['nickname'] ?? $fromWxid;
+                    $senderAvatar = $senderData['avatar'] ?? '';
+                }
+                
+                // 格式化为带头像链接的markdown格式
+                if (!empty($senderAvatar)) {
+                    $httpsAvatar = str_replace('http://', 'https://', $senderAvatar);
+                    $content .= "\r\n by [{$senderName}]({$httpsAvatar})";
+                } else {
                     $content .= "\r\n by {$senderName}";
                 }
             }

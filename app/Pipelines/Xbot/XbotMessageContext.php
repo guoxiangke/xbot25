@@ -24,13 +24,20 @@ class XbotMessageContext
     public string $wxid; // 消息发送者的微信ID
     public bool $isRoom;
     public string $fromWxid; //群信息的消息发送者的微信ID
+    public ?int $clientId; // 客户端ID
+    
+    // 联系人详细数据
+    public ?array $fromContact = null;  // 发送者联系人详细数据
+    public ?array $toContact = null;    // 接收者联系人详细数据  
+    public ?array $roomContact = null;  // 群聊联系人详细数据
 
-    public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType)
+    public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType, ?int $clientId = null)
     {
         $this->wechatBot = $wechatBot;
         $this->requestRawData = $requestRawData;
         $this->msgType = $msgType;
         $this->msgId = $requestRawData['msgid'] ?? null;
+        $this->clientId = $clientId;
         $this->isRoom = !empty($requestRawData['room_wxid']);
         $this->isGh = str_starts_with($requestRawData['from_wxid'] ?? '', 'gh_');
         $this->isSelfToSelf = ($requestRawData['from_wxid'] ?? '') === ($requestRawData['to_wxid'] ?? '');
@@ -49,6 +56,44 @@ class XbotMessageContext
         }
         $this->wxid = $wxid;
         $this->fromWxid = $fromWxid;
+        
+        // 预加载联系人数据
+        $this->loadContactsData();
+    }
+    
+    /**
+     * 预加载联系人详细数据
+     */
+    private function loadContactsData(): void
+    {
+        $contacts = $this->wechatBot->getMeta('contacts', []);
+        
+        $fromWxid = $this->requestRawData['from_wxid'] ?? '';
+        $toWxid = $this->requestRawData['to_wxid'] ?? '';
+        $roomWxid = $this->requestRawData['room_wxid'] ?? '';
+        
+        // 加载发送者联系人数据
+        if ($fromWxid) {
+            $this->fromContact = $contacts[$fromWxid] ?? null;
+        }
+        
+        // 加载接收者联系人数据
+        if ($toWxid) {
+            $this->toContact = $contacts[$toWxid] ?? null;
+            // 如果是群联系人，移除member_list以减少日志输出
+            if ($this->toContact && str_ends_with($toWxid, '@chatroom')) {
+                unset($this->toContact['member_list']);
+            }
+        }
+        
+        // 加载群聊联系人数据
+        if ($roomWxid) {
+            $this->roomContact = $contacts[$roomWxid] ?? null;
+            // 如果是群联系人，移除member_list以减少日志输出
+            if ($this->roomContact) {
+                unset($this->roomContact['member_list']);
+            }
+        }
     }
 
     /**
@@ -121,6 +166,76 @@ class XbotMessageContext
     }
 
     /**
+     * 获取联系人标签
+     */
+    public function getContactLabel(array $contactData): string
+    {
+        $wxid = $contactData['wxid'] ?? '';
+        
+        // 如果是机器人自己，返回特定标签
+        if ($wxid === $this->wechatBot->wxid) {
+            return '机器人微信';
+        }
+        
+        $type = $contactData['type'] ?? 0;
+        $labels = [
+            1 => '好友',
+            2 => '群聊',
+            3 => '公众号'
+        ];
+
+        return $labels[$type] ?? '未知';
+    }
+
+    /**
+     * 获取发送者标签
+     */
+    public function getFromContactLabel(): string
+    {
+        return $this->fromContact ? $this->getContactLabel($this->fromContact) : '未知';
+    }
+
+    /**
+     * 获取接收者标签
+     */
+    public function getToContactLabel(): string
+    {
+        return $this->toContact ? $this->getContactLabel($this->toContact) : '未知';
+    }
+
+    /**
+     * 获取群聊标签
+     */
+    public function getRoomContactLabel(): string
+    {
+        return $this->roomContact ? $this->getContactLabel($this->roomContact) : '未知';
+    }
+
+    /**
+     * 获取发送者显示名称
+     */
+    public function getFromContactName(): string
+    {
+        if (!$this->fromContact) return '未知联系人';
+        
+        return $this->fromContact['remark'] ?? 
+               $this->fromContact['nickname'] ?? 
+               $this->fromContact['wxid'] ?? '未知联系人';
+    }
+
+    /**
+     * 获取群聊显示名称
+     */
+    public function getRoomContactName(): string
+    {
+        if (!$this->roomContact) return '未知群聊';
+        
+        return $this->roomContact['remark'] ?? 
+               $this->roomContact['nickname'] ?? 
+               $this->roomContact['wxid'] ?? '未知群聊';
+    }
+
+    /**
      * 转换为数组
      */
     public function toArray(): array
@@ -133,6 +248,9 @@ class XbotMessageContext
             'isSelfToSelf' => $this->isSelfToSelf,
             'isFromBot' => $this->isFromBot,
             'metadata' => $this->metadata,
+            'fromContact' => $this->fromContact,
+            'toContact' => $this->toContact,
+            'roomContact' => $this->roomContact,
         ];
     }
 }

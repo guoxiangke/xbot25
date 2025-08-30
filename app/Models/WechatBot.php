@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Plank\Metable\Metable;
-use App\Services\Xbot;
+use App\Services\Xbot\XbotService;
 use Carbon\Carbon;//这样 $wechatBot->login_at 直接就是北京时间了。
 
 class WechatBot extends Model
@@ -24,7 +24,7 @@ class WechatBot extends Model
         $clientId = $this->client_id??$clientId??-1;
         $wechatClient = WechatClient::where('id', $this->wechat_client_id)->firstOrFail();
         $winClientUri = $wechatClient->endpoint;
-        return new Xbot($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
+        return new XbotService($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
     }
 
     public function wechatClient()
@@ -38,6 +38,11 @@ class WechatBot extends Model
     public function handleContacts($data){
         $contacts = $this->getMeta('contacts', []);
         foreach ($data as $contact){
+            // 确保 $contact 是数组类型，跳过无效数据
+            if (!is_array($contact) || !isset($contact['wxid'])) {
+                continue;
+            }
+            
             // 确保头像URL使用https协议
             if (isset($contact['avatar'])) {
                 $contact['avatar'] = str_replace('http://', 'https://', $contact['avatar']);
