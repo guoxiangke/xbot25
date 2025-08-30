@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Xbot;
+namespace App\Services\XbotServices;
 
 use App\Jobs\XbotContactHandleQueue;
 use App\Models\WechatBot;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
  * Xbot 联系人同步处理器
  * 负责处理联系人数据同步到chatwoot
  */
-class XbotContactSyncProcessor
+class ContactSyncProcessor
 {
     public function processContactSync(WechatBot $wechatBot, array $requestRawData, string $msgType): void
     {

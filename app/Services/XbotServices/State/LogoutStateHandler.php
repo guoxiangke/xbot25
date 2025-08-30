@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Services\Xbot\State;
+namespace App\Services\XbotServices\State;
 
 use App\Models\WechatBot;
 use App\Models\WechatClient;
-use App\Services\Xbot\State\QrCodeStateHandler;
+use App\Services\XbotServices\State\QrCodeStateHandler;
 use Illuminate\Support\Facades\Log;
 
 /**

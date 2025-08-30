@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Xbot;
+namespace App\Services\XbotServices;
 
 use App\Models\WechatBot;
 use App\Models\WechatClient;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
  * Xbot Bot 实例管理器
  * 负责获取和管理 WechatBot 实例
  */
-class XbotBotManager
+class BotManager
 {
     public function getWechatBot(?string $xbotWxid, WechatClient $wechatClient, int $clientId, array $requestAllData): ?WechatBot
     {

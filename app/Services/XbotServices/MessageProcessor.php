@@ -1,31 +1,31 @@
 <?php
 
-namespace App\Services\Xbot;
+namespace App\Services\XbotServices;
 
 use App\Models\WechatBot;
 use App\Models\WechatClient;
-use App\Services\Xbot\XbotService;
-use App\Services\Xbot\State\QrCodeStateHandler;
-use App\Services\Xbot\State\LoginStateHandler;
-use App\Services\Xbot\State\LogoutStateHandler;
-use App\Services\Xbot\State\OwnerDataStateHandler;
+use App\Services\Xbot;
+use App\Services\XbotServices\State\QrCodeStateHandler;
+use App\Services\XbotServices\State\LoginStateHandler;
+use App\Services\XbotServices\State\LogoutStateHandler;
+use App\Services\XbotServices\State\OwnerDataStateHandler;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Xbot 消息处理器
  * 负责处理各种类型的消息
  */
-class XbotMessageProcessor
+class MessageProcessor
 {
-    private $xbotContactSyncProcessor;
-    private $xbotMessageRouter;
+    private $contactSyncProcessor;
+    private $messageRouter;
 
     public function __construct(
-        XbotContactSyncProcessor $xbotContactSyncProcessor,
-        XbotMessageRouter $xbotMessageRouter
+        ContactSyncProcessor $contactSyncProcessor,
+        MessageRouter $messageRouter
     ) {
-        $this->xbotContactSyncProcessor = $xbotContactSyncProcessor;
-        $this->xbotMessageRouter = $xbotMessageRouter;
+        $this->contactSyncProcessor = $contactSyncProcessor;
+        $this->messageRouter = $messageRouter;
     }
 
     public function processMessage(
@@ -35,7 +35,7 @@ class XbotMessageProcessor
         WechatClient $wechatClient,
         string $currentWindows,
         ?string $xbotWxid,
-        XbotService $xbot,
+        Xbot $xbot,
         int $clientId
     ): mixed {
         // 客户端连接消息
@@ -122,10 +122,10 @@ class XbotMessageProcessor
         }
 
         // 处理联系人同步
-        $this->xbotContactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
+        $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
 
         // 路由其他消息到相应处理管道
-        return $this->xbotMessageRouter->routeMessage($wechatBot, $requestRawData, $msgType, $clientId);
+        return $this->messageRouter->routeMessage($wechatBot, $requestRawData, $msgType, $clientId);
     }
 
     private function processStateMessage(
@@ -135,7 +135,7 @@ class XbotMessageProcessor
         WechatClient $wechatClient,
         string $currentWindows,
         ?string $xbotWxid,
-        XbotService $xbot,
+        Xbot $xbot,
         int $clientId
     ): mixed {
         switch ($msgType) {

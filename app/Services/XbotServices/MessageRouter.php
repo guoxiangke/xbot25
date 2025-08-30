@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Xbot;
+namespace App\Services\XbotServices;
 
 use App\Models\WechatBot;
 use App\Pipelines\Xbot\XbotMessageContext;
@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Log;
  * Xbot 消息路由处理器
  * 负责将消息路由到正确的处理管道
  */
-class XbotMessageRouter
+class MessageRouter
 {
     public function routeMessage(WechatBot $wechatBot, array $requestRawData, string $msgType, int $clientId): mixed
     {

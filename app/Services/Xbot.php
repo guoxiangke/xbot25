@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Xbot;
+namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -20,7 +20,7 @@ use Illuminate\Support\Arr;
  * - 群组管理（创建、邀请、删除成员）
  * - 朋友圈操作（发布、点赞、评论）
  */
-final class XbotService
+final class Xbot
 {
     private const API_ENDPOINT = '/';
 

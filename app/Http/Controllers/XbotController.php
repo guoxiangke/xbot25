@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App;
-use App\Services\Xbot\XbotService;
-use App\Services\Xbot\XbotRequestValidator;
-use App\Services\Xbot\XbotBotManager;
-use App\Services\Xbot\XbotMessageProcessor;
+use App\Services\Xbot;
+use App\Services\XbotServices\RequestValidator;
+use App\Services\XbotServices\BotManager;
+use App\Services\XbotServices\MessageProcessor;
 use Illuminate\Http\Request;
 
 class XbotController extends Controller
@@ -16,9 +16,9 @@ class XbotController extends Controller
     private $messageProcessor;
 
     public function __construct(
-        XbotRequestValidator $requestValidator,
-        XbotBotManager $botManager,
-        XbotMessageProcessor $messageProcessor
+        RequestValidator $requestValidator,
+        BotManager $botManager,
+        MessageProcessor $messageProcessor
     ) {
         $this->requestValidator = $requestValidator;
         $this->botManager = $botManager;
@@ -35,8 +35,8 @@ class XbotController extends Controller
             // 获取 WechatBot 实例
             $wechatBot = $this->botManager->getWechatBot($xbotWxid, $wechatClient, $clientId, $requestAllData);
 
-            // 创建 XbotService 实例
-            $xbot = new XbotService($wechatClient->endpoint, $xbotWxid, $clientId);
+            // 创建 Xbot 实例
+            $xbot = new Xbot($wechatClient->endpoint, $xbotWxid, $clientId);
 
             // 处理消息
             $result = $this->messageProcessor->processMessage(

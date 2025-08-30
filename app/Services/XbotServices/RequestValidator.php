@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Xbot;
+namespace App\Services\XbotServices;
 
 use App\Models\WechatClient;
 use Illuminate\Http\Request;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
  * Xbot 请求验证处理器
  * 负责验证和初始化请求参数
  */
-class XbotRequestValidator
+class RequestValidator
 {
     public function validateAndPrepare(Request $request, string $winToken): array
     {

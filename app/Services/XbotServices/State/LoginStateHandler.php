@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services\Xbot\State;
+namespace App\Services\XbotServices\State;
 
 use App\Models\WechatBot;
 use App\Models\WechatClient;
-use App\Services\Xbot\XbotService;
-use App\Services\Xbot\State\QrCodeStateHandler;
+use App\Services\Xbot;
+use App\Services\XbotServices\State\QrCodeStateHandler;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -26,7 +26,7 @@ class LoginStateHandler
         string $currentWindows,
         int $clientId,
         ?string $xbotWxid = null,
-        ?XbotService $xbot = null
+        ?Xbot $xbot = null
     ) {
         $this->wechatClient = $wechatClient;
         $this->currentWindows = $currentWindows;

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Plank\Metable\Metable;
-use App\Services\Xbot\XbotService;
+use App\Services\Xbot;
 use Carbon\Carbon;//这样 $wechatBot->login_at 直接就是北京时间了。
 
 class WechatBot extends Model
@@ -24,7 +24,7 @@ class WechatBot extends Model
         $clientId = $this->client_id??$clientId??-1;
         $wechatClient = WechatClient::where('id', $this->wechat_client_id)->firstOrFail();
         $winClientUri = $wechatClient->endpoint;
-        return new XbotService($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
+        return new Xbot($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
     }
 
     public function wechatClient()
