@@ -142,6 +142,20 @@ The system handles various WeChat message types including:
 - 不要执行 php artisan lint Bash(./vendor/bin/pint) 等
 - 在clear和compact时， •结束会话前：总是告诉Claude：“请更新.claude/activeContext.md和./claude/progress.md，总结完成的工作并概述后续步骤。
 
+## WechatBot 查找逻辑 (重要)
+
+在 `XbotRequest::validateAndPrepare()` 中，提取 `$xbotWxid` 的逻辑：
+
+1. **MT_DATA_WXID_MSG**: `data.wxid` 是目标联系人的wxid，不是bot的wxid → 强制 `$xbotWxid = null`，使用 `client_id` 查找
+2. **群消息** (有 `room_wxid`): `from_wxid` 是群成员的wxid，不是bot的wxid → 强制 `$xbotWxid = null`，使用 `client_id` 查找  
+3. **普通私聊消息**: `from_wxid` 就是bot的wxid → 使用 `from_wxid` 查找
+
+在 `XbotController::getWechatBot()` 中：
+- 如果 `$xbotWxid` 不为空：通过 `wxid` 查找
+- 如果 `$xbotWxid` 为空：通过 `wechat_client_id` + `client_id` 查找
+
+这样确保所有消息类型都能正确找到对应的 `WechatBot` 实例。
+
 - done：
   1.给 BuiltinCommandHandler 加一个命令，\sync contacts
   调用的是 ：
@@ -150,3 +164,4 @@ The system handles various WeChat message types including:
     $this->xbot->getPublicAccountsList();
     回应文本是：'已请求同步，请稍后确认！'
   2. 在每种消息Handler处理后，发给最后一个TextMessageHandler前，需要保留一个origin_msg_type,以后后来扩展功能时使用。
+  3. MT_DATA_WXID_MSG 消息类型处理：已添加到联系人同步流程，能正确处理单个联系人信息同步

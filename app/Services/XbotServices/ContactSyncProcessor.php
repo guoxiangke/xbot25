@@ -14,19 +14,6 @@ class ContactSyncProcessor
 {
     public function processContactSync(WechatBot $wechatBot, array $requestRawData, string $msgType): void
     {
-        // 联系人数据同步消息类型
-        $contactSyncTypes = [
-            'MT_DATA_FRIENDS_MSG',
-            'MT_DATA_CHATROOMS_MSG', 
-            'MT_DATA_PUBLICS_MSG',
-            'MT_ROOM_CREATE_NOTIFY_MSG',
-            'MT_DATA_CHATROOM_MEMBERS_MSG'
-        ];
-
-        if (!in_array($msgType, $contactSyncTypes)) {
-            return;
-        }
-
         Log::info('开始处理联系人同步', [
             'msgType' => $msgType,
             'wechatBot' => $wechatBot->wxid,
@@ -39,14 +26,34 @@ class ContactSyncProcessor
             return;
         }
 
+        // 特殊处理单个联系人消息
+        if ($msgType === 'MT_DATA_WXID_MSG') {
+            $contactData = $requestRawData['data'] ?? $requestRawData;
+            if (isset($contactData['wxid'])) {
+                $wechatBot->handleContacts([$contactData]);
+
+                // 分发到Chatwoot队列
+                $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
+                if ($chatwootEnabled) {
+                    XbotContactHandleQueue::dispatch($wechatBot, $contactData, '微信好友');
+                    Log::info('已分发单个联系人到队列', [
+                        'msgType' => $msgType,
+                        'wxid' => $contactData['wxid'],
+                        'nickname' => $contactData['nickname'] ?? ''
+                    ]);
+                }
+            }
+            return;
+        }
+
         // 返回 以 wxid 为 key 的联系人数组
         $wechatBot->handleContacts($requestRawData);
-        
+
         // 如果是群列表同步，自动获取每个群的成员信息
         if ($msgType === 'MT_DATA_CHATROOMS_MSG') {
             $this->requestChatroomMembersInfo($wechatBot, $requestRawData);
         }
-        
+
         $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
         if(!$chatwootEnabled) {
             Log::info('Chatwoot未启用，跳过队列处理', ['wechatBot' => $wechatBot->wxid]);
@@ -60,7 +67,7 @@ class ContactSyncProcessor
             'MT_DATA_PUBLICS_MSG' => '微信订阅号',
             'MT_ROOM_CREATE_NOTIFY_MSG' => '微信群',
         ];
-        
+
         $label = $labels[$msgType];
 
         // 确保 $contacts 是数组且每个 $contact 也是数组
@@ -107,7 +114,7 @@ class ContactSyncProcessor
         // 尝试不同的数据结构解析方式
         $memberList = null;
         $groupWxid = '';
-        
+
         // 方式1: 标准格式 - data.member_list
         if (isset($requestRawData['data']['member_list'])) {
             $data = $requestRawData['data'];
@@ -157,7 +164,7 @@ class ContactSyncProcessor
             }
 
             $wxid = $member['wxid'];
-            
+
             // 检查是否已存在该联系人
             if (!isset($existingContacts[$wxid])) {
                 // 新联系人：添加type标识为群成员
@@ -170,14 +177,14 @@ class ContactSyncProcessor
                 $existingContact = $existingContacts[$wxid];
                 $updatedContact = array_merge($existingContact, $member);
                 $updatedContacts[$wxid] = $updatedContact;
-                
+
                 // 检查头像是否有更新，如果有则需要同步到Chatwoot
                 $oldAvatar = $existingContact['avatar'] ?? '';
                 $newAvatar = $member['avatar'] ?? '';
                 if ($oldAvatar !== $newAvatar && !empty($newAvatar)) {
                     $contactsNeedChatwootSync[$wxid] = $updatedContact;
                 }
-                
+
                 // 如果已经是好友（type=1），则从Chatwoot同步队列中移除，避免重复标签
                 if (($existingContact['type'] ?? 0) == 1) {
                     unset($contactsNeedChatwootSync[$wxid]);
@@ -189,7 +196,7 @@ class ContactSyncProcessor
         if (!empty($updatedContacts)) {
             $allContacts = array_merge($existingContacts, $updatedContacts);
             $wechatBot->handleContacts($allContacts);
-            
+
             Log::info('群成员联系人信息已更新', [
                 'group_wxid' => $groupWxid,
                 'new_contacts' => count($newContacts),
@@ -211,7 +218,7 @@ class ContactSyncProcessor
                 XbotContactHandleQueue::dispatch($wechatBot, $contact, '群联系人');
                 $dispatchedCount++;
             }
-            
+
             Log::info("已分发{$dispatchedCount}个群成员到Chatwoot队列", [
                 'group_wxid' => $groupWxid,
                 'new_contacts' => count($newContacts),
@@ -242,11 +249,11 @@ class ContactSyncProcessor
         foreach ($chatroomData as $chatroom) {
             if (is_array($chatroom) && isset($chatroom['wxid'])) {
                 $roomWxid = $chatroom['wxid'];
-                
+
                 // 调用获取群成员API
                 $xbot->getChatroomMembers($roomWxid);
                 $requestCount++;
-                
+
                 Log::debug('请求群成员信息', [
                     'room_wxid' => $roomWxid,
                     'room_name' => $chatroom['nickname'] ?? '未知'

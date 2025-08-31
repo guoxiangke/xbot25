@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\WechatClient;
+use App\Models\WechatBot;
+use App\Services\Xbot;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
 
@@ -54,13 +56,23 @@ class XbotRequest extends FormRequest
             'MT_RECV_MINIAPP_MSG' => '小程序信息',
             "MT_WX_WND_CHANGE_MSG"=>'',
             "MT_UNREAD_MSG_COUNT_CHANGE_MSG" => '未读消息',
-            "MT_DATA_WXID_MSG" => '从网络获取信息',
+            //"MT_DATA_WXID_MSG" => '从网络获取信息',
             "MT_RECV_REVOKE_MSG" => 'xx 撤回了一条消息',
             'MT_DECRYPT_IMG_MSG' => '请求图片解密',
             "MT_DECRYPT_IMG_MSG_SUCCESS" => '图片解密成功',
             "MT_DECRYPT_IMG_MSG_TIMEOUT" => '图片解密超时',
 
             "MT_TALKER_CHANGE_MSG" => '切换了当前聊天对象',
+
+            // 暂时忽略的消息类型 暂不处理 @see $this->fillMissingWxidFields($msgType, $requestRawData, $wechatBot);
+            "MT_ROOM_ADD_MEMBER_NOTIFY_MSG" => '',
+            "MT_ROOM_CREATE_NOTIFY_MSG" => '',
+            "MT_ROOM_DEL_MEMBER_NOTIFY_MSG" => '',
+            "MT_CONTACT_ADD_NOITFY_MSG" => '',
+            "MT_CONTACT_DEL_NOTIFY_MSG" => '',
+            "MT_ZOMBIE_CHECK_MSG" => '',
+            "MT_SEARCH_CONTACT_MSG" => '',
+
         ];
 
         if(in_array($msgType, array_keys($ignoreMessageTypes))) {
@@ -72,25 +84,58 @@ class XbotRequest extends FormRequest
         if($msgType == 'MT_CLIENT_CONTECTED') {
             return [
                 'wechatClient' => $wechatClient,
-                'currentWindows' => $currentWindows,
+                'wechatBot' => null,
+                'xbot' => null,
                 'msgType' => $msgType,
                 'clientId' => $clientId,
                 'xbotWxid' => null,
                 'requestAllData' => $requestAllData,
+                'winToken' => $winToken,
             ];
         }
 
         // 提取wxid from data field
         $requestData = $requestAllData['data'] ?? null;
-        $xbotWxid = is_array($requestData) ? ($requestData['wxid'] ?? $requestData['to_wxid'] ?? null) : null;
+
+        // 提取bot的wxid
+        if ($msgType === 'MT_DATA_WXID_MSG') {
+            // MT_DATA_WXID_MSG中data.wxid是目标联系人的wxid，不是bot的wxid
+            $xbotWxid = null; // 强制使用client_id查找
+        } elseif ($msgType === 'MT_RECV_SYSTEM_MSG') {
+            // 系统消息：from_wxid通常不是bot的wxid（可能是操作者或群wxid），强制使用client_id查找
+            $xbotWxid = null;
+        } elseif (is_array($requestData) && !empty($requestData['room_wxid']) && $requestData['room_wxid'] !== '') {
+            // 群消息：from_wxid可能是群成员，不是bot，应该使用client_id查找
+            $xbotWxid = null;
+        } else {
+            // 普通消息：使用to_wxid（接收方是bot）或from_wxid（发送方是bot）
+            $xbotWxid = is_array($requestData) ? ($requestData['to_wxid'] ?? $requestData['from_wxid'] ?? $requestData['wxid'] ?? null) : null;
+        }
+
+        // 获取 WechatBot 实例
+        $wechatBot = $this->getWechatBot($xbotWxid, $wechatClient->id, $clientId);
+
+        // 创建 Xbot 实例
+        $xbot = new Xbot($wechatClient->endpoint, $xbotWxid, $clientId);
 
         return [
             'wechatClient' => $wechatClient,
-            'currentWindows' => $currentWindows,
+            'wechatBot' => $wechatBot,
+            'xbot' => $xbot,
             'msgType' => $msgType,
             'clientId' => $clientId,
             'xbotWxid' => $xbotWxid,
             'requestAllData' => $requestAllData,
+            'winToken' => $winToken,
         ];
+    }
+
+    private function getWechatBot(?string $xbotWxid, int $wechatClientId, int $clientId): ?WechatBot
+    {
+        return $xbotWxid
+            ? WechatBot::where('wxid', $xbotWxid)->first()
+            : WechatBot::where('wechat_client_id', $wechatClientId)
+                      ->where('client_id', $clientId)
+                      ->first();
     }
 }

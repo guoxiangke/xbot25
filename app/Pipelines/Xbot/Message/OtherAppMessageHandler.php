@@ -35,16 +35,16 @@ class OtherAppMessageHandler extends BaseXbotHandler
 
         // 解析XML消息
         $xmlData = $this->parseAppMessageXml($rawMsg);
-        
+
         // 根据 wx_sub_type 处理不同类型的应用消息
-        $formattedMessage = $this->formatAppMessage($wxSubType, $xmlData);
+        $formattedMessage = $this->formatAppMessage($wxSubType, $xmlData, $context);
 
         // 保存原始消息类型
         $context->requestRawData['origin_msg_type'] = $context->msgType;
-        
+
         // 修改 context 中的消息类型为文本消息
         $context->msgType = 'MT_RECV_TEXT_MSG';
-        
+
         // 替换消息内容
         $context->requestRawData['msg'] = $formattedMessage;
 
@@ -95,11 +95,11 @@ class OtherAppMessageHandler extends BaseXbotHandler
         // 提取refermsg中的引用消息信息（用于引用回复）
         if (preg_match('/<refermsg>(.*?)<\/refermsg>/s', $rawMsg, $matches)) {
             $refermsgXml = $matches[1];
-            
+
             // 解析引用消息的内容
             if (preg_match('/<content>(.*?)<\/content>/s', $refermsgXml, $contentMatches)) {
                 $referContent = html_entity_decode($contentMatches[1]);
-                
+
                 // 如果引用的内容是XML格式，进一步解析
                 if (str_contains($referContent, '<title>')) {
                     if (preg_match('/<title>(.*?)<\/title>/', $referContent, $titleMatches)) {
@@ -109,7 +109,7 @@ class OtherAppMessageHandler extends BaseXbotHandler
                     $xmlData['refermsg']['content'] = $referContent;
                 }
             }
-            
+
             // 解析引用消息的发送者
             if (preg_match('/<displayname>(.*?)<\/displayname>/', $refermsgXml, $nameMatches)) {
                 $xmlData['refermsg']['displayname'] = html_entity_decode($nameMatches[1]);
@@ -122,7 +122,7 @@ class OtherAppMessageHandler extends BaseXbotHandler
     /**
      * 根据子类型格式化应用消息
      */
-    private function formatAppMessage(int $wxSubType, array $xmlData): string
+    private function formatAppMessage(int $wxSubType, array $xmlData, XbotMessageContext $context): string
     {
         $title = $xmlData['title'] ?? '';
         $des = $xmlData['des'] ?? '';
@@ -137,31 +137,36 @@ class OtherAppMessageHandler extends BaseXbotHandler
                 } else {
                     return "[音乐消息]👉[{$title}]👈";
                 }
-                
+
             case 19: // 聊天记录
                 return "[聊天记录]👉[{$title}]👈\r\n{$des}";
-                
+
             case 36: // 百度网盘
                 return "[网盘文件]👉[点击查看]({$url})👈\r\n来源：{$sourcedisplayname}\r\n标题：{$title}\r\n描述：{$des}";
-                
+
             case 51: // 视频号
                 $nickname = $xmlData['finderFeed']['nickname'] ?? '';
                 $desc = $xmlData['finderFeed']['desc'] ?? '';
                 return "[视频号]👉[{$nickname}]👈\r\n{$desc}";
-                
+
             case 57: // 引用回复
                 $referContent = $xmlData['refermsg']['content'] ?? '';
                 $referDisplayName = $xmlData['refermsg']['displayname'] ?? '';
-                
+
                 // 格式化为两行显示：第一行是回复内容，第二行是引用内容
                 $formattedMessage = $title;
                 if (!empty($referContent)) {
-                    $quotedContent = !empty($referDisplayName) ? "{$referDisplayName}: {$referContent}" : $referContent;
-                    $formattedMessage .= "\n「{$quotedContent}」";
+                    $referUser = !empty($referDisplayName) ? $referDisplayName : '未知用户';
+                    // 个人对话不需要显示 (from user)，群对话需要显示
+                    if ($context->isRoom) {
+                        $formattedMessage = "[引用消息]{$title}\n[引用内容]{$referContent} \n[内容来自]{$referUser}";
+                    } else {
+                        $formattedMessage = "[引用消息]{$title}\n[引用内容]{$referContent}";
+                    }
                 }
-                
+
                 return $formattedMessage;
-                
+
             default: // 其他未处理消息
                 return "[其他消息]👉[请到手机查看]👈";
         }
