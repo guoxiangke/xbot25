@@ -30,11 +30,26 @@ class LinkMessageHandler extends BaseXbotHandler
         // 从 XML 中提取链接信息
         $linkData = $this->extractLinkDataFromXml($rawMsg);
         
-        // 判断是否为邀请入群消息 (wx_sub_type=5, wx_type=49)
-        $isGroupInvite = ($wxSubType == 5 && $wxType == 49);
+        // 调试日志：记录提取到的数据
+        $this->log('Link data extracted', [
+            'from_wxid' => $fromWxid,
+            'wx_type' => $wxType,
+            'wx_sub_type' => $wxSubType,
+            'extracted_data' => $linkData
+        ]);
         
-        // 如果是邀请入群消息，使用thumburl作为链接，否则使用url
-        $url = $isGroupInvite ? ($linkData['thumburl'] ?? '') : ($linkData['url'] ?? '');
+        // 判断是否为邀请入群消息 (需要更精确的条件判断)
+        // wx_sub_type=5 && wx_type=49 可能是多种类型，需要根据内容进一步判断
+        $isGroupInvite = ($wxSubType == 5 && $wxType == 49 && str_contains($rawMsg, '邀请') && str_contains($rawMsg, '群聊'));
+        
+        // 优先使用url，如果没有url则使用dataurl，群邀请时才使用thumburl
+        $url = $linkData['url'] ?? '';
+        if (empty($url)) {
+            $url = $linkData['dataurl'] ?? '';
+        }
+        if (empty($url) && $isGroupInvite) {
+            $url = $linkData['thumburl'] ?? '';
+        }
 
         if ($url) {
             $title = $linkData['title'] ?? '';
@@ -87,19 +102,20 @@ class LinkMessageHandler extends BaseXbotHandler
 
         $linkData = [];
 
-        // 提取appmsg中的各种信息，支持CDATA格式
+        // 提取appmsg中的各种信息，支持CDATA格式，使用DOTALL模式处理换行
         $fields = [
-            'url' => '/<url>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/url>/',
-            'thumburl' => '/<thumburl>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/thumburl>/',
-            'title' => '/<title>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/title>/',
-            'des' => '/<des>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/des>/',
-            'sourcedisplayname' => '/<sourcedisplayname>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/sourcedisplayname>/',
+            'url' => '/<url>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/url>/s',
+            'dataurl' => '/<dataurl>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/dataurl>/s',
+            'thumburl' => '/<thumburl>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/thumburl>/s',
+            'title' => '/<title>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/title>/s',
+            'des' => '/<des>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/des>/s',
+            'sourcedisplayname' => '/<sourcedisplayname>(?:<!\[CDATA\[(.*?)\]\]>|(.*?))<\/sourcedisplayname>/s',
         ];
 
         foreach ($fields as $field => $pattern) {
             if (preg_match($pattern, $rawMsg, $matches)) {
                 // 优先使用CDATA内容，如果没有CDATA则使用普通内容
-                $value = trim($matches[1] ?? $matches[2] ?? '');
+                $value = trim($matches[1] ?: $matches[2] ?: '');
                 if (!empty($value)) {
                     $linkData[$field] = html_entity_decode($value);
                 }

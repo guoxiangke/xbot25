@@ -89,22 +89,21 @@ class XbotRequest extends FormRequest
         $requestData = $requestAllData['data'] ?? null;
 
         // 提取bot的wxid
-        // 这些消息类型需要强制使用client_id查找，而不是通过wxid查找
-        $forceClientIdLookupTypes = [
-            'MT_DATA_WXID_MSG',      // MT_DATA_WXID_MSG中data.wxid是目标联系人的wxid，不是bot的wxid
-            'MT_TRANS_VOICE_MSG',    // 语音转文字消息：使用client_id查找bot
-            'MT_RECV_SYSTEM_MSG',    // 系统消息：from_wxid通常不是bot的wxid（可能是操作者或群wxid）
-            'MT_RECV_OTHER_APP_MSG', // 其他应用消息：使用client_id查找，避免wxid匹配失败
+        // 默认使用client_id查找（更可靠），只有特殊情况才使用wxid查找
+        $useWxidLookupTypes = [
+            // 暂时没有发现需要特殊使用wxid查找的消息类型
+            // 如果将来发现某些消息类型必须用wxid查找，可以添加到这里
         ];
 
-        if (in_array($msgType, $forceClientIdLookupTypes)) {
-            $xbotWxid = null; // 强制使用client_id查找
-        } elseif (is_array($requestData) && !empty($requestData['room_wxid']) && $requestData['room_wxid'] !== '') {
-            // 群消息：from_wxid可能是群成员，不是bot，应该使用client_id查找
-            $xbotWxid = null;
-        } else {
-            // 普通消息：使用to_wxid（接收方是bot）或from_wxid（发送方是bot）
+        // 群消息强制使用client_id查找（from_wxid是群成员，不是bot）
+        $isRoom = is_array($requestData) && !empty($requestData['room_wxid']) && $requestData['room_wxid'] !== '';
+        
+        if (in_array($msgType, $useWxidLookupTypes) && !$isRoom) {
+            // 特殊消息类型：使用wxid查找
             $xbotWxid = is_array($requestData) ? ($requestData['to_wxid'] ?? $requestData['from_wxid'] ?? $requestData['wxid'] ?? null) : null;
+        } else {
+            // 默认情况：使用client_id查找（包括所有接收消息、群消息、系统消息等）
+            $xbotWxid = null;
         }
 
         // 获取 WechatBot 实例
