@@ -25,6 +25,7 @@ class XbotMessageContext
     public bool $isRoom;
     public string $fromWxid; //群信息的消息发送者的微信ID
     public ?int $clientId; // 客户端ID
+    public ?string $processedMessage = null; // 处理后的消息内容
     
     // 联系人详细数据
     public ?array $fromContact = null;  // 发送者联系人详细数据
@@ -36,17 +37,25 @@ class XbotMessageContext
         $this->wechatBot = $wechatBot;
         $this->requestRawData = $requestRawData;
         $this->msgType = $msgType;
-        $this->msgId = $requestRawData['msgid'] ?? null;
+        // 对于MT_TRANS_VOICE_MSG，字段可能在data中或直接在顶层
+        if ($msgType === 'MT_TRANS_VOICE_MSG') {
+            $this->msgId = $requestRawData['msgid'] ?? $requestRawData['data']['msgid'] ?? null;
+            $toWxid   = $requestRawData['to_wxid']   ?? $requestRawData['data']['to_wxid']   ?? '';
+            $fromWxid = $requestRawData['from_wxid'] ?? $requestRawData['data']['from_wxid'] ?? '';
+            $roomWxid = $requestRawData['room_wxid'] ?? $requestRawData['data']['room_wxid'] ?? '';
+        } else {
+            $this->msgId = $requestRawData['msgid'] ?? null;
+            $toWxid   = $requestRawData['to_wxid']   ?? '';
+            $fromWxid = $requestRawData['from_wxid'] ?? '';
+            $roomWxid = $requestRawData['room_wxid'] ?? '';
+        }
+        
         $this->clientId = $clientId;
-        $this->isRoom = !empty($requestRawData['room_wxid']);
-        $this->isGh = str_starts_with($requestRawData['from_wxid'] ?? '', 'gh_');
-        $this->isSelfToSelf = ($requestRawData['from_wxid'] ?? '') === ($requestRawData['to_wxid'] ?? '');
-        $this->isFromBot = ($requestRawData['from_wxid'] ?? '') === $wechatBot->wxid;
+        $this->isRoom = !empty($roomWxid);
+        $this->isGh = str_starts_with($fromWxid, 'gh_');
+        $this->isSelfToSelf = $fromWxid === $toWxid;
+        $this->isFromBot = $fromWxid === $wechatBot->wxid;
         $this->isRepliedKey = 'replied.' . $wechatBot->id . '.' . $this->msgId;
-
-        $toWxid   = $requestRawData['to_wxid']   ?? '';
-        $fromWxid = $requestRawData['from_wxid'] ?? '';
-        $roomWxid = $requestRawData['room_wxid'] ?? '';
         if ($this->isRoom) {// 群消息，直接用群wxid
             $wxid = $roomWxid;
         } elseif ($this->isFromBot) { // 机器人发送，取接收者
@@ -230,6 +239,47 @@ class XbotMessageContext
     }
 
     /**
+     * 设置处理后的消息内容
+     */
+    public function setProcessedMessage(string $message): void
+    {
+        $this->processedMessage = $message;
+    }
+
+    /**
+     * 获取处理后的消息内容
+     */
+    public function getProcessedMessage(): ?string
+    {
+        return $this->processedMessage;
+    }
+
+    /**
+     * 标记语音消息已转为文本
+     */
+    public function markVoiceTransProcessed(string $text): void
+    {
+        $this->setMetadata('voice_trans_processed', true);
+        $this->setMetadata('voice_trans_text', $text);
+    }
+
+    /**
+     * 检查是否有语音转文本
+     */
+    public function hasVoiceTransText(): bool
+    {
+        return $this->getMetadata('voice_trans_processed', false);
+    }
+
+    /**
+     * 获取语音转文本内容
+     */
+    public function getVoiceTransText(): string
+    {
+        return $this->getMetadata('voice_trans_text', '');
+    }
+
+    /**
      * 转换为数组
      */
     public function toArray(): array
@@ -241,6 +291,7 @@ class XbotMessageContext
             'isGh' => $this->isGh,
             'isSelfToSelf' => $this->isSelfToSelf,
             'isFromBot' => $this->isFromBot,
+            'processedMessage' => $this->processedMessage,
             'metadata' => $this->metadata,
             'fromContact' => $this->fromContact,
             'toContact' => $this->toContact,

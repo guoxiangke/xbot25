@@ -339,31 +339,6 @@ class XbotCallbackController extends Controller
         }
 
         if($type == 'MT_RECV_TEXT_MSG'){ //接收到 个人/群 文本消息
-            $content = $data['msg'];
-            $replyTo = $fromWxid;//消息发送者
-            if($isRoom) $replyTo = $data['room_wxid'];
-            if($fromWxid == $wechatBot->wxid) $replyTo = $toWxid; //自己给别人聊天时，发关键词 响应信息
-            // 彩蛋:谁在线，在线时长！
-            if($content=='whoami'){
-                $time = optional($wechatBot->login_at)->diffForHumans();
-                $text = "已登陆 $time\n时间: {$wechatBot->login_at}\n设备: {$clientId}号端口@Windows{$wechatBot->wechat_client_id}\n用户: {$wechatBot->user->name}";
-                $xbot->sendText($replyTo, $text);
-                // 针对文本 命令的 响应，标记 已响应，后续 关键词不再触发（return in observe）。
-                // 10s内响应，后续hook如果没有处理，就丢弃，不处理了！
-                // 如果其他资源 已经响应 关键词命令了，不再推送给第三方webhook了
-                Cache::put($cacheKeyIsRelpied, true, 10);
-            }
-            if($isAutoReply && !$isSelf) {
-                $keywords = $wechatBot->autoReplies()->pluck('keyword','wechat_content_id');
-                foreach ($keywords as $wechatContentId => $keyword) {
-                    // TODO preg; @see https://laravel.com/docs/8.x/helpers#method-str-is
-                    if(Str::is(trim($keyword), $content)){
-                        Log::debug(__CLASS__, [__LINE__, $wechatClientName, $wechatBot->wxid, '关键词回复', $keyword]);
-                        $wechatBot->send([$replyTo], WechatContent::find($wechatContentId));
-                        Cache::put($cacheKeyIsRelpied, true, 10);
-                    }
-                }
-            }
             // 资源：预留 关键词
                 //  600 + 601～699   # LY 中文：拥抱每一天 getLy();
                 //  7000 7001～7999  # Album 自建资源 Album 关键词触发 getAlbum();
@@ -598,54 +573,6 @@ class XbotCallbackController extends Controller
                     }
                 }
 
-
-                // begin send message to chatwoot
-                // 只记录机器人收到的消息
-                $recordWechatMessageTypes = [
-                    'MT_RECV_TEXT_MSG',
-                    'MT_RECV_VOICE_MSG',
-                    'MT_RECV_EMOJI_MSG',
-                    'MT_RECV_PICTURE_MSG',
-                    'MT_RECV_FILE_MSG',
-                    'MT_RECV_VIDEO_MSG',
-                    // 'MT_RECV_SYSTEM_MSG', //群名修改 &&// 你已添加了天空蔚蓝，现在可以开始聊天了。
-                    'MT_RECV_LINK_MSG',
-                    'MT_TRANS_VOICE_MSG',
-                ];
-                $switchOn = $config['isChatwootOn'];
-                if($switchOn&&in_array($type,$recordWechatMessageTypes)){// !$isRoom && 暂不记录群消息
-                    if($fromWxid != $wechatBot->wxid){
-                        $chatwoot = new Chatwoot($wechatBot);
-                        $wxid = $isRoom?$conversationWxid:$fromWxid;//roomWxid
-                        $contact = $chatwoot->getContactByWxid($wxid);
-                        $isHost = false;
-                        if(!$contact) {
-                            $wechatBotContact = WechatBotContact::query()
-                                ->where('wechat_bot_id', $wechatBot->id)
-                                ->where('wxid', $wxid)
-                                ->first();
-
-                            $contact = $chatwoot->saveContact($wechatBotContact);
-                            // Add label // $label="群聊"
-                            $label = $wechatBotContact::TYPES_NAME[$wechatBotContact->type];
-                            $chatwoot->setLabelByContact($contact, $label);
-
-                            $isHost = true;// 第一次创建对话，不发消息给微信用户，只记录到chatwoot
-                        }
-                        // 如果是群，加上by xx
-                        if($isRoom){
-                            // TODO save 群陌生人
-                            $wechatBotContact = WechatBotContact::query()
-                                ->where('wechat_bot_id', $wechatBot->id)
-                                ->where('wxid', $fromWxid)
-                                ->first();
-                                $content .= "\r\n by {$wechatBotContact->contact->nickname}";
-                        }
-                        $chatwoot->sendMessageToContact($contact, $content, $isHost);
-                        Log::debug(__CLASS__, [__LINE__, 'POST_TO_CHATWOOT', $content, $isHost]);
-                    }
-                }
-                // end send message to chatwoo
 
             }
         }

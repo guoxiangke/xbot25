@@ -133,7 +133,9 @@ class OtherAppMessageHandler extends BaseXbotHandler
             case 3: // 音频消息
                 $dataurl = $xmlData['dataurl'] ?? '';
                 if (!empty($dataurl)) {
-                    return "[音频消息]👉[点此收听]({$dataurl})👈\r\n标题：{$title}\r\n描述：{$des}";
+                    $formattedTitle = !empty($title) ? "\n标题：{$title}" : '';
+                    $formattedDes = !empty($des) ? "\n描述：{$des}" : '';
+                    return "[音频消息]👉[点此收听]({$dataurl})👈{$formattedTitle}{$formattedDes}";
                 } else {
                     return "[音乐消息]👉[{$title}]👈";
                 }

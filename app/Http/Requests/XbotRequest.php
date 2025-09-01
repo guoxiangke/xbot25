@@ -89,12 +89,16 @@ class XbotRequest extends FormRequest
         $requestData = $requestAllData['data'] ?? null;
 
         // 提取bot的wxid
-        if ($msgType === 'MT_DATA_WXID_MSG') {
-            // MT_DATA_WXID_MSG中data.wxid是目标联系人的wxid，不是bot的wxid
+        // 这些消息类型需要强制使用client_id查找，而不是通过wxid查找
+        $forceClientIdLookupTypes = [
+            'MT_DATA_WXID_MSG',      // MT_DATA_WXID_MSG中data.wxid是目标联系人的wxid，不是bot的wxid
+            'MT_TRANS_VOICE_MSG',    // 语音转文字消息：使用client_id查找bot
+            'MT_RECV_SYSTEM_MSG',    // 系统消息：from_wxid通常不是bot的wxid（可能是操作者或群wxid）
+            'MT_RECV_OTHER_APP_MSG', // 其他应用消息：使用client_id查找，避免wxid匹配失败
+        ];
+
+        if (in_array($msgType, $forceClientIdLookupTypes)) {
             $xbotWxid = null; // 强制使用client_id查找
-        } elseif ($msgType === 'MT_RECV_SYSTEM_MSG') {
-            // 系统消息：from_wxid通常不是bot的wxid（可能是操作者或群wxid），强制使用client_id查找
-            $xbotWxid = null;
         } elseif (is_array($requestData) && !empty($requestData['room_wxid']) && $requestData['room_wxid'] !== '') {
             // 群消息：from_wxid可能是群成员，不是bot，应该使用client_id查找
             $xbotWxid = null;

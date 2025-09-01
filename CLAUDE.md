@@ -165,3 +165,5 @@ The system handles various WeChat message types including:
     回应文本是：'已请求同步，请稍后确认！'
   2. 在每种消息Handler处理后，发给最后一个TextMessageHandler前，需要保留一个origin_msg_type,以后后来扩展功能时使用。
   3. MT_DATA_WXID_MSG 消息类型处理：已添加到联系人同步流程，能正确处理单个联系人信息同步
+
+- MT_RECV_VOICE_MSG 消息体： {"data":{"from_wxid":"bluesky_still","is_pc":0,"mp3_file":"C:\\Users\\win11\\Documents\\WeChat Files\\wxid_t36o5djpivk312\\mp3\\1598934079525226.mp3","msgid":"7762958499218113803","raw_msg":"<msg><voicemsg endflag=\"1\" cancelflag=\"0\" forwardflag=\"0\" voiceformat=\"4\" voicelength=\"1560\" length=\"2933\" bufid=\"0\" aeskey=\"7e889c457f301d8b4118a8a07eb3e1ff\" voiceurl=\"3052020100044b304902010002043ac6d79302030f5efb02040c90af2b020468b51f48042466333261363331662d323161342d343164622d383638322d6538326231393632353837630204011c000f0201000400c27235ca\" voicemd5=\"\" clientmsgid=\"493474d1b0bfa9ac2fb4bd883b4c3891wxid_t36o5djpivk312_3370_1756700486\" fromusername=\"bluesky_still\" /></msg>","room_wxid":"","silk_file":"","timestamp":1756700488,"to_wxid":"wxid_t36o5djpivk312","wx_type":34},"type":"MT_RECV_VOICE_MSG","client_id":12}

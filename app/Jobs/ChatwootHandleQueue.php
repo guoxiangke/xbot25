@@ -23,6 +23,7 @@ class ChatwootHandleQueue implements ShouldQueue
     public $content;
     public $isFromBot;
     public $isRoom;
+    public $originMsgType;
     protected Chatwoot $chatwoot;
 
     public function __construct(
@@ -31,7 +32,8 @@ class ChatwootHandleQueue implements ShouldQueue
         string $fromWxid,
         string $content,
         bool $isFromBot,
-        bool $isRoom
+        bool $isRoom,
+        string $originMsgType = ''
     ) {
         $this->wechatBot = $wechatBot;
         $this->wxid = $wxid;
@@ -39,6 +41,7 @@ class ChatwootHandleQueue implements ShouldQueue
         $this->content = $content;
         $this->isFromBot = $isFromBot;
         $this->isRoom = $isRoom;
+        $this->originMsgType = $originMsgType;
     }
 
     public function handle()
