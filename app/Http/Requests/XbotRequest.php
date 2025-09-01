@@ -82,16 +82,7 @@ class XbotRequest extends FormRequest
 
         // 特殊处理客户端连接消息 - 不需要完整验证
         if($msgType == 'MT_CLIENT_CONTECTED') {
-            return [
-                'wechatClient' => $wechatClient,
-                'wechatBot' => null,
-                'xbot' => null,
-                'msgType' => $msgType,
-                'clientId' => $clientId,
-                'xbotWxid' => null,
-                'requestAllData' => $requestAllData,
-                'winToken' => $winToken,
-            ];
+            $xbotWxid = null; // 强制使用client_id查找
         }
 
         // 提取wxid from data field

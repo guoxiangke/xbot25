@@ -35,7 +35,9 @@ class ContactSyncProcessor
                 // 分发到Chatwoot队列
                 $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
                 if ($chatwootEnabled) {
-                    XbotContactHandleQueue::dispatch($wechatBot, $contactData, '微信好友');
+                    $contactType = $contactData['type'] ?? 0;
+                    $label = WechatBot::getContactTypeLabel($contactType);
+                    XbotContactHandleQueue::dispatch($wechatBot, $contactData, $label);
                     Log::info('已分发单个联系人到队列', [
                         'msgType' => $msgType,
                         'wxid' => $contactData['wxid'],
@@ -61,14 +63,7 @@ class ContactSyncProcessor
         }
 
         $contacts = $requestRawData;
-        $labels = [
-            'MT_DATA_FRIENDS_MSG' => '微信好友',
-            'MT_DATA_CHATROOMS_MSG' => '微信群',
-            'MT_DATA_PUBLICS_MSG' => '微信订阅号',
-            'MT_ROOM_CREATE_NOTIFY_MSG' => '微信群',
-        ];
-
-        $label = $labels[$msgType];
+        $label = WechatBot::getContactTypeLabelByMsgType($msgType);
 
         // 确保 $contacts 是数组且每个 $contact 也是数组
         if (is_array($contacts)) {
@@ -103,14 +98,6 @@ class ContactSyncProcessor
      */
     private function processChatroomMembers(WechatBot $wechatBot, array $requestRawData): void
     {
-        // 添加调试日志查看实际数据结构
-        Log::debug('群成员消息原始数据', [
-            'requestRawData' => $requestRawData,
-            'keys' => array_keys($requestRawData),
-            'has_data' => isset($requestRawData['data']),
-            'has_member_list' => isset($requestRawData['member_list'])
-        ]);
-
         // 尝试不同的数据结构解析方式
         $memberList = null;
         $groupWxid = '';

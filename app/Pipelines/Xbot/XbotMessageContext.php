@@ -174,17 +174,11 @@ class XbotMessageContext
         
         // 如果是机器人自己，返回特定标签
         if ($wxid === $this->wechatBot->wxid) {
-            return '机器人微信';
+            return \App\Models\WechatBot::getSpecialContactLabel('robot');
         }
         
         $type = $contactData['type'] ?? 0;
-        $labels = [
-            1 => '好友',
-            2 => '群聊',
-            3 => '公众号'
-        ];
-
-        return $labels[$type] ?? '未知';
+        return \App\Models\WechatBot::getContactTypeLabel($type);
     }
 
     /**

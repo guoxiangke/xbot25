@@ -1,0 +1,125 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Models\WechatBot;
+use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\Chatwoot;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+
+class ChatwootHandleQueue implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $wechatBot;
+    public $wxid;
+    public $fromWxid;
+    public $content;
+    public $isFromBot;
+    public $isRoom;
+    protected Chatwoot $chatwoot;
+
+    public function __construct(
+        WechatBot $wechatBot,
+        string $wxid,
+        string $fromWxid,
+        string $content,
+        bool $isFromBot,
+        bool $isRoom
+    ) {
+        $this->wechatBot = $wechatBot;
+        $this->wxid = $wxid;
+        $this->fromWxid = $fromWxid;
+        $this->content = $content;
+        $this->isFromBot = $isFromBot;
+        $this->isRoom = $isRoom;
+    }
+
+    public function handle()
+    {
+        // 检查Chatwoot是否启用
+        $isChatwootEnabled = $this->wechatBot->getMeta('chatwoot_enabled', false);
+        if (!$isChatwootEnabled) return;
+
+        // 避免通过UI发送的消息重复发送到Chatwoot
+        $isSendByChatwootUI = Cache::get("chatwoot_outgoing_{$this->wechatBot->id}_{$this->wxid}") == $this->content;
+        if ($isSendByChatwootUI) return;
+
+        $this->chatwoot = new Chatwoot($this->wechatBot);
+
+        // 获取或创建Chatwoot联系人
+        $contact = $this->chatwoot->searchContact($this->wxid);
+
+        // $isHost = false, 接受消息，传到chatwoot
+        // $isHost = true, 第一次创建对话，不发消息给微信用户，只记录到chatwoot
+        $isHost = false;
+
+        if (!$contact) {
+            // 从metadata中获取联系人信息
+            $contacts = $this->wechatBot->getMeta('contacts', []);
+            $contactData = $contacts[$this->wxid] ?? null;
+
+            if ($contactData) {
+                $contact = $this->chatwoot->saveContact($contactData);
+                $isHost = true; // 第一次创建对话
+
+                // 添加标签
+                $label =  WechatBot::getContactTypeLabel($contactData['type'] ?? 0);
+                if ($label) {
+                    $this->chatwoot->setLabel($contact['id'], $label);
+                }
+            } else {
+                Log::error('Contact not found in metadata for wxid: ' . $this->wxid);
+                return;
+            }
+        }
+
+        $content = $this->content;
+
+        // 如果是群消息，添加发送者信息
+        if ($this->isRoom && !$this->isFromBot) {
+            $senderContacts = $this->wechatBot->getMeta('contacts', []);
+            $senderData = $senderContacts[$this->fromWxid] ?? null;
+
+            // 获取发送者名称：优先使用备注名 > 昵称 > wxid
+            $senderName = $this->fromWxid; // 默认使用wxid
+            $senderAvatar = '';
+
+            if ($senderData) {
+                $senderName = $senderData['remark'] ?? $senderData['nickname'] ?? $this->fromWxid;
+                $senderAvatar = $senderData['avatar'] ?? '';
+            }
+
+            // 格式化为带头像链接的markdown格式
+            if (!empty($senderAvatar)) {
+                $httpsAvatar = str_replace('http://', 'https://', $senderAvatar);
+                $content .= "\r\n by [{$senderName}]({$httpsAvatar})";
+            } else {
+                $content .= "\r\n by {$senderName}";
+            }
+        }
+
+        // 区分消息方向：机器人发送的消息 vs 接收的消息
+        // incoming - 访客/用户发进来的消息 (作为联系人发送)
+        // outgoing - 机器人/系统发出去的消息 (作为客服发送)
+        if ($this->isFromBot) {
+            // 机器人发送的消息：以客服身份发送
+            $this->chatwoot->sendMessageAsAgentToContact($contact, $content);
+        } else {
+            // 接收的消息：以联系人身份发送
+            $this->chatwoot->sendMessageAsContact($contact, $content, $isHost);
+        }
+
+        Log::info('Message sent to Chatwoot via queue', [
+            'wxid' => $this->wxid,
+            'content_length' => strlen($content)
+        ]);
+    }
+
+}

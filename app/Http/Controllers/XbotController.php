@@ -63,13 +63,9 @@ class XbotController extends Controller
         // 客户端连接消息
         if ($msgType == 'MT_CLIENT_CONTECTED') {
             sleep(1);
+            // 新增加一个客户端，主动调用获取QR，压入缓存，以供web登陆
+            $xbot->loadQRCode();
             return null;
-        }
-
-        // 客户端断开连接
-        if ($msgType == 'MT_CLIENT_DISCONTECTED') {
-            $xbot->createNewClient();
-            return $this->processStateMessage('MT_USER_LOGOUT', $requestRawData, $wechatBot, $wechatClient, $winToken, $xbotWxid, $xbot, $clientId);
         }
 
         // 状态消息类型
@@ -77,11 +73,19 @@ class XbotController extends Controller
             'MT_RECV_QRCODE_MSG',
             'MT_USER_LOGIN',
             'MT_USER_LOGOUT',
-            'MT_DATA_OWNER_MSG'
+            'MT_DATA_OWNER_MSG',
+            'MT_CLIENT_DISCONTECTED'// 客户端断开连接
         ];
 
         // 处理状态消息
         if (in_array($msgType, $stateTypes)) {
+            // 客户端断开连接时需要创建新客户端
+            if ($msgType == 'MT_CLIENT_DISCONTECTED') {
+                // $xbot->createNewClient();
+                // 将断线处理为登出状态
+                $msgType = 'MT_USER_LOGOUT';
+            }
+
             return $this->processStateMessage($msgType, $requestRawData, $wechatBot, $wechatClient, $winToken, $xbotWxid, $xbot, $clientId);
         }
 

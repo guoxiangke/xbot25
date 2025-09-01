@@ -57,6 +57,48 @@ class WechatBot extends Model
         return Carbon::parse($value)->setTimezone('Asia/Shanghai');
     }
 
+    /**
+     * 获取联系人类型标签（通过type数字）
+     */
+    public static function getContactTypeLabel(int $type): string
+    {
+        $labels = [
+            1 => '微信好友',
+            2 => '微信群',
+            3 => '微信订阅号'
+        ];
+
+        return $labels[$type] ?? '未知';
+    }
+
+    /**
+     * 获取联系人类型标签（通过消息类型）
+     */
+    public static function getContactTypeLabelByMsgType(string $msgType): string
+    {
+        $labels = [
+            'MT_DATA_FRIENDS_MSG' => '微信好友',
+            'MT_DATA_CHATROOMS_MSG' => '微信群',
+            'MT_DATA_PUBLICS_MSG' => '微信订阅号',
+            'MT_ROOM_CREATE_NOTIFY_MSG' => '微信群',
+        ];
+
+        return $labels[$msgType] ?? '未知';
+    }
+
+    /**
+     * 获取特殊联系人类型标签
+     */
+    public static function getSpecialContactLabel(string $type): string
+    {
+        $labels = [
+            'robot' => '机器人微信',
+            'stranger' => '群陌生人',
+        ];
+
+        return $labels[$type] ?? '未知';
+    }
+
     // $table->timestamp('expires_at')->nullable()->default(now()->addMonth(1));
     protected static function booted()
     {
