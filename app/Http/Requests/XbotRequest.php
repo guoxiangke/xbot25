@@ -80,11 +80,6 @@ class XbotRequest extends FormRequest
             throw new \Exception("忽略的消息类型:{$msgType}");
         }
 
-        // 特殊处理客户端连接消息 - 不需要完整验证
-        if($msgType == 'MT_CLIENT_CONTECTED') {
-            $xbotWxid = null; // 强制使用client_id查找
-        }
-
         // 提取wxid from data field
         $requestData = $requestAllData['data'] ?? null;
 
@@ -97,7 +92,7 @@ class XbotRequest extends FormRequest
 
         // 群消息强制使用client_id查找（from_wxid是群成员，不是bot）
         $isRoom = is_array($requestData) && !empty($requestData['room_wxid']) && $requestData['room_wxid'] !== '';
-        
+
         if (in_array($msgType, $useWxidLookupTypes) && !$isRoom) {
             // 特殊消息类型：使用wxid查找
             $xbotWxid = is_array($requestData) ? ($requestData['to_wxid'] ?? $requestData['from_wxid'] ?? $requestData['wxid'] ?? null) : null;

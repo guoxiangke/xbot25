@@ -34,7 +34,7 @@ class ChatwootHandler extends BaseXbotHandler
             $message,
             $context->isFromBot,
             $context->isRoom,
-            $context->msgType // 保留原始消息类型，用于后续扩展
+            $context->requestRawData['origin_msg_type'] ?? $context->msgType // 使用原始消息类型
         );
 
         $this->log('Message sent to Chatwoot queue', [

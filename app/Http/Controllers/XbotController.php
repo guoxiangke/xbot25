@@ -66,7 +66,7 @@ class XbotController extends Controller
         if ($msgType == 'MT_CLIENT_CONTECTED') {
             sleep(1);
             // 新增加一个客户端，主动调用获取QR，压入缓存，以供web登陆
-            $xbot->loadQRCode();
+            // $xbot->loadQRCode();
             return null;
         }
 
@@ -83,7 +83,7 @@ class XbotController extends Controller
         if (in_array($msgType, $stateTypes)) {
             // 客户端断开连接时需要创建新客户端
             if ($msgType == 'MT_CLIENT_DISCONTECTED') {
-                // $xbot->createNewClient();
+                $xbot->createNewClient();
                 // 将断线处理为登出状态
                 $msgType = 'MT_USER_LOGOUT';
             }
@@ -109,23 +109,23 @@ class XbotController extends Controller
 
         // 验证必要字段（联系人同步消息除外）
         $hasValidWxids = isset($requestRawData['from_wxid'], $requestRawData['to_wxid']);
-        
+
         // 对于MT_TRANS_VOICE_MSG，数据可能在data中或直接在顶层
         if ($msgType === 'MT_TRANS_VOICE_MSG') {
             // 如果没有msgid和text，跳过
             $hasMsgId = isset($requestRawData['msgid']) || isset($requestRawData['data']['msgid']);
             $hasText = isset($requestRawData['text']) || isset($requestRawData['data']['text']);
-            
+
             // 对于语音转文字消息，必须同时有msgid和text才处理
             // 没有msgid的是中间状态消息，没有text的是转换失败
             if (!$hasMsgId || !$hasText) {
                 return null;
             }
-            
-            
+
+
             $hasValidWxids = true;
         }
-        
+
         if (!in_array($msgType, $contactSyncTypes) && !$hasValidWxids) {
             Log::debug("{$msgType} no from_wxid or to_wxid");
             return null;
@@ -153,12 +153,12 @@ class XbotController extends Controller
 
         // 检查消息ID
         $hasMsgId = isset($requestRawData['msgid']);
-        
+
         // 对于MT_TRANS_VOICE_MSG，msgid可能在顶层或data中
         if ($msgType === 'MT_TRANS_VOICE_MSG') {
             $hasMsgId = isset($requestRawData['msgid']) || isset($requestRawData['data']['msgid']);
         }
-        
+
         if (!$hasMsgId && !in_array($msgType, $messagesWithoutMsgid)) {
             Log::error('消息无msgid且不在处理列表中', ['msgType' => $msgType, 'data' => $requestRawData]);
             return null;
@@ -199,7 +199,8 @@ class XbotController extends Controller
                 return $handler->handle($requestRawData);
 
             case 'MT_USER_LOGIN':
-                $handler = new LoginStateHandler($wechatClient, $winToken, $clientId, $xbotWxid, $xbot);
+                $loginWxid = $requestRawData['wxid'];// 一定存在这个wxid
+                $handler = new LoginStateHandler($wechatClient, $winToken, $clientId, $loginWxid, $xbot);
                 return $handler->handle($requestRawData);
 
             case 'MT_USER_LOGOUT':
