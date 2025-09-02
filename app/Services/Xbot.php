@@ -839,35 +839,8 @@ final class Xbot
         ?string $lyrics = null
     ): ?Response {
         // 特殊处理某个特定机器人账号
-        if ($this->botWxid === 'keke302') {
-            $defaultCoverUrl = 'https://mmecoa.qpic.cn/sz_mmecoa_png/dTE2nNAecJYUksGb1XOwruv2rxedibHdN7j0cgcpw8DibwhS23UGjnu9QibULUSfyjtINNticX4saqZ8cYRJmUHFeQ/640?wx_fmt=png&amp;from=appmsg';
-            return $this->sendMusicWithCoverAndLyrics($targetWxid, $url, $title, $description, $defaultCoverUrl, $lyrics);
-        }
+        $coverUrl = $coverUrl??'https://mmecoa.qpic.cn/sz_mmecoa_png/dTE2nNAecJYUksGb1XOwruv2rxedibHdN7j0cgcpw8DibwhS23UGjnu9QibULUSfyjtINNticX4saqZ8cYRJmUHFeQ/640?wx_fmt=png&amp;from=appmsg';
 
-        $appInfo = $this->getRandomAppInfo();
-        $musicXml = "<?xml version=\"1.0\"?><msg><appmsg appid={$appInfo['id']} sdkver=\"0\"><title>{$title}</title><des>{$description}</des><type>3</type><action>view</action><url></url><dataurl>{$url}</dataurl><appattach><cdnthumburl></cdnthumburl><cdnthumbmd5></cdnthumbmd5><cdnthumblength>33097</cdnthumblength><cdnthumbwidth>120</cdnthumbwidth><cdnthumbheight>120</cdnthumbheight><cdnthumbaeskey>086a10f766857ea8849cb7335dcd24de</cdnthumbaeskey><aeskey>086a10f766857ea8849cb7335dcd24de</aeskey><encryver>0</encryver><filekey>{$this->botWxid}_1062_1683068786</filekey></appattach><md5></md5><statextstr>GhQKEnd4ZjI5ZjczYzJjNDQxMjk1ZQ==</statextstr><webviewshared><jsAppId><![CDATA[]]></jsAppId></webviewshared><recorditem><![CDATA[(null)]]></recorditem><uploadpercent>99</uploadpercent><secretmsg><isscrectmsg>0</isscrectmsg></secretmsg></appmsg><fromusername>{$this->botWxid}</fromusername><scene>0</scene><appinfo><version>132</version><appname>{$appInfo['name']}</appname></appinfo><commenturl /></msg>";
-
-        return $this->sendXMLMessage($musicXml, $targetWxid);
-    }
-
-    /**
-     * 发送带封面和歌词的音乐消息
-     *
-     * @param string $targetWxid 目标微信ID
-     * @param string $url 音乐URL
-     * @param string $title 音乐标题
-     * @param string $description 音乐描述
-     * @param string|null $coverUrl 封面图URL
-     * @param string|null $lyrics 歌词
-     */
-    public function sendMusicWithCoverAndLyrics(
-        string $targetWxid,
-        string $url,
-        string $title = '',
-        string $description = '',
-        ?string $coverUrl = null,
-        ?string $lyrics = null
-    ): ?Response {
         $appInfo = $this->getRandomAppInfo();
         $musicXml = "<?xml version=\"1.0\"?>\n<msg><appmsg appid=\"{$appInfo['id']}\" sdkver=\"0\"><title>{$title}</title><des>{$description}</des><type>3</type><action>view</action><dataurl>{$url}</dataurl><thumburl>{$coverUrl}</thumburl><songlyric>{$lyrics}</songlyric><appattach><cdnthumbaeskey /><aeskey /></appattach><webviewshared><jsAppId><![CDATA[]]></jsAppId></webviewshared><mpsharetrace><hasfinderelement>0</hasfinderelement></mpsharetrace><secretmsg><isscrectmsg>0</isscrectmsg></secretmsg></appmsg><fromusername>{$this->botWxid}</fromusername><scene>0</scene><appinfo><version>29</version><appname>{$appInfo['name']}</appname></appinfo><commenturl></commenturl>\n</msg>\n";
 

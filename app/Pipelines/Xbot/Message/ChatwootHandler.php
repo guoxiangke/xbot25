@@ -26,6 +26,14 @@ class ChatwootHandler extends BaseXbotHandler
             return $next($context);
         }
 
+        // 检查关键词响应同步开关（只对Bot发出的消息进行检查）
+        if ($context->isFromBot) {
+            $isKeywordResponseSyncEnabled = $context->wechatBot->getMeta('keyword_response_sync_to_chatwoot_enabled', true);
+            if (!$isKeywordResponseSyncEnabled) {
+                return $next($context);
+            }
+        }
+
         // 把消息存储到 chatwoot 中（通过队列异步处理）
         ChatwootHandleQueue::dispatch(
             $context->wechatBot,

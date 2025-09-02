@@ -166,7 +166,7 @@ class XbotController extends Controller
 
         // 处理联系人同步
         if (in_array($msgType, $contactSyncTypes)) {
-            $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
+            // $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
             return null;
         }
 

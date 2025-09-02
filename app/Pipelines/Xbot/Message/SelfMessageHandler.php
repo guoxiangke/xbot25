@@ -49,7 +49,7 @@ class SelfMessageHandler extends BaseXbotHandler
         $value = $parts[2];
 
         // 允许处理的设置项
-        $allowedKeys = ['room_msg', 'chatwoot'];
+        $allowedKeys = ['room_msg', 'chatwoot', 'keyword_response_sync_to_chatwoot'];
         if (!in_array($key, $allowedKeys)) {
             $this->sendTextMessage($context, "未知的设置项: $key\n目前支持: " . implode(', ', $allowedKeys));
             return;

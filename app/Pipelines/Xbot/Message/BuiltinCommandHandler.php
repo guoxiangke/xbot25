@@ -115,7 +115,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
             . "-========系统设置=======- \n"
             . "/set listen_this_room 0/1 - 设置当前群监听开关\n"
             . "/set room_msg 0/1 - 群消息处理开关\n"
-            . "/set chatwoot 0/1 - Chatwoot同步开关";
+            . "/set chatwoot 0/1 - Chatwoot同步开关\n"
+            . "/set keyword_response_sync_to_chatwoot 0/1 - 关键词响应同步到Chatwoot开关";
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
@@ -185,8 +186,11 @@ class BuiltinCommandHandler extends BaseXbotHandler
             case 'room_msg':
                 $this->handleSetRoomMsgCommand($context, $value);
                 break;
+            case 'keyword_response_sync_to_chatwoot':
+                $this->handleSetKeywordResponseSyncCommand($context, $value);
+                break;
             default:
-                $this->sendTextMessage($context, '⚠️ 未知的设置命令\n可用命令：chatwoot, room_msg, listen_this_room');
+                $this->sendTextMessage($context, '⚠️ 未知的设置命令\n可用命令：chatwoot, room_msg, listen_this_room, keyword_response_sync_to_chatwoot');
                 $this->markAsReplied($context);
         }
     }
@@ -304,6 +308,39 @@ class BuiltinCommandHandler extends BaseXbotHandler
         
         $this->log('Set room message processing status', [
             'room_msg_enabled' => $isEnabled,
+            'command_value' => $value
+        ]);
+    }
+
+    /**
+     * 处理关键词响应同步到Chatwoot开关设置命令
+     */
+    private function handleSetKeywordResponseSyncCommand(XbotMessageContext $context, string $value): void
+    {
+        // 检查参数值
+        if (!in_array($value, ['0', '1'])) {
+            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $wechatBot = $context->wechatBot;
+        $isEnabled = $value === '1';
+
+        // 设置关键词响应同步到Chatwoot状态
+        $wechatBot->setMeta('keyword_response_sync_to_chatwoot_enabled', $isEnabled);
+
+        // 发送确认消息
+        if ($isEnabled) {
+            $this->sendTextMessage($context, "✅ 已开启关键词响应同步到Chatwoot");
+        } else {
+            $this->sendTextMessage($context, "❌ 已关闭关键词响应同步到Chatwoot");
+        }
+        
+        $this->markAsReplied($context);
+        
+        $this->log('Set keyword response sync to chatwoot status', [
+            'keyword_response_sync_enabled' => $isEnabled,
             'command_value' => $value
         ]);
     }

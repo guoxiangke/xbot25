@@ -6,6 +6,7 @@ use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 /**
  * 关键词响应处理器
@@ -43,28 +44,55 @@ class KeywordResponseHandler extends BaseXbotHandler
 
         // 处理关键词
         $keyword = $this->preprocessKeyword($content);
-        
+
         // 获取资源
-        $resource = $context->wechatBot->getResouce($keyword);
-        
+        $resource = $this->getResouce($keyword);
+
         if ($resource) {
+            // 检查关键词响应同步开关
+            $isKeywordResponseSyncEnabled = $context->wechatBot->getMeta('keyword_response_sync_to_chatwoot_enabled', true);
+
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);
-            
+
             // 标记已响应，10秒内不重复响应
             Cache::put($cacheKey, true, 10);
-            
+
             $this->log('Keyword response sent', [
                 'keyword' => $keyword,
                 'to' => $context->wxid
             ]);
-            
+
+            // 如果关键词响应同步被关闭，标记消息为已处理，阻止发送到Chatwoot
+            if (!$isKeywordResponseSyncEnabled) {
+                $context->markAsProcessed(static::class);
+                return $context;
+            }
+
             // 关键词响应后继续处理，让原始消息也发送到Chatwoot
             return $next($context);
         }
 
         // 没有匹配的关键词，继续到下一个处理器
         return $next($context);
+    }
+
+    /**
+     * 获取关键词对应的资源
+     */
+    public function getResouce($keyword){
+        $cacheKey = "resources.{$keyword}";
+        return Cache::remember($cacheKey, strtotime('tomorrow') - time(), function() use ($keyword) {
+            $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
+            if($response->ok() && $data = $response->json()){
+                if(isset($data['statistics'])){
+                    $data['data']['statistics'] = $data['statistics'];
+                    unset($data['statistics']);
+                }
+                return $data;
+            }
+            return false;
+        });
     }
 
     /**
@@ -75,12 +103,12 @@ class KeywordResponseHandler extends BaseXbotHandler
         if ($context->msgType === 'MT_RECV_TEXT_MSG') {
             return $context->requestRawData['msg'] ?? '';
         }
-        
+
         if ($context->msgType === 'MT_TRANS_VOICE_MSG') {
             // 直接从消息数据中获取转换后的文本（可能在顶层或data中）
             return $context->requestRawData['text'] ?? $context->requestRawData['data']['text'] ?? '';
         }
-        
+
         return '';
     }
 
@@ -92,11 +120,11 @@ class KeywordResponseHandler extends BaseXbotHandler
     {
         // 基础处理：去除左右空格
         $keyword = trim($content);
-        
+
         // TODO: 未来在此添加更多处理逻辑
         // - 繁体转简体
         // - 其他文本规范化处理
-        
+
         return $keyword;
     }
 
@@ -107,7 +135,7 @@ class KeywordResponseHandler extends BaseXbotHandler
     {
         // 使用WechatBot的send方法发送资源
         $context->wechatBot->send([$context->wxid], $resource);
-        
+
         // 发送附加内容
         if (isset($resource['addition'])) {
             $context->wechatBot->send([$context->wxid], $resource['addition']);

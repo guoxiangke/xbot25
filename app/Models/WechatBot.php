@@ -112,35 +112,20 @@ class WechatBot extends Model
         });
     }
 
-    public function getResouce($keyword){
-        $cacheKey = "resources.{$keyword}";
-        return Cache::remember($cacheKey, strtotime('tomorrow') - time(), function() use ($keyword) {
-            $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
-            if($response->ok() && $data = $response->json()){
-                if(isset($data['statistics'])){
-                    $data['data']['statistics'] = $data['statistics'];
-                    unset($data['statistics']);
-                }
-                return $data;
-            }
-            return false;
-        });
-    }
-
     /**
      * 发送资源消息到指定wxid列表
      */
     public function send(array $tos, array $resource): void
     {
         $xbot = $this->xbot($this->client_id);
-        
+
         if (!isset($resource['data'])) {
             return;
         }
-        
+
         $data = $resource['data'];
         $type = $resource['type'] ?? 'text';
-        
+
         foreach ($tos as $to) {
             switch ($type) {
                 case 'text':
