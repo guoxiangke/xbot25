@@ -54,6 +54,20 @@ class ChatwootHandleQueue implements ShouldQueue
         $isSendByChatwootUI = Cache::get("chatwoot_outgoing_{$this->wechatBot->id}_{$this->wxid}") == $this->content;
         if ($isSendByChatwootUI) return;
 
+        // 避免通过UI发送的附件重复发送到Chatwoot
+        $isImageFromChatwoot = Cache::get("chatwoot_outgoing_attachment_{$this->wechatBot->id}_{$this->wxid}_image");
+        $isAudioFromChatwoot = Cache::get("chatwoot_outgoing_attachment_{$this->wechatBot->id}_{$this->wxid}_audio");
+        $isFileFromChatwoot = Cache::get("chatwoot_outgoing_attachment_{$this->wechatBot->id}_{$this->wxid}_file");
+        $isVideoFromChatwoot = Cache::get("chatwoot_outgoing_attachment_{$this->wechatBot->id}_{$this->wxid}_video");
+
+        // 检查消息内容是否为处理后的附件格式
+        if (($isImageFromChatwoot && str_contains($this->content, '[图片消息]')) ||
+            ($isAudioFromChatwoot && str_contains($this->content, '[音频消息]')) ||
+            ($isFileFromChatwoot && str_contains($this->content, '[文件消息]')) ||
+            ($isVideoFromChatwoot && str_contains($this->content, '[视频消息]'))) {
+            return;
+        }
+
         $this->chatwoot = new Chatwoot($this->wechatBot);
 
         // 获取或创建Chatwoot联系人

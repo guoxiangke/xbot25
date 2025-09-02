@@ -104,13 +104,9 @@ class EmojiMessageHandler extends BaseXbotHandler
         $size = $emojiData['len'] ?? '';
 
         $sizeInfo = '';
-        if (!empty($width) && !empty($height)) {
-            $sizeInfo = " ({$width}x{$height})";
-        }
-
         if (!empty($size) && is_numeric($size)) {
             $sizeMb = round($size / (1024 * 1024), 2);
-            $sizeInfo .= " {$sizeMb}M";
+            $sizeInfo = " {$sizeMb}M";
         }
 
         return "[表情消息]👉[点击查看]({$emojiUrl})👈{$sizeInfo}";
