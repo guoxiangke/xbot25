@@ -29,7 +29,6 @@ class XbotMessageContext
     
     // 联系人详细数据
     public ?array $fromContact = null;  // 发送者联系人详细数据
-    public ?array $toContact = null;    // 接收者联系人详细数据  
     public ?array $roomContact = null;  // 群聊联系人详细数据
 
     public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType, ?int $clientId = null)
@@ -86,14 +85,6 @@ class XbotMessageContext
             $this->fromContact = $contacts[$fromWxid] ?? null;
         }
         
-        // 加载接收者联系人数据
-        if ($toWxid) {
-            $this->toContact = $contacts[$toWxid] ?? null;
-            // 如果是群联系人，移除member_list以减少日志输出
-            if ($this->toContact && str_ends_with($toWxid, '@chatroom')) {
-                unset($this->toContact['member_list']);
-            }
-        }
         
         // 加载群聊联系人数据
         if ($roomWxid) {
@@ -198,13 +189,6 @@ class XbotMessageContext
         return $this->fromContact ? $this->getContactLabel($this->fromContact) : '未知';
     }
 
-    /**
-     * 获取接收者标签
-     */
-    public function getToContactLabel(): string
-    {
-        return $this->toContact ? $this->getContactLabel($this->toContact) : '未知';
-    }
 
     /**
      * 获取群聊标签
@@ -294,7 +278,6 @@ class XbotMessageContext
             'processedMessage' => $this->processedMessage,
             'metadata' => $this->metadata,
             'fromContact' => $this->fromContact,
-            'toContact' => $this->toContact,
             'roomContact' => $this->roomContact,
         ];
     }
