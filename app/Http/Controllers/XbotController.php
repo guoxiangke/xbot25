@@ -28,6 +28,7 @@ use App\Pipelines\Xbot\Message\FileVideoMessageHandler;
 use App\Pipelines\Xbot\Message\LocationMessageHandler;
 use App\Pipelines\Xbot\Message\OtherAppMessageHandler;
 use App\Pipelines\Xbot\Message\KeywordResponseHandler;
+use App\Pipelines\Xbot\Message\SubscriptionHandler;
 use App\Pipelines\Xbot\Message\TextMessageHandler;
 use App\Pipelines\Xbot\Message\ChatwootHandler;
 use Illuminate\Pipeline\Pipeline;
@@ -272,6 +273,7 @@ class XbotController extends Controller
             LinkMessageHandler::class,
             OtherAppMessageHandler::class,
             TextMessageHandler::class,
+            SubscriptionHandler::class,
             KeywordResponseHandler::class,
             ChatwootHandler::class,
         ];

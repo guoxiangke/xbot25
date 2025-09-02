@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * 微信支付消息处理器
  * 处理 MT_RECV_WCPAY_MSG 类型的微信支付/转账消息
+ * 默认自动收款，如果金额为1分钱则自动退款
  * 参考 XbotCallbackController.php 第276-315行的逻辑
  */
 class PaymentMessageHandler extends BaseXbotHandler
@@ -35,24 +36,20 @@ class PaymentMessageHandler extends BaseXbotHandler
         // 保存原始消息类型
         $context->setMetadata('origin_msg_type', $context->msgType);
 
-        // 判断是否自动收款
-        $isAutoWcpay = $context->wechatBot->getMeta('isAutoWcpay', false);
+        // 默认自动收款处理
+        $this->handleAutoPayment($context, $paymentInfo);
         
-        if ($isAutoWcpay) {
-            $this->handleAutoPayment($context, $paymentInfo);
-        } else {
-            // 不自动收款，转换为文本消息继续处理
-            $this->convertToTextMessage($context, $paymentInfo);
-            return $next($context);
-        }
-
+        // 转换为文本消息继续处理，发送到Chatwoot
+        $this->convertToTextMessage($context, $paymentInfo);
+        
         $context->markAsProcessed(static::class);
-        return $context;
+        return $next($context);
     }
 
     /**
      * 解析支付XML
      * 参考 XbotCallbackController.php 第279-281行的逻辑
+     * 使用simplexml_load_string函数与JSON解码解析XML
      */
     private function parsePaymentXml(string $rawMsg): ?array
     {
@@ -61,35 +58,49 @@ class PaymentMessageHandler extends BaseXbotHandler
         }
 
         try {
-            // 简单的XML解析逻辑
-            if (str_contains($rawMsg, '<appmsg>')) {
-                // 提取转账ID
-                $transferId = null;
-                if (preg_match('/<transferid>(.*?)<\/transferid>/', $rawMsg, $matches)) {
-                    $transferId = trim($matches[1]);
-                }
-
-                // 提取金额描述
-                $feedesc = null;
-                if (preg_match('/<feedesc>(.*?)<\/feedesc>/', $rawMsg, $matches)) {
-                    $feedesc = trim($matches[1]);
-                }
-
-                // 提取付款描述
-                $payMemo = null;
-                if (preg_match('/<pay_memo>(.*?)<\/pay_memo>/', $rawMsg, $matches)) {
-                    $payMemo = trim($matches[1]);
-                }
-
-                if ($transferId && $feedesc) {
-                    return [
-                        'transferid' => $transferId,
-                        'feedesc' => $feedesc,
-                        'pay_memo' => $payMemo,
-                        'amount' => $this->parseAmount($feedesc)
-                    ];
-                }
+            // 使用simplexml_load_string解析XML，与helpers.php中的xStringToArray功能一致
+            $xmlObject = simplexml_load_string($rawMsg, null, LIBXML_NOCDATA);
+            if ($xmlObject === false) {
+                $this->logError('Failed to parse XML with simplexml_load_string', [
+                    'raw_msg_preview' => substr($rawMsg, 0, 200)
+                ]);
+                return null;
             }
+
+            // 转换为数组
+            $xml = json_decode(json_encode($xmlObject), true);
+            
+            // 检查是否有支付信息结构
+            if (!isset($xml['appmsg']['wcpayinfo'])) {
+                $this->logError('No wcpayinfo found in XML structure', [
+                    'xml_structure' => array_keys($xml['appmsg'] ?? [])
+                ]);
+                return null;
+            }
+
+            $wcpayinfo = $xml['appmsg']['wcpayinfo'];
+            
+            // 提取支付信息
+            $transferId = $wcpayinfo['transferid'] ?? null;
+            $feedesc = $wcpayinfo['feedesc'] ?? null;
+            $payMemo = $wcpayinfo['pay_memo'] ?? '';
+
+            if (!$transferId || !$feedesc) {
+                $this->logError('Missing required payment info', [
+                    'transferid' => $transferId,
+                    'feedesc' => $feedesc,
+                    'wcpayinfo_keys' => array_keys($wcpayinfo)
+                ]);
+                return null;
+            }
+
+            return [
+                'transferid' => $transferId,
+                'feedesc' => $feedesc,
+                'pay_memo' => $payMemo,
+                'amount' => $this->parseAmount($feedesc)
+            ];
+            
         } catch (\Exception $e) {
             $this->logError('Error parsing payment XML: ' . $e->getMessage(), [
                 'raw_msg_preview' => substr($rawMsg, 0, 200)

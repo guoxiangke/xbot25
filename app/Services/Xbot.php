@@ -629,6 +629,29 @@ final class Xbot
         );
     }
 
+    /**
+     * 自动接受转账（别名方法，兼容旧代码）
+     *
+     * @param string $transferId 转账ID
+     */
+    public function autoAcceptTranster(string $transferId): ?Response
+    {
+        return $this->acceptTransfer($transferId);
+    }
+
+    /**
+     * 拒绝/退回转账
+     *
+     * @param string $transferId 转账ID
+     */
+    public function refund(string $transferId): ?Response
+    {
+        return $this->sendRequest(
+            self::MESSAGE_TYPES['REFUSE_TRANSFER'],
+            ['transferid' => $transferId]
+        );
+    }
+
     // ========== XML消息和位置消息 ==========
 
     /**

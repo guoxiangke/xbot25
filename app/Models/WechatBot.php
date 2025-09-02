@@ -8,6 +8,7 @@ use App\Services\Xbot;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WechatBot extends Model
 {
@@ -158,6 +159,33 @@ class WechatBot extends Model
                     Log::warning('Unknown resource type', ['type' => $type]);
             }
         }
+    }
+
+    /**
+     * 获取关键词对应的资源
+     * 从KeywordResponseHandler移动到此处，以便订阅系统复用
+     */
+    public function getResouce($keyword){
+        $cacheKey = "resources.{$keyword}";
+        return Cache::remember($cacheKey, strtotime('tomorrow') - time(), function() use ($keyword) {
+            $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
+            if($response->ok() && $data = $response->json()){
+                if(isset($data['statistics'])){
+                    $data['data']['statistics'] = $data['statistics'];
+                    unset($data['statistics']);
+                }
+                return $data;
+            }
+            return false;
+        });
+    }
+
+    /**
+     * 订阅关联关系
+     */
+    public function subscriptions()
+    {
+        return $this->hasMany(XbotSubscription::class);
     }
 
 }

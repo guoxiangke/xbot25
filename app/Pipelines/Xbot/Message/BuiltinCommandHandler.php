@@ -2,6 +2,7 @@
 
 namespace App\Pipelines\Xbot\Message;
 
+use App\Models\XbotSubscription;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
@@ -18,6 +19,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/whoami' => 'handleWhoamiCommand',
         '/check online' => 'handleCheckOnlineCommand',
         '/sync contacts' => 'handleSyncContactsCommand',
+        '/list subscriptions' => 'handleListSubscriptionsCommand',
         // 写一个群指令，让机器人自己设置是否监听群消息，而且还需要机器人自己来发，自己响应:已监听群xxx@chatroom，
         // 这个配置要存到
         // $contacts = $wechatBot->getMeta('contacts', $contacts);
@@ -112,11 +114,13 @@ class BuiltinCommandHandler extends BaseXbotHandler
             . "/whoami - 显示当前登录信息\n"
             . "/check online - 检查微信在线状态\n"
             . "/sync contacts - 同步联系人列表\n"
+            . "/list subscriptions - 查看当前订阅列表\n"
             . "-========系统设置=======- \n"
             . "/set listen_this_room 0/1 - 设置当前群监听开关\n"
             . "/set room_msg 0/1 - 群消息处理开关\n"
             . "/set chatwoot 0/1 - Chatwoot同步开关\n"
-            . "/set keyword_response_sync_to_chatwoot 0/1 - 关键词响应同步到Chatwoot开关";
+            . "/set keyword_response_sync_to_chatwoot 0/1 - 关键词响应同步到Chatwoot开关\n"
+            . "/set resources 0/1 - 资源系统响应开关";
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
@@ -189,8 +193,11 @@ class BuiltinCommandHandler extends BaseXbotHandler
             case 'keyword_response_sync_to_chatwoot':
                 $this->handleSetKeywordResponseSyncCommand($context, $value);
                 break;
+            case 'resources':
+                $this->handleSetResourcesCommand($context, $value);
+                break;
             default:
-                $this->sendTextMessage($context, '⚠️ 未知的设置命令\n可用命令：chatwoot, room_msg, listen_this_room, keyword_response_sync_to_chatwoot');
+                $this->sendTextMessage($context, '⚠️ 未知的设置命令\n可用命令：chatwoot, room_msg, listen_this_room, keyword_response_sync_to_chatwoot, resources');
                 $this->markAsReplied($context);
         }
     }
@@ -343,5 +350,78 @@ class BuiltinCommandHandler extends BaseXbotHandler
             'keyword_response_sync_enabled' => $isEnabled,
             'command_value' => $value
         ]);
+    }
+
+    /**
+     * 处理资源系统开关设置命令
+     */
+    private function handleSetResourcesCommand(XbotMessageContext $context, string $value): void
+    {
+        // 检查参数值
+        if (!in_array($value, ['0', '1'])) {
+            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $wechatBot = $context->wechatBot;
+        $isEnabled = $value === '1';
+
+        // 设置资源系统响应状态
+        $wechatBot->setMeta('resources_enabled', $isEnabled);
+
+        // 发送确认消息
+        if ($isEnabled) {
+            $this->sendTextMessage($context, "✅ 资源系统已开启");
+        } else {
+            $this->sendTextMessage($context, "❌ 资源系统已关闭");
+        }
+        
+        $this->markAsReplied($context);
+        
+        $this->log('Set resources system status', [
+            'resources_enabled' => $isEnabled,
+            'command_value' => $value
+        ]);
+    }
+
+    /**
+     * 处理查看订阅列表命令
+     */
+    private function handleListSubscriptionsCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $wxid = $context->wxid;
+
+        // 获取当前联系人的所有订阅
+        $subscriptions = XbotSubscription::query()
+            ->where('wechat_bot_id', $wechatBot->id)
+            ->where('wxid', $wxid)
+            ->get();
+
+        if ($subscriptions->isEmpty()) {
+            $this->sendTextMessage($context, '暂无订阅');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 构建订阅列表消息
+        $subscriptionList = "当前订阅列表：\n";
+        foreach ($subscriptions as $index => $subscription) {
+            $hour = $this->getHourFromCron($subscription->cron);
+            $subscriptionList .= ($index + 1) . ". {$subscription->keyword} (每天{$hour}点)\n";
+        }
+
+        $this->sendTextMessage($context, $subscriptionList);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 从cron表达式中提取小时
+     */
+    private function getHourFromCron(string $cron): int
+    {
+        $parts = explode(' ', $cron);
+        return isset($parts[1]) ? intval($parts[1]) : 7;
     }
 }

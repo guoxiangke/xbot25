@@ -46,7 +46,7 @@ class KeywordResponseHandler extends BaseXbotHandler
         $keyword = $this->preprocessKeyword($content);
 
         // 获取资源
-        $resource = $this->getResouce($keyword);
+        $resource = $context->wechatBot->getResouce($keyword);
 
         if ($resource) {
             // 检查关键词响应同步开关
@@ -77,23 +77,6 @@ class KeywordResponseHandler extends BaseXbotHandler
         return $next($context);
     }
 
-    /**
-     * 获取关键词对应的资源
-     */
-    public function getResouce($keyword){
-        $cacheKey = "resources.{$keyword}";
-        return Cache::remember($cacheKey, strtotime('tomorrow') - time(), function() use ($keyword) {
-            $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
-            if($response->ok() && $data = $response->json()){
-                if(isset($data['statistics'])){
-                    $data['data']['statistics'] = $data['statistics'];
-                    unset($data['statistics']);
-                }
-                return $data;
-            }
-            return false;
-        });
-    }
 
     /**
      * 提取消息内容
