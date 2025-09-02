@@ -7,6 +7,7 @@ use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * 关键词响应处理器
@@ -30,16 +31,15 @@ class KeywordResponseHandler extends BaseXbotHandler
             return $next($context);
         }
 
-        // 检查是否已经响应过（防止重复响应）
-        $cacheKey = "keyword_replied:{$context->wechatBot->wxid}:{$context->wxid}:" . md5($context->requestRawData['msg'] ?? '');
-        if (Cache::get($cacheKey, false)) {
-            return $next($context);
-        }
-
         // 提取并预处理消息内容
         $content = $this->extractMessageContent($context);
         if (empty($content)) {
             return $next($context);
+        }
+
+        // 检查是否为 YouTube 链接
+        if ($this->isYouTubeLink($content)) {
+            return $this->handleYouTubeLink($context, $content, $next);
         }
 
         // 处理关键词
@@ -54,9 +54,6 @@ class KeywordResponseHandler extends BaseXbotHandler
 
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);
-
-            // 标记已响应，10秒内不重复响应
-            Cache::put($cacheKey, true, 10);
 
             $this->log('Keyword response sent', [
                 'keyword' => $keyword,
@@ -109,6 +106,73 @@ class KeywordResponseHandler extends BaseXbotHandler
         // - 其他文本规范化处理
 
         return $keyword;
+    }
+
+    /**
+     * 检查是否为 YouTube 链接
+     */
+    private function isYouTubeLink(string $content): bool
+    {
+        return Str::contains($content, ['youtube.', 'youtu.be']);
+    }
+
+    /**
+     * 处理 YouTube 链接
+     */
+    private function handleYouTubeLink(XbotMessageContext $context, string $content, Closure $next)
+    {
+        // 检查是否在允许的群组或用户中
+        if (!$this->isYouTubeAllowed($context)) {
+            // 不在允许的群组中，直接跳过，不响应
+            return $next($context);
+        }
+
+        // 获取 YouTube 资源响应
+        $resource = $context->wechatBot->getResouce($content);
+
+        if ($resource) {
+            // 发送资源响应
+            $this->sendKeywordResponse($context, $resource);
+
+            $this->log('YouTube link response sent', [
+                'content' => $content,
+                'to' => $context->wxid,
+                'is_room' => $context->isRoom
+            ]);
+
+            // YouTube 响应后继续处理，让原始消息也发送到Chatwoot
+            return $next($context);
+        }
+
+        // 没有匹配的资源，继续处理
+        return $next($context);
+    }
+
+    /**
+     * 检查是否允许响应 YouTube 链接
+     */
+    private function isYouTubeAllowed(XbotMessageContext $context): bool
+    {
+        // 获取 YouTube 允许的群组列表
+        $allowedRooms = $context->wechatBot->getMeta('youtube_allowed_rooms', [
+            "26570621741@chatroom",
+            "18403467252@chatroom",  // Youtube精选
+            "34974119368@chatroom",
+            "57526085509@chatroom",  // LFC活力生命
+            "58088888496@chatroom",  // 活泼的生命
+            "57057092201@chatroom",  // 每天一章
+        ]);
+
+        // 获取 YouTube 允许的用户列表
+        $allowedUsers = $context->wechatBot->getMeta('youtube_allowed_users', ['keke302','bluesky_still']);
+
+        // 检查群消息
+        if ($context->isRoom) {
+            return in_array($context->roomWxid, $allowedRooms);
+        }
+
+        // 检查私聊消息
+        return in_array($context->fromWxid, $allowedUsers);
     }
 
     /**

@@ -188,4 +188,33 @@ class WechatBot extends Model
         return $this->hasMany(XbotSubscription::class);
     }
 
+    /**
+     * 检查机器人是否在线
+     */
+    public function isLive(): bool
+    {
+        $this->xbot()->getSelfInfo();
+        sleep(5);
+        $this->refresh();
+        
+        if ($this->is_live_at && $this->is_live_at->diffInMinutes() > 1) {
+            Log::error(__CLASS__, [
+                'function' => __FUNCTION__, 
+                'message' => 'XbotIsLive 程序崩溃时,已下线！', 
+                'wxid' => $this->wxid, 
+                'client_id' => $this->client_id, 
+                'name' => $this->name
+            ]);
+            
+            $this->login_at = null;
+            $this->is_live_at = null;
+            $this->client_id = null;
+            $this->save();
+            
+            return false;
+        }
+        
+        return true;
+    }
+
 }

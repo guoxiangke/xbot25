@@ -36,17 +36,19 @@ class SubscriptionHandler extends BaseXbotHandler
         // 处理订阅命令
         if (Str::startsWith($content, '订阅')) {
             $this->handleSubscribe($context, $content);
-            // 订阅处理完毕，不继续处理
-            $context->markAsProcessed(static::class);
-            return $context;
+            // 保留原始消息类型以便后续扩展
+            $context->setMetadata('origin_msg_type', $context->requestRawData['type'] ?? '');
+            // 继续传递到下游处理器（如ChatwootHandler）
+            return $next($context);
         }
 
         // 处理取消订阅命令
         if (Str::startsWith($content, '取消订阅')) {
             $this->handleUnsubscribe($context, $content);
-            // 取消订阅处理完毕，不继续处理
-            $context->markAsProcessed(static::class);
-            return $context;
+            // 保留原始消息类型以便后续扩展
+            $context->setMetadata('origin_msg_type', $context->requestRawData['type'] ?? '');
+            // 继续传递到下游处理器（如ChatwootHandler）
+            return $next($context);
         }
 
         // 没有匹配的订阅命令，继续到下一个处理器
@@ -69,8 +71,13 @@ class SubscriptionHandler extends BaseXbotHandler
         // 验证关键词是否存在资源
         $resource = $context->wechatBot->getResouce($keyword);
         if (!$resource) {
-            $this->sendResponse($context, '关键词不存在任何资源，无法订阅');
-            return;
+            // 检查是否存在自动回复
+            $autoReply = $context->wechatBot->autoReplies()->where('keyword', $keyword)->first();
+            if (!$autoReply) {
+                $this->sendResponse($context, '关键词不存在任何资源，无法订阅');
+                return;
+            }
+            $resource = $autoReply->content;
         }
 
         // 检查个人订阅限制
@@ -141,7 +148,7 @@ class SubscriptionHandler extends BaseXbotHandler
      */
     private function sendResponse(XbotMessageContext $context, string $message): void
     {
-        $context->wechatBot->xbot($context->wechatBot->client_id)->sendText($context->wxid, $message);
+        $context->wechatBot->xbot($context->wechatBot->client_id)->sendTextMessage($context->wxid, $message);
     }
 
     /**

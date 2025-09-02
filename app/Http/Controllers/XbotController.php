@@ -272,8 +272,8 @@ class XbotController extends Controller
             EmojiMessageHandler::class,
             LinkMessageHandler::class,
             OtherAppMessageHandler::class,
-            TextMessageHandler::class,
             SubscriptionHandler::class,
+            TextMessageHandler::class,
             KeywordResponseHandler::class,
             ChatwootHandler::class,
         ];
