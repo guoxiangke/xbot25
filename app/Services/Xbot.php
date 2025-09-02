@@ -40,7 +40,7 @@ final class Xbot
         'SEND_FILE' => 'MT_SEND_FILEMSG',
         'SEND_IMAGE' => 'MT_SEND_IMGMSG',
         'SEND_IMAGE_URL' => 'MT_SEND_IMGMSG_BY_URL',
-        'SEND_FILE_URL' => 'MT_SEND_FILE_BY_URL',
+        'SEND_FILE_URL' => 'MT_SEND_FILEMSG_BY_URL',
         'GET_FRIENDS' => 'MT_DATA_FRIENDS_MSG',
         'GET_FRIEND_INFO' => 'MT_DATA_WXID_MSG',
         'GET_CHATROOMS' => 'MT_DATA_CHATROOMS_MSG',

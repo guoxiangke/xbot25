@@ -100,8 +100,21 @@ class OtherAppMessageHandler extends BaseXbotHandler
             if (preg_match('/<content>(.*?)<\/content>/s', $refermsgXml, $contentMatches)) {
                 $referContent = html_entity_decode($contentMatches[1]);
 
-                // 如果引用的内容是XML格式，进一步解析
-                if (str_contains($referContent, '<title>')) {
+                // 检查是否引用的是图片消息（检查HTML编码和原始格式）
+                if ((str_contains($referContent, '&lt;img ') || str_contains($referContent, '<img ')) && 
+                    (str_contains($referContent, 'length="') || str_contains($referContent, 'hdlength="'))) {
+                    // 提取图片大小，优先使用 hdlength，其次使用 length
+                    if (preg_match('/hdlength="(\d+)"/', $referContent, $sizeMatches) || 
+                        preg_match('/length="(\d+)"/', $referContent, $sizeMatches)) {
+                        $sizeBytes = (int)$sizeMatches[1];
+                        $sizeMB = round($sizeBytes / 1024 / 1024, 2);
+                        $xmlData['refermsg']['content'] = "[引用图片] {$sizeMB}M";
+                    } else {
+                        $xmlData['refermsg']['content'] = "[引用图片]";
+                    }
+                }
+                // 如果引用的内容是其他XML格式，进一步解析
+                elseif (str_contains($referContent, '<title>')) {
                     if (preg_match('/<title>(.*?)<\/title>/', $referContent, $titleMatches)) {
                         $xmlData['refermsg']['content'] = html_entity_decode($titleMatches[1]);
                     }
@@ -113,6 +126,16 @@ class OtherAppMessageHandler extends BaseXbotHandler
             // 解析引用消息的发送者
             if (preg_match('/<displayname>(.*?)<\/displayname>/', $refermsgXml, $nameMatches)) {
                 $xmlData['refermsg']['displayname'] = html_entity_decode($nameMatches[1]);
+            }
+
+            // 检查msgsource中是否有图片大小信息
+            if (preg_match('/<msgsource>(.*?)<\/msgsource>/s', $refermsgXml, $msgsourceMatches)) {
+                $msgsourceContent = $msgsourceMatches[1];
+                if (preg_match('/cdnbigimgurl_size="(\d+)"/', $msgsourceContent, $sizeMatches)) {
+                    $sizeBytes = (int)$sizeMatches[1];
+                    $sizeMB = round($sizeBytes / 1024 / 1024, 2);
+                    $xmlData['refermsg']['content'] = "[引用图片] {$sizeMB}M";
+                }
             }
         }
 

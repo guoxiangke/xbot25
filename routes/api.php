@@ -55,30 +55,59 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
  // Inbox webhook of chatwoot
  Route::post('/chatwoot/{wechatBot}', function (Request $request, WechatBot $wechatBot) {
-     $messageType = $request['message_type']; //只处理 outgoing ，即发送的消息，=》xbot处理发送。ignore incoming
-     $event = $request['event']; //只处理message_created，不处理conversation_updated
-     $contentType = $request['content_type']; //text
 
-     // 检查source_id - 如果是xbot_agent发送的消息则忽略，避免循环
-     // 但第一次通过UI发送的，没有 source_id， 会发2次，第一次没有，第二次有
+     $messageType = $request['message_type'];
+     $event = $request['event'];
      $sourceId = $request['source_id'] ?? '';
-     if ($sourceId === 'xbot_agent') return ; // 这是Xbot agent发送的消息，忽略以避免循环
 
-     // incoming 表示「访客 / 用户 / 客户」发进来的消息
-     // outgoing 表示「坐席 / 机器人 / 系统」发出去的消息。
-     // outgoing 是chatwoot主动发出的消息
-     // TODO incoming 是chatwoot收到的消息
-     if($event == 'message_created' && $messageType == 'outgoing' && $contentType == 'text'){
-         Log::error('debug chatwoot webhook',[$sourceId]);
-         $content = $request['content'];
-//         $to_wxid = $request['conversation']['meta']['sender']['identifier'];//"identifier" => $wxid,
-         $toWxid = $request['conversation']['meta']['sender']['custom_attributes']['wxid'];//"identifier" => $wxid,
+     // 忽略xbot_agent发送的消息，避免循环
+     if ($sourceId === 'xbot_agent') return;
 
-         // 这是UI人工发送的消息，需要转发到Xbot
-         $wechatBot->xbot()->sendTextMessage($toWxid, $content);
-         // cache 最近发送的消息，避免循环
-         Cache::set("chatwoot_outgoing_{$wechatBot->id}_{$toWxid}", $content, 30);
+     // 只处理outgoing消息的created和updated事件
+     if ($messageType !== 'outgoing' || !in_array($event, ['message_created', 'message_updated'])) {
+         return;
      }
-     //
+     Log::error('debug chatwoot webhook', [$request->all()]);
+
+
+     $toWxid = $request['conversation']['meta']['sender']['custom_attributes']['wxid'] ?? '';
+     if (empty($toWxid)) return;
+
+     // 检查并处理附件
+     $attachments = $request['attachments'] ?? [];
+     foreach ($attachments as $attachment) {
+         $fileType = $attachment['file_type'];
+         $fileUrl = $attachment['data_url'];
+         
+         if ($fileType === 'image') {
+             $wechatBot->xbot()->sendImageByUrl($toWxid, $fileUrl);
+             
+             Log::info('Chatwoot image sent to WeChat', [
+                 'to_wxid' => $toWxid,
+                 'file_url' => $fileUrl,
+                 'attachment_id' => $attachment['id']
+             ]);
+         } elseif (in_array($fileType, ['audio', 'file', 'video'])) {
+             $wechatBot->xbot()->sendFileByUrl($toWxid, $fileUrl);
+             
+             Log::info('Chatwoot file sent to WeChat', [
+                 'to_wxid' => $toWxid,
+                 'file_type' => $fileType,
+                 'file_url' => $fileUrl,
+                 'attachment_id' => $attachment['id'],
+                 'file_size' => $attachment['file_size'] ?? 0
+             ]);
+         }
+     }
+
+     // 如果没有附件，处理文本消息
+     if (empty($attachments)) {
+         $content = $request['content'] ?? '';
+         if (!empty($content)) {
+             $wechatBot->xbot()->sendTextMessage($toWxid, $content);
+             Cache::set("chatwoot_outgoing_{$wechatBot->id}_{$toWxid}", $content, 30);
+         }
+     }
+
      return true;
  });
