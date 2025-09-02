@@ -41,7 +41,17 @@ Route::post('/xbot/license/info', function (Request $request) {
 });
 
 use App\Http\Controllers\XbotController;
+use App\Http\Controllers\WechatApiController;
+
 Route::any('/xbot/{winToken}', XbotController::class);
+
+// {"type":"text", "to":"bluesky_still", "data": {"content": "API主动发送 文本/链接/名片/图片/视频 消息到好友/群"}}
+// {"type":"at", "to" :"23896218687@chatroom", "data": {"at":["wxid_xxxxxx","wxid_xxxxxxx"],"content": "{$@}消息到好友/群{$@}"}}
+Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::post('/wechat/send', [WechatApiController::class, 'send']);
+    Route::post('/wechat/add', [WechatApiController::class, 'add']);
+    Route::get('/wechat/friends', [WechatApiController::class, 'getFriends']);
+});
 
  // Inbox webhook of chatwoot
  Route::post('/chatwoot/{wechatBot}', function (Request $request, WechatBot $wechatBot) {
