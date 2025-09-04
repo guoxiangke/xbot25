@@ -5,6 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Jobs\ChatwootHandleQueue;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\XbotConfigManager;
 use Closure;
 
 /**
@@ -28,8 +29,8 @@ class ChatwootHandler extends BaseXbotHandler
 
         // 检查关键词响应同步开关（只对Bot发出的消息进行检查）
         if ($context->isFromBot) {
-            $isKeywordResponseSyncEnabled = $context->wechatBot->getMeta('keyword_response_sync_to_chatwoot_enabled', true);
-            if (!$isKeywordResponseSyncEnabled) {
+            $configManager = new XbotConfigManager($context->wechatBot);
+            if (!$configManager->isEnabled('keyword_sync')) {
                 return $next($context);
             }
         }

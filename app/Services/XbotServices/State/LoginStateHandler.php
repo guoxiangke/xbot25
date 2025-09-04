@@ -74,7 +74,7 @@ class LoginStateHandler
             ]);
             // 更新联系人数据，把机器人也作为一个联系人
             $wechatBot->handleContacts([$requestRawData]);
-            Log::info(__CLASS__, [__LINE__, '更新WechatBot登录时间', $wechatBot->toArray()]);
+            Log::info(__CLASS__, [__LINE__, '更新WechatBot登录时间', $this->xbotWxid]);
         }
 
         $wechatBot->setMeta('xbot', $requestRawData);

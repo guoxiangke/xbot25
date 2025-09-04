@@ -4,6 +4,7 @@ namespace App\Services\XbotServices;
 
 use App\Jobs\XbotContactHandleQueue;
 use App\Models\WechatBot;
+use App\Services\XbotConfigManager;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -33,7 +34,8 @@ class ContactSyncProcessor
                 $wechatBot->handleContacts([$contactData]);
 
                 // 分发到Chatwoot队列
-                $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
+                $configManager = new XbotConfigManager($wechatBot);
+                $chatwootEnabled = $configManager->isEnabled('chatwoot');
                 if ($chatwootEnabled) {
                     $contactType = $contactData['type'] ?? 0;
                     $label = WechatBot::getContactTypeLabel($contactType);
@@ -51,15 +53,16 @@ class ContactSyncProcessor
         // 返回 以 wxid 为 key 的联系人数组
         $wechatBot->handleContacts($requestRawData);
 
-        // 如果是群列表同步，自动获取每个群的成员信息
-        if ($msgType === 'MT_DATA_CHATROOMS_MSG') {
-            $this->requestChatroomMembersInfo($wechatBot, $requestRawData);
-        }
-
-        $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
+        $configManager = new XbotConfigManager($wechatBot);
+        $chatwootEnabled = $configManager->isEnabled('chatwoot');
         if(!$chatwootEnabled) {
             Log::info('Chatwoot未启用，跳过队列处理', ['wechatBot' => $wechatBot->wxid]);
             return;
+        }
+
+        // 如果是群列表同步，自动获取每个群的成员信息（仅在 Chatwoot 启用时）
+        if ($msgType === 'MT_DATA_CHATROOMS_MSG') {
+            $this->requestChatroomMembersInfo($wechatBot, $requestRawData);
         }
 
         $contacts = $requestRawData;
@@ -192,7 +195,8 @@ class ContactSyncProcessor
         }
 
         // 检查Chatwoot是否启用
-        $chatwootEnabled = $wechatBot->getMeta('chatwoot_enabled', 1);
+        $configManager = new XbotConfigManager($wechatBot);
+        $chatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$chatwootEnabled) {
             Log::info('Chatwoot未启用，跳过群成员队列处理', ['wechatBot' => $wechatBot->wxid]);
             return;

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\WechatBot;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Chatwoot;
+use App\Services\XbotConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -47,7 +48,8 @@ class ChatwootHandleQueue implements ShouldQueue
     public function handle()
     {
         // 检查Chatwoot是否启用
-        $isChatwootEnabled = $this->wechatBot->getMeta('chatwoot_enabled', false);
+        $configManager = new XbotConfigManager($this->wechatBot);
+        $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) return;
 
         // 避免通过UI发送的消息重复发送到Chatwoot

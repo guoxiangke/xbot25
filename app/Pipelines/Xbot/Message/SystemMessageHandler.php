@@ -5,6 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Chatwoot;
+use App\Services\XbotConfigManager;
 use Closure;
 
 /**
@@ -66,7 +67,8 @@ class SystemMessageHandler extends BaseXbotHandler
         }
 
         // 检查 Chatwoot 是否启用
-        $isChatwootEnabled = $context->wechatBot->getMeta('chatwoot_enabled', false);
+        $configManager = new XbotConfigManager($context->wechatBot);
+        $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) {
             return;
         }

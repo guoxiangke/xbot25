@@ -4,6 +4,7 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\XbotConfigManager;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -42,6 +43,12 @@ class KeywordResponseHandler extends BaseXbotHandler
             return $this->handleYouTubeLink($context, $content, $next);
         }
 
+        // 检查资源系统是否启用
+        $configManager = new XbotConfigManager($context->wechatBot);
+        if (!$configManager->isEnabled('keyword_resources')) {
+            return $next($context);
+        }
+
         // 处理关键词
         $keyword = $this->preprocessKeyword($content);
 
@@ -50,7 +57,7 @@ class KeywordResponseHandler extends BaseXbotHandler
 
         if ($resource) {
             // 检查关键词响应同步开关
-            $isKeywordResponseSyncEnabled = $context->wechatBot->getMeta('keyword_response_sync_to_chatwoot_enabled', true);
+            $isKeywordResponseSyncEnabled = $configManager->isEnabled('keyword_sync');
 
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);

@@ -7,6 +7,7 @@ use App\Models\WechatClient;
 use App\Services\Xbot;
 use App\Http\Requests\XbotRequest;
 use App\Services\XbotServices\ContactSyncProcessor;
+use App\Services\XbotConfigManager;
 use App\Services\XbotServices\State\QrCodeStateHandler;
 use App\Services\XbotServices\State\LoginStateHandler;
 use App\Services\XbotServices\State\LogoutStateHandler;
@@ -167,15 +168,22 @@ class XbotController extends Controller
 
         // 处理联系人同步
         if (in_array($msgType, $contactSyncTypes)) {
-            // $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
+            $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
             return null;
         }
 
         // 忽略群消息（如果未启用群消息处理）
         $isRoom = $requestRawData['room_wxid'] ?? false;
         if ($isRoom) {
-            $isHandleRoomMsg = $wechatBot->getMeta('room_msg_enabled', false);
-            if (!$isHandleRoomMsg) {
+            $configManager = new XbotConfigManager($wechatBot);
+            
+            if (!$configManager->isEnabled('room_msg')) {
+                return null;
+            }
+
+            // 检查特定群监听开关
+            $roomWxid = $requestRawData['room_wxid'];
+            if (!$configManager->isEnabled('chatroom_listen', $roomWxid)) {
                 return null;
             }
         }

@@ -5,6 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Models\XbotSubscription;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\XbotConfigManager;
 use Closure;
 
 /**
@@ -20,11 +21,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/check online' => 'handleCheckOnlineCommand',
         '/sync contacts' => 'handleSyncContactsCommand',
         '/list subscriptions' => 'handleListSubscriptionsCommand',
-        // 写一个群指令，让机器人自己设置是否监听群消息，而且还需要机器人自己来发，自己响应:已监听群xxx@chatroom，
-        // 这个配置要存到
-        // $contacts = $wechatBot->getMeta('contacts', $contacts);
-        // $contacts[$thisRoomWxid]['listen_this_room'] = true/false;
-        // '/set listen_this_room 0/1' => '',
+        '/config' => 'handleConfigCommand',
+        // 群监听配置已重构为chatroom_listen
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -115,12 +113,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
             . "/check online - 检查微信在线状态\n"
             . "/sync contacts - 同步联系人列表\n"
             . "/list subscriptions - 查看当前订阅列表\n"
-            . "-========系统设置=======- \n"
-            . "/set listen_this_room 0/1 - 设置当前群监听开关\n"
-            . "/set room_msg 0/1 - 群消息处理开关\n"
-            . "/set chatwoot 0/1 - Chatwoot同步开关\n"
-            . "/set keyword_response_sync_to_chatwoot 0/1 - 关键词响应同步到Chatwoot开关\n"
-            . "/set resources 0/1 - 资源系统响应开关";
+            . "/config - 查看和管理系统配置";
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
@@ -143,7 +136,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private function handleSyncContactsCommand(XbotMessageContext $context): void
     {
         // 检查是否启用Chatwoot同步
-        $isChatwootEnabled = $context->wechatBot->getMeta('chatwoot_enabled', false);
+        $configManager = new XbotConfigManager($context->wechatBot);
+        $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) {
             $this->sendTextMessage($context, '⚠️ Chatwoot同步未启用\n请先使用 /set chatwoot 1 启用');
             $this->markAsReplied($context);
@@ -167,7 +161,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleSetCommand(XbotMessageContext $context, string $keyword): void
     {
-        // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set listen_this_room 0/1
+        // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set chatroom_listen 0/1
         // 使用 preg_split 处理多个空格的情况
         $parts = array_values(array_filter(preg_split('/\s+/', trim($keyword)), 'strlen'));
         
@@ -180,210 +174,78 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $command = $parts[1] ?? '';
         $value = $parts[2] ?? '';
 
-        switch ($command) {
-            case 'listen_this_room':
-                $this->handleSetListenRoomCommand($context, $value);
-                break;
-            case 'chatwoot':
-                $this->handleSetChatwootCommand($context, $value);
-                break;
-            case 'room_msg':
-                $this->handleSetRoomMsgCommand($context, $value);
-                break;
-            case 'keyword_response_sync_to_chatwoot':
-                $this->handleSetKeywordResponseSyncCommand($context, $value);
-                break;
-            case 'resources':
-                $this->handleSetResourcesCommand($context, $value);
-                break;
-            default:
-                $this->sendTextMessage($context, '⚠️ 未知的设置命令\n可用命令：chatwoot, room_msg, listen_this_room, keyword_response_sync_to_chatwoot, resources');
+        // 使用统一的配置设置方法
+        $this->handleUnifiedSetCommand($context, $command, $value);
+    }
+
+    /**
+     * 统一的配置设置处理方法
+     */
+    private function handleUnifiedSetCommand(XbotMessageContext $context, string $command, string $value): void
+    {
+        // 检查参数值
+        if (!in_array($value, ['0', '1'])) {
+            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $configManager = new XbotConfigManager($context->wechatBot);
+        $isEnabled = $value === '1';
+
+        try {
+            // 检查配置是否存在
+            if (!in_array($command, $configManager::getAvailableCommands())) {
+                $availableCommands = implode(', ', $configManager::getAvailableCommands());
+                $this->sendTextMessage($context, "⚠️ 未知的设置命令\n可用命令：{$availableCommands}");
                 $this->markAsReplied($context);
+                return;
+            }
+
+            // 检查群级别配置是否在群聊中使用  
+            if ($command === 'chatroom_listen') {
+                $roomWxid = $context->requestRawData['room_wxid'] ?? '';
+                if (empty($roomWxid)) {
+                    $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
+                    $this->markAsReplied($context);
+                    return;
+                }
+            }
+
+            // 设置配置
+            $roomWxid = $context->requestRawData['room_wxid'] ?? null;
+            $configManager->set($command, $isEnabled, $roomWxid);
+
+            // 发送确认消息
+            $configName = $configManager->getConfigName($command);
+            $this->sendConfigUpdateMessage($context, $configName, $isEnabled);
+            $this->markAsReplied($context);
+            
+            $this->log('Config updated', [
+                'command' => $command,
+                'value' => $value,
+                'enabled' => $isEnabled
+            ]);
+
+        } catch (\Exception $e) {
+            $this->sendTextMessage($context, "❌ 配置设置失败：{$e->getMessage()}");
+            $this->markAsReplied($context);
         }
     }
 
-    /**
-     * 处理群消息监听设置命令
-     */
-    private function handleSetListenRoomCommand(XbotMessageContext $context, string $value): void
-    {
-        // 检查是否在群聊中
-        $roomWxid = $context->requestRawData['room_wxid'] ?? '';
-        if (empty($roomWxid)) {
-            $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isListen = $value === '1';
-
-        // 获取现有的联系人数据
-        $contacts = $wechatBot->getMeta('contacts', []);
-        
-        // 设置群聊监听状态
-        if (!isset($contacts[$roomWxid])) {
-            $contacts[$roomWxid] = [];
-        }
-        $contacts[$roomWxid]['listen_this_room'] = $isListen;
-        
-        // 保存设置
-        $wechatBot->setMeta('contacts', $contacts);
-
-        // 发送确认消息
-        if ($isListen) {
-            $this->sendTextMessage($context, "✅ 已监听群{$roomWxid}");
-        } else {
-            $this->sendTextMessage($context, "❌ 已停止监听群{$roomWxid}");
-        }
-        
-        $this->markAsReplied($context);
-        
-        $this->log('Set room listening status', [
-            'room_wxid' => $roomWxid,
-            'listen_status' => $isListen,
-            'command_value' => $value
-        ]);
-    }
 
     /**
-     * 处理Chatwoot同步开关设置命令
+     * 发送配置更新消息
      */
-    private function handleSetChatwootCommand(XbotMessageContext $context, string $value): void
+    private function sendConfigUpdateMessage(XbotMessageContext $context, string $configName, bool $isEnabled): void
     {
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isEnabled = $value === '1';
-
-        // 设置Chatwoot同步状态
-        $wechatBot->setMeta('chatwoot_enabled', $isEnabled);
-
-        // 发送确认消息
         if ($isEnabled) {
-            $this->sendTextMessage($context, "✅ 已开启Chatwoot同步");
+            $this->sendTextMessage($context, "✅ 已开启{$configName}");
         } else {
-            $this->sendTextMessage($context, "❌ 已关闭Chatwoot同步");
+            $this->sendTextMessage($context, "❌ 已关闭{$configName}");
         }
-        
-        $this->markAsReplied($context);
-        
-        $this->log('Set chatwoot sync status', [
-            'chatwoot_enabled' => $isEnabled,
-            'command_value' => $value
-        ]);
     }
 
-    /**
-     * 处理群消息处理开关设置命令
-     */
-    private function handleSetRoomMsgCommand(XbotMessageContext $context, string $value): void
-    {
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isEnabled = $value === '1';
-
-        // 设置群消息处理状态
-        $wechatBot->setMeta('room_msg_enabled', $isEnabled);
-
-        // 发送确认消息
-        if ($isEnabled) {
-            $this->sendTextMessage($context, "✅ 已开启群消息处理");
-        } else {
-            $this->sendTextMessage($context, "❌ 已关闭群消息处理");
-        }
-        
-        $this->markAsReplied($context);
-        
-        $this->log('Set room message processing status', [
-            'room_msg_enabled' => $isEnabled,
-            'command_value' => $value
-        ]);
-    }
-
-    /**
-     * 处理关键词响应同步到Chatwoot开关设置命令
-     */
-    private function handleSetKeywordResponseSyncCommand(XbotMessageContext $context, string $value): void
-    {
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isEnabled = $value === '1';
-
-        // 设置关键词响应同步到Chatwoot状态
-        $wechatBot->setMeta('keyword_response_sync_to_chatwoot_enabled', $isEnabled);
-
-        // 发送确认消息
-        if ($isEnabled) {
-            $this->sendTextMessage($context, "✅ 已开启关键词响应同步到Chatwoot");
-        } else {
-            $this->sendTextMessage($context, "❌ 已关闭关键词响应同步到Chatwoot");
-        }
-        
-        $this->markAsReplied($context);
-        
-        $this->log('Set keyword response sync to chatwoot status', [
-            'keyword_response_sync_enabled' => $isEnabled,
-            'command_value' => $value
-        ]);
-    }
-
-    /**
-     * 处理资源系统开关设置命令
-     */
-    private function handleSetResourcesCommand(XbotMessageContext $context, string $value): void
-    {
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isEnabled = $value === '1';
-
-        // 设置资源系统响应状态
-        $wechatBot->setMeta('resources_enabled', $isEnabled);
-
-        // 发送确认消息
-        if ($isEnabled) {
-            $this->sendTextMessage($context, "✅ 资源系统已开启");
-        } else {
-            $this->sendTextMessage($context, "❌ 资源系统已关闭");
-        }
-        
-        $this->markAsReplied($context);
-        
-        $this->log('Set resources system status', [
-            'resources_enabled' => $isEnabled,
-            'command_value' => $value
-        ]);
-    }
 
     /**
      * 处理查看订阅列表命令
@@ -423,5 +285,45 @@ class BuiltinCommandHandler extends BaseXbotHandler
     {
         $parts = explode(' ', $cron);
         return isset($parts[1]) ? intval($parts[1]) : 7;
+    }
+
+    /**
+     * 处理配置查看命令
+     */
+    private function handleConfigCommand(XbotMessageContext $context): void
+    {
+        $configManager = new XbotConfigManager($context->wechatBot);
+        
+        // 构建配置状态消息
+        $message = "📋 当前配置状态：\n\n";
+        $message .= "🌐 全局配置：\n";
+        
+        // 显示全局配置
+        $globalConfigs = $configManager->getAll();
+        foreach ($globalConfigs as $command => $value) {
+            $status = $value ? '✅开启' : '❌关闭';
+            $message .= "• {$command}: {$status}\n";
+        }
+        
+        // 如果是群消息，显示当前群的配置
+        if ($context->isRoom) {
+            $message .= "\n🏠 当前群配置：\n";
+            $roomConfigs = $configManager->getAll($context->roomWxid);
+            foreach ($roomConfigs as $command => $value) {
+                $status = $value ? '✅开启' : '❌关闭';
+                $message .= "• {$command}: {$status}\n";
+            }
+        }
+        
+        $message .= "\n💡 使用 /set <配置名> 0/1 修改配置";
+        $message .= "\n💡 使用 /help 查看所有命令";
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+        
+        $this->log('Config status displayed', [
+            'is_room' => $context->isRoom,
+            'room_wxid' => $context->roomWxid ?? null
+        ]);
     }
 }
