@@ -15,14 +15,13 @@ use Closure;
 class BuiltinCommandHandler extends BaseXbotHandler
 {
     private const COMMANDS = [
-        'whoami' => 'handleWhoamiCommand',
-        '/help' => 'handleHelpCommand',
-        '/whoami' => 'handleWhoamiCommand',
-        '/check online' => 'handleCheckOnlineCommand',
-        '/sync contacts' => 'handleSyncContactsCommand',
-        '/list subscriptions' => 'handleListSubscriptionsCommand',
-        '/config' => 'handleConfigCommand',
-        '/get room_id' => 'handleGetRoomIdCommand',
+        '/help' => ['method' => 'handleHelpCommand', 'description' => '显示帮助信息'],
+        '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
+        '/check online' => ['method' => 'handleCheckOnlineCommand', 'description' => '检查微信在线状态'],
+        '/sync contacts' => ['method' => 'handleSyncContactsCommand', 'description' => '同步联系人列表'],
+        '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
+        '/get room_id' => ['method' => 'handleGetRoomIdCommand', 'description' => '获取群聊ID'],
+        '/config' => ['method' => 'handleConfigCommand', 'description' => '查看和管理系统配置'],
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -50,7 +49,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         }
 
         if ($commandFound && $matchedCommand) {
-            $method = self::COMMANDS[$matchedCommand];
+            $method = self::COMMANDS[$matchedCommand]['method'];
             $this->log('Executing command', ['command' => $matchedCommand, 'method' => $method, 'originalKeyword' => $keyword]);
             $this->$method($context);
             $context->markAsProcessed(static::class);
@@ -105,13 +104,11 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleHelpCommand(XbotMessageContext $context): void
     {
-        $helpText = "Hi，我是一个AI机器人，暂支持以下指令：\n"
-            . "/help - 显示帮助信息\n"
-            . "/whoami - 显示当前登录信息\n"
-            . "/check online - 检查微信在线状态\n"
-            . "/sync contacts - 同步联系人列表\n"
-            . "/list subscriptions - 查看当前订阅列表\n"
-            . "/config - 查看和管理系统配置";
+        $helpText = "Hi，我是一个AI机器人，暂支持以下指令：\n";
+
+        foreach (self::COMMANDS as $command => $config) {
+            $helpText .= "{$command} - {$config['description']}\n";
+        }
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
