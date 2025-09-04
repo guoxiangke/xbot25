@@ -130,7 +130,7 @@ class WechatBot extends Model
         foreach ($tos as $to) {
             switch ($type) {
                 case 'text':
-                    $xbot->sendText($to, $data['content'] ?? '');
+                    $xbot->sendTextMessage($to, $data['content'] ?? '');
                     break;
                 case 'image':
                     if (isset($data['url'])) {

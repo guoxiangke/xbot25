@@ -22,7 +22,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/sync contacts' => 'handleSyncContactsCommand',
         '/list subscriptions' => 'handleListSubscriptionsCommand',
         '/config' => 'handleConfigCommand',
-        // 群监听配置已重构为chatroom_listen
+        '/get room_id' => 'handleGetRoomIdCommand',
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -31,7 +31,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         // 只检查消息类型，确保命令能够被优先处理
         // 避免对非文本消息进行不必要的命令解析
 
-        // 调试日志：记录收到的消息类型和内容
         if (!$this->isMessageType($context, 'MT_RECV_TEXT_MSG')) {
             return $next($context);
         }
@@ -58,16 +57,15 @@ class BuiltinCommandHandler extends BaseXbotHandler
             return $context;
         }
 
-        // 处理 /set 开头的命令（权限检查）
-        if (str_starts_with($keyword, '/set ') && !$context->isFromBot) {
-            $this->handleSetCommandHint($context);
-            $context->markAsProcessed(static::class);
-            return $context;
-        }
-
-        // 处理 /set 开头的命令（机器人执行）
-        if (str_starts_with($keyword, '/set ') && $context->isFromBot) {
-            $this->handleSetCommand($context, $keyword);
+        // 处理 /set 开头的命令
+        if (str_starts_with($keyword, '/set ')) {
+            if ($context->isFromBot) {
+                // 机器人执行配置命令
+                $this->handleSetCommand($context, $keyword);
+            } else {
+                // 非机器人用户提示权限不足
+                $this->handleSetCommandHint($context);
+            }
             $context->markAsProcessed(static::class);
             return $context;
         }
@@ -161,7 +159,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleSetCommand(XbotMessageContext $context, string $keyword): void
     {
-        // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set chatroom_listen 0/1
+        // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set keyword_resources 0/1, /set keyword_sync 0/1
         // 使用 preg_split 处理多个空格的情况
         $parts = array_values(array_filter(preg_split('/\s+/', trim($keyword)), 'strlen'));
 
@@ -202,19 +200,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
                 return;
             }
 
-            // 检查群级别配置是否在群聊中使用
-            if ($command === 'chatroom_listen') {
-                $roomWxid = $context->requestRawData['room_wxid'] ?? '';
-                if (empty($roomWxid)) {
-                    $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
-                    $this->markAsReplied($context);
-                    return;
-                }
-            }
-
             // 设置配置
-            $roomWxid = $context->requestRawData['room_wxid'] ?? null;
-            $configManager->set($command, $isEnabled, $roomWxid);
+            $configManager->set($command, $isEnabled);
 
             // 发送确认消息
             $configName = $configManager->getConfigName($command);
@@ -288,6 +275,22 @@ class BuiltinCommandHandler extends BaseXbotHandler
     }
 
     /**
+     * 处理获取群ID命令
+     */
+    private function handleGetRoomIdCommand(XbotMessageContext $context): void
+    {
+        if (!$context->isRoom) {
+            $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $roomWxid = $context->requestRawData['room_wxid'] ?? '';
+        $this->sendTextMessage($context, $roomWxid);
+        $this->markAsReplied($context);
+    }
+
+    /**
      * 处理配置查看命令
      */
     private function handleConfigCommand(XbotMessageContext $context): void
@@ -302,18 +305,10 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $globalConfigs = $configManager->getAll();
         foreach ($globalConfigs as $command => $value) {
             $status = $value ? '✅开启' : '❌关闭';
-            $message .= "• {$command}: {$status}\n";
+            $configName = $configManager->getConfigName($command);
+            $message .= "• {$command}: {$status} {$configName}\n";
         }
 
-        // 如果是群消息，显示当前群的配置
-        if ($context->isRoom) {
-            $message .= "\n🏠 当前群配置：\n";
-            $roomConfigs = $configManager->getAll($context->roomWxid);
-            foreach ($roomConfigs as $command => $value) {
-                $status = $value ? '✅开启' : '❌关闭';
-                $message .= "• {$command}: {$status}\n";
-            }
-        }
 
         $message .= "\n💡 使用 /set <配置名> 0/1 修改配置";
         $message .= "\n💡 使用 /help 查看所有命令";

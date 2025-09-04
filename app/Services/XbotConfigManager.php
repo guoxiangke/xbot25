@@ -19,7 +19,6 @@ class XbotConfigManager
         'room_msg' => '群消息处理',
         'keyword_resources' => '关键词资源响应',
         'keyword_sync' => '关键词同步',
-        'chatroom_listen' => '群监听',
     ];
 
     private WechatBot $wechatBot;
@@ -31,14 +30,11 @@ class XbotConfigManager
     }
 
     /**
-     * 获取配置key（约定：{command}_enabled，特殊情况除外）
+     * 获取配置key（约定：{command}_enabled）
      */
     private function getConfigKey(string $command): string
     {
-        return match($command) {
-            'chatroom_listen' => 'chatroom_listen_enabled',
-            default => "{$command}_enabled"
-        };
+        return "{$command}_enabled";
     }
 
     /**
@@ -56,11 +52,7 @@ class XbotConfigManager
         }
 
         $configKey = $this->getConfigKey($command);
-
-        // 只有 chatroom_listen 支持群级配置，其他都是全局配置
-        $value = ($command === 'chatroom_listen' && $roomWxid) 
-            ? $this->getRoomConfigValue($roomWxid, $configKey)
-            : $this->wechatBot->getMeta($configKey, false);
+        $value = $this->wechatBot->getMeta($configKey, false);
 
         $this->cache[$cacheKey] = $value;
         return $value;
@@ -77,11 +69,7 @@ class XbotConfigManager
 
         $configKey = $this->getConfigKey($command);
         $castedValue = (bool)$value; // 所有配置都是boolean
-
-        // 只有 chatroom_listen 支持群级配置，其他都是全局配置
-        $success = ($command === 'chatroom_listen' && $roomWxid)
-            ? $this->setRoomConfigValue($roomWxid, $configKey, $castedValue)
-            : $this->setGlobalConfigValue($configKey, $castedValue);
+        $success = $this->setGlobalConfigValue($configKey, $castedValue);
 
         if ($success) {
             // 清除缓存
@@ -102,16 +90,12 @@ class XbotConfigManager
     /**
      * 获取所有配置状态
      */
-    public function getAll(string $roomWxid = null): array
+    public function getAll(): array
     {
         $configs = [];
         
         foreach (self::CONFIGS as $command => $configName) {
-            if ($roomWxid && $command === 'chatroom_listen') {
-                $configs[$command] = $this->get($command, $roomWxid);
-            } elseif (!$roomWxid && $command !== 'chatroom_listen') {
-                $configs[$command] = $this->get($command);
-            }
+            $configs[$command] = $this->get($command);
         }
         
         return $configs;
@@ -144,31 +128,6 @@ class XbotConfigManager
         return true;
     }
 
-    /**
-     * 获取群配置值
-     */
-    private function getRoomConfigValue(string $roomWxid, string $configKey): bool
-    {
-        $contacts = $this->wechatBot->getMeta('contacts', []);
-        return $contacts[$roomWxid][$configKey] ?? false;
-    }
-
-    /**
-     * 设置群配置值
-     */
-    private function setRoomConfigValue(string $roomWxid, string $configKey, bool $value): bool
-    {
-        $contacts = $this->wechatBot->getMeta('contacts', []);
-        
-        if (!isset($contacts[$roomWxid])) {
-            $contacts[$roomWxid] = [];
-        }
-        
-        $contacts[$roomWxid][$configKey] = $value;
-        $this->wechatBot->setMeta('contacts', $contacts);
-        
-        return true;
-    }
 
     /**
      * 生成缓存键

@@ -181,11 +181,6 @@ class XbotController extends Controller
                 return null;
             }
 
-            // 检查特定群监听开关
-            $roomWxid = $requestRawData['room_wxid'];
-            if (!$configManager->isEnabled('chatroom_listen', $roomWxid)) {
-                return null;
-            }
         }
 
         // 路由其他消息到相应处理管道
