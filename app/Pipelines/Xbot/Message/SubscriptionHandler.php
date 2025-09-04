@@ -64,7 +64,7 @@ class SubscriptionHandler extends BaseXbotHandler
         $keyword = trim($keyword);
 
         if (empty($keyword)) {
-            $this->sendResponse($context, '请输入要订阅的关键词，例如：订阅 新闻');
+            $this->sendTextMessage($context, '请输入要订阅的关键词，例如：订阅 新闻');
             return;
         }
 
@@ -74,7 +74,7 @@ class SubscriptionHandler extends BaseXbotHandler
             // 检查是否存在自动回复
             $autoReply = $context->wechatBot->autoReplies()->where('keyword', $keyword)->first();
             if (!$autoReply) {
-                $this->sendResponse($context, '关键词不存在任何资源，无法订阅');
+                $this->sendTextMessage($context, '关键词不存在任何资源，无法订阅');
                 return;
             }
             $resource = $autoReply->content;
@@ -83,7 +83,7 @@ class SubscriptionHandler extends BaseXbotHandler
         // 检查个人订阅限制
         $isRoom = !empty($context->roomWxid);
         if (!$isRoom && $this->isPersonalSubscriptionDisabled($context->wechatBot)) {
-            $this->sendResponse($context, '暂不支持个人订阅，请入群获取或回复编号！');
+            $this->sendTextMessage($context, '暂不支持个人订阅，请入群获取或回复编号！');
             return;
         }
 
@@ -100,9 +100,9 @@ class SubscriptionHandler extends BaseXbotHandler
 
         if ($subscription->wasRecentlyCreated) {
             $hour = $this->getHourFromCron($cron);
-            $this->sendResponse($context, "成功订阅，每早{$hour}点，不见不散！");
+            $this->sendTextMessage($context, "成功订阅，每早{$hour}点，不见不散！");
         } else {
-            $this->sendResponse($context, '已订阅成功！时间和之前一样');
+            $this->sendTextMessage($context, '已订阅成功！时间和之前一样');
         }
 
         $this->log('Subscription created', [
@@ -121,7 +121,7 @@ class SubscriptionHandler extends BaseXbotHandler
         $keyword = trim($keyword);
 
         if (empty($keyword)) {
-            $this->sendResponse($context, '请输入要取消订阅的关键词，例如：取消订阅 新闻');
+            $this->sendTextMessage($context, '请输入要取消订阅的关键词，例如：取消订阅 新闻');
             return;
         }
 
@@ -133,23 +133,16 @@ class SubscriptionHandler extends BaseXbotHandler
 
         if ($subscription) {
             $subscription->delete();
-            $this->sendResponse($context, '已取消订阅！');
+            $this->sendTextMessage($context, '已取消订阅！');
             $this->log('Subscription cancelled', [
                 'keyword' => $keyword,
                 'wxid' => $context->wxid
             ]);
         } else {
-            $this->sendResponse($context, '查无此订阅！');
+            $this->sendTextMessage($context, '查无此订阅！');
         }
     }
 
-    /**
-     * 发送响应消息
-     */
-    private function sendResponse(XbotMessageContext $context, string $message): void
-    {
-        $context->wechatBot->xbot($context->wechatBot->client_id)->sendTextMessage($context->wxid, $message);
-    }
 
     /**
      * 检查是否禁用个人订阅
