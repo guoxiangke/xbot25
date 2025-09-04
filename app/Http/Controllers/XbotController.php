@@ -235,11 +235,6 @@ class XbotController extends Controller
 
         // 群消息过滤检查
         if ($context->isRoom) {
-            Log::debug('Processing room message - calling filter', [
-                'room_wxid' => $context->roomWxid,
-                'is_room' => $context->isRoom
-            ]);
-            
             $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new \App\Services\XbotConfigManager($wechatBot));
             $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
             
@@ -251,11 +246,6 @@ class XbotController extends Controller
                 ]);
                 return null;
             }
-        } else {
-            Log::debug('Not a room message - skipping filter', [
-                'is_room' => $context->isRoom,
-                'room_wxid' => $context->roomWxid ?? 'null'
-            ]);
         }
 
         // 第一阶段：状态管理pipeline（处理系统状态）

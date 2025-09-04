@@ -30,18 +30,8 @@ class ChatroomMessageFilter
      */
     public function shouldProcess(string $roomWxid, string $messageContent): bool
     {
-        \Log::debug('ChatroomMessageFilter shouldProcess called', [
-            'room_wxid' => $roomWxid,
-            'message_content' => $messageContent
-        ]);
-
         // 首先检查是否为始终放行的命令
-        $isAlwaysAllowed = $this->isAlwaysAllowedCommand($messageContent);
-        if ($isAlwaysAllowed) {
-            \Log::debug('Always allowed command - allowing', [
-                'room_wxid' => $roomWxid,
-                'message_content' => $messageContent
-            ]);
+        if ($this->isAlwaysAllowedCommand($messageContent)) {
             return true;
         }
 
@@ -59,22 +49,10 @@ class ChatroomMessageFilter
 
         if ($isRoomMsgEnabled) {
             // room_msg 开启：默认处理，但配置为false的群不处理
-            $result = $roomConfig[$roomWxid] ?? true;
-            \Log::debug('Room msg enabled - result', [
-                'room_wxid' => $roomWxid,
-                'room_config' => $roomConfig[$roomWxid] ?? 'not_set',
-                'result' => $result
-            ]);
-            return $result;
+            return $roomConfig[$roomWxid] ?? true;
         } else {
             // room_msg 关闭：默认不处理，但配置为true的群特例处理
-            $result = $roomConfig[$roomWxid] ?? false;
-            \Log::debug('Room msg disabled - result', [
-                'room_wxid' => $roomWxid,
-                'room_config' => $roomConfig[$roomWxid] ?? 'not_set',
-                'result' => $result
-            ]);
-            return $result;
+            return $roomConfig[$roomWxid] ?? false;
         }
     }
 
