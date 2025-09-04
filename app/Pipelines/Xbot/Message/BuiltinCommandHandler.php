@@ -126,7 +126,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private function handleCheckOnlineCommand(XbotMessageContext $context): void
     {
         $context->wechatBot->xbot()->getSelfInfo();
-//        $this->sendTextMessage($context, "已发送状态检查请求");
+        $this->sendTextMessage($context, "已发送状态检查请求，请稍候...");
     }
 
     /**
@@ -164,7 +164,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set chatroom_listen 0/1
         // 使用 preg_split 处理多个空格的情况
         $parts = array_values(array_filter(preg_split('/\s+/', trim($keyword)), 'strlen'));
-        
+
         if (count($parts) < 3) {
             $this->sendTextMessage($context, '⚠️ 命令格式错误\n正确格式：/set <setting> 0/1');
             $this->markAsReplied($context);
@@ -202,7 +202,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
                 return;
             }
 
-            // 检查群级别配置是否在群聊中使用  
+            // 检查群级别配置是否在群聊中使用
             if ($command === 'chatroom_listen') {
                 $roomWxid = $context->requestRawData['room_wxid'] ?? '';
                 if (empty($roomWxid)) {
@@ -220,7 +220,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
             $configName = $configManager->getConfigName($command);
             $this->sendConfigUpdateMessage($context, $configName, $isEnabled);
             $this->markAsReplied($context);
-            
+
             $this->log('Config updated', [
                 'command' => $command,
                 'value' => $value,
@@ -293,18 +293,18 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private function handleConfigCommand(XbotMessageContext $context): void
     {
         $configManager = new XbotConfigManager($context->wechatBot);
-        
+
         // 构建配置状态消息
         $message = "📋 当前配置状态：\n\n";
         $message .= "🌐 全局配置：\n";
-        
+
         // 显示全局配置
         $globalConfigs = $configManager->getAll();
         foreach ($globalConfigs as $command => $value) {
             $status = $value ? '✅开启' : '❌关闭';
             $message .= "• {$command}: {$status}\n";
         }
-        
+
         // 如果是群消息，显示当前群的配置
         if ($context->isRoom) {
             $message .= "\n🏠 当前群配置：\n";
@@ -314,13 +314,13 @@ class BuiltinCommandHandler extends BaseXbotHandler
                 $message .= "• {$command}: {$status}\n";
             }
         }
-        
+
         $message .= "\n💡 使用 /set <配置名> 0/1 修改配置";
         $message .= "\n💡 使用 /help 查看所有命令";
-        
+
         $this->sendTextMessage($context, $message);
         $this->markAsReplied($context);
-        
+
         $this->log('Config status displayed', [
             'is_room' => $context->isRoom,
             'room_wxid' => $context->roomWxid ?? null

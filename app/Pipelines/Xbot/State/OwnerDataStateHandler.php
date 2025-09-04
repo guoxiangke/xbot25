@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\XbotServices\State;
+namespace App\Pipelines\Xbot\State;
 
 use App\Models\WechatBot;
 

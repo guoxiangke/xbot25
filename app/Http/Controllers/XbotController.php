@@ -11,7 +11,7 @@ use App\Services\XbotConfigManager;
 use App\Services\XbotServices\State\QrCodeStateHandler;
 use App\Services\XbotServices\State\LoginStateHandler;
 use App\Services\XbotServices\State\LogoutStateHandler;
-use App\Services\XbotServices\State\OwnerDataStateHandler;
+use App\Pipelines\Xbot\State\OwnerDataStateHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Pipelines\Xbot\State\ZombieCheckHandler;
 use App\Pipelines\Xbot\Contact\FriendRequestHandler;
