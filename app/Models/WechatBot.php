@@ -134,7 +134,7 @@ class WechatBot extends Model
                     break;
                 case 'image':
                     if (isset($data['url'])) {
-                        $xbot->sendImageUrl($to, $data['url']);
+                        $xbot->sendImageByUrl($to, $data['url']);
                     }
                     break;
                 case 'link':
