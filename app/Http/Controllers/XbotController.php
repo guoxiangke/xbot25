@@ -178,9 +178,14 @@ class XbotController extends Controller
             $configManager = new XbotConfigManager($wechatBot);
             
             if (!$configManager->isEnabled('room_msg')) {
-                return null;
+                // 检查是否为始终放行的命令
+                $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
+                $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
+                
+                if (!$filter->shouldProcess($requestRawData['room_wxid'] ?? '', $messageContent)) {
+                    return null;
+                }
             }
-
         }
 
         // 路由其他消息到相应处理管道
@@ -227,6 +232,31 @@ class XbotController extends Controller
     public function routeMessage(WechatBot $wechatBot, array $requestRawData, string $msgType, int $clientId): mixed
     {
         $context = new XbotMessageContext($wechatBot, $requestRawData, $msgType, $clientId);
+
+        // 群消息过滤检查
+        if ($context->isRoom) {
+            Log::debug('Processing room message - calling filter', [
+                'room_wxid' => $context->roomWxid,
+                'is_room' => $context->isRoom
+            ]);
+            
+            $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new \App\Services\XbotConfigManager($wechatBot));
+            $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
+            
+            if (!$filter->shouldProcess($context->roomWxid, $messageContent)) {
+                Log::debug('Room message filtered out', [
+                    'room_wxid' => $context->roomWxid,
+                    'message_content' => $messageContent,
+                    'is_room_msg_enabled' => (new \App\Services\XbotConfigManager($wechatBot))->isEnabled('room_msg')
+                ]);
+                return null;
+            }
+        } else {
+            Log::debug('Not a room message - skipping filter', [
+                'is_room' => $context->isRoom,
+                'room_wxid' => $context->roomWxid ?? 'null'
+            ]);
+        }
 
         // 第一阶段：状态管理pipeline（处理系统状态）
         $stateHandlers = [

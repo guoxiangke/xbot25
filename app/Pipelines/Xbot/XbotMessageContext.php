@@ -23,6 +23,7 @@ class XbotMessageContext
     public array $metadata = [];
     public string $wxid; // 消息发送者的微信ID
     public bool $isRoom;
+    public string $roomWxid; // 群聊的微信ID
     public string $fromWxid; //群信息的消息发送者的微信ID
     public ?int $clientId; // 客户端ID
     public ?string $processedMessage = null; // 处理后的消息内容
@@ -50,6 +51,7 @@ class XbotMessageContext
         }
         
         $this->clientId = $clientId;
+        $this->roomWxid = $roomWxid;
         $this->isRoom = !empty($roomWxid);
         $this->isGh = str_starts_with($fromWxid, 'gh_');
         $this->isSelfToSelf = $fromWxid === $toWxid;

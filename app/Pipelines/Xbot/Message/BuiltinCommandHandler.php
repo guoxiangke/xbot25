@@ -56,8 +56,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
             return $context;
         }
 
-        // 处理 /set 开头的命令
-        if (str_starts_with($keyword, '/set ')) {
+        // 处理 /set 开头的命令（但先排除精确匹配的命令）
+        if (str_starts_with($keyword, '/set ') && !$commandFound) {
             if ($context->isFromBot) {
                 // 机器人执行配置命令
                 $this->handleSetCommand($context, $keyword);
@@ -168,6 +168,12 @@ class BuiltinCommandHandler extends BaseXbotHandler
 
         $command = $parts[1] ?? '';
         $value = $parts[2] ?? '';
+
+        // 特殊处理 room_listen 命令
+        if ($command === 'room_listen') {
+            $this->handleSetRoomListenCommand($context, $value);
+            return;
+        }
 
         // 使用统一的配置设置方法
         $this->handleUnifiedSetCommand($context, $command, $value);
@@ -317,5 +323,42 @@ class BuiltinCommandHandler extends BaseXbotHandler
             'is_room' => $context->isRoom,
             'room_wxid' => $context->roomWxid ?? null
         ]);
+    }
+
+    /**
+     * 处理 /set room_listen 命令
+     * 设置特定群的监听状态
+     */
+    private function handleSetRoomListenCommand(XbotMessageContext $context, string $value): void
+    {
+        if (!$context->isRoom) {
+            $this->sendTextMessage($context, '❌ 此命令只能在群聊中使用');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $status = (int)$value;
+        if ($status !== 0 && $status !== 1) {
+            $this->sendTextMessage($context, '❌ 状态值必须是 0 (关闭) 或 1 (开启)');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $filter = new \App\Services\ChatroomMessageFilter($context->wechatBot, new XbotConfigManager($context->wechatBot));
+        $success = $filter->setRoomListenStatus($context->roomWxid, (bool)$status);
+
+        if ($success) {
+            $statusText = $status ? '✅开启' : '❌关闭';
+            $this->sendTextMessage($context, "📢 群监听状态已设置为: {$statusText}");
+            $this->log('Room listen status set', [
+                'room_wxid' => $context->roomWxid,
+                'status' => $status,
+                'success' => $success
+            ]);
+        } else {
+            $this->sendTextMessage($context, '❌ 设置群监听状态失败');
+        }
+
+        $this->markAsReplied($context);
     }
 }
