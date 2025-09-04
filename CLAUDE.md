@@ -175,3 +175,5 @@ The system handles various WeChat message types including:
 - **Laravel 12.x 官方文档** - 项目基于Laravel 12.x框架
 - **Chatwoot API 文档** - 客服系统集成
 - ** plank/laravel-metable 文档 ** https://github.com/plank/laravel-metable
+
+## 总结prepend写入到 .claude/done/{date}.md
