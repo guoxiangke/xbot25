@@ -31,6 +31,7 @@ use App\Pipelines\Xbot\Message\OtherAppMessageHandler;
 use App\Pipelines\Xbot\Message\KeywordResponseHandler;
 use App\Pipelines\Xbot\Message\SubscriptionHandler;
 use App\Pipelines\Xbot\Message\TextMessageHandler;
+use App\Pipelines\Xbot\Message\WebhookHandler;
 use App\Pipelines\Xbot\Message\ChatwootHandler;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Facades\Log;
@@ -298,6 +299,7 @@ class XbotController extends Controller
             SubscriptionHandler::class,
             TextMessageHandler::class,
             KeywordResponseHandler::class,
+            WebhookHandler::class,
             ChatwootHandler::class,
         ];
 

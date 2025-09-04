@@ -168,10 +168,11 @@ class KeywordResponseHandler extends BaseXbotHandler
             "57526085509@chatroom",  // LFC活力生命
             "58088888496@chatroom",  // 活泼的生命
             "57057092201@chatroom",  // 每天一章
+            "51761446745@chatroom",  // Linda
         ]);
 
         // 获取 YouTube 允许的用户列表
-        $allowedUsers = $context->wechatBot->getMeta('youtube_allowed_users', ['keke302','bluesky_still']);
+        $allowedUsers = $context->wechatBot->getMeta('youtube_allowed_users', ['keke302']);
 
         // 检查群消息
         if ($context->isRoom) {

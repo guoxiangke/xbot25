@@ -110,6 +110,12 @@ class BuiltinCommandHandler extends BaseXbotHandler
             $helpText .= "{$command} - {$config['description']}\n";
         }
 
+        // 添加特殊命令说明
+        $helpText .= "\n🔧 配置命令（需机器人执行）：\n";
+        $helpText .= "/set room_listen 0/1 - 设置群消息监听状态\n";
+        $helpText .= "/set youtube_allowed 0/1 - 设置YouTube链接响应权限\n";
+        $helpText .= "/set <其他配置> 0/1 - 设置其他系统配置\n";
+
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
     }
@@ -172,6 +178,12 @@ class BuiltinCommandHandler extends BaseXbotHandler
         // 特殊处理 room_listen 命令
         if ($command === 'room_listen') {
             $this->handleSetRoomListenCommand($context, $value);
+            return;
+        }
+
+        // 特殊处理 youtube_allowed 命令
+        if ($command === 'youtube_allowed') {
+            $this->handleSetYoutubeAllowedCommand($context, $value);
             return;
         }
 
@@ -357,6 +369,96 @@ class BuiltinCommandHandler extends BaseXbotHandler
             ]);
         } else {
             $this->sendTextMessage($context, '❌ 设置群监听状态失败');
+        }
+
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理 /set youtube_allowed 命令
+     * 设置YouTube链接响应权限（群聊或私聊）
+     */
+    private function handleSetYoutubeAllowedCommand(XbotMessageContext $context, string $value): void
+    {
+        $status = (int)$value;
+        if ($status !== 0 && $status !== 1) {
+            $this->sendTextMessage($context, '❌ 状态值必须是 0 (关闭) 或 1 (开启)');
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $wechatBot = $context->wechatBot;
+        $isEnabled = (bool)$status;
+
+        if ($context->isRoom) {
+            // 群聊：管理 youtube_allowed_rooms
+            $allowedRooms = $wechatBot->getMeta('youtube_allowed_rooms', [
+                "26570621741@chatroom",
+                "18403467252@chatroom",  // Youtube精选
+                "34974119368@chatroom",
+                "57526085509@chatroom",  // LFC活力生命
+                "58088888496@chatroom",  // 活泼的生命
+                "57057092201@chatroom",  // 每天一章
+                "51761446745@chatroom",  // Linda
+            ]);
+
+            $roomWxid = $context->roomWxid;
+            $isCurrentlyAllowed = in_array($roomWxid, $allowedRooms);
+
+            if ($isEnabled && !$isCurrentlyAllowed) {
+                // 添加到允许列表
+                $allowedRooms[] = $roomWxid;
+                $wechatBot->setMeta('youtube_allowed_rooms', $allowedRooms);
+                $this->sendTextMessage($context, '✅ 本群已开启YouTube链接响应功能');
+            } elseif (!$isEnabled && $isCurrentlyAllowed) {
+                // 从允许列表移除
+                $allowedRooms = array_filter($allowedRooms, fn($room) => $room !== $roomWxid);
+                $wechatBot->setMeta('youtube_allowed_rooms', array_values($allowedRooms));
+                $this->sendTextMessage($context, '❌ 本群已关闭YouTube链接响应功能');
+            } else {
+                // 状态未变化
+                $statusText = $isEnabled ? '已开启' : '已关闭';
+                $this->sendTextMessage($context, "📋 本群YouTube链接响应功能{$statusText}");
+            }
+
+            $this->log('Room YouTube allowed status set', [
+                'room_wxid' => $roomWxid,
+                'status' => $status,
+                'was_allowed' => $isCurrentlyAllowed,
+                'now_allowed' => $isEnabled
+            ]);
+
+        } else {
+            // 私聊：管理 youtube_allowed_users
+            $allowedUsers = $wechatBot->getMeta('youtube_allowed_users', ['keke302','bluesky_still']);
+
+            // 机器人发送消息时，目标用户是to_wxid；用户发送消息时，目标用户是from_wxid
+            $targetWxid = $context->isFromBot ? $context->requestRawData['to_wxid'] : $context->fromWxid;
+            $isCurrentlyAllowed = in_array($targetWxid, $allowedUsers);
+
+            if ($isEnabled && !$isCurrentlyAllowed) {
+                // 添加到允许列表
+                $allowedUsers[] = $targetWxid;
+                $wechatBot->setMeta('youtube_allowed_users', $allowedUsers);
+                $this->sendTextMessage($context, '✅ 已开启YouTube链接响应功能');
+            } elseif (!$isEnabled && $isCurrentlyAllowed) {
+                // 从允许列表移除
+                $allowedUsers = array_filter($allowedUsers, fn($user) => $user !== $targetWxid);
+                $wechatBot->setMeta('youtube_allowed_users', array_values($allowedUsers));
+                $this->sendTextMessage($context, '❌ 已关闭YouTube链接响应功能');
+            } else {
+                // 状态未变化
+                $statusText = $isEnabled ? '已开启' : '已关闭';
+                $this->sendTextMessage($context, "📋 YouTube链接响应功能{$statusText}");
+            }
+
+            $this->log('User YouTube allowed status set', [
+                'target_wxid' => $targetWxid,
+                'is_from_bot' => $context->isFromBot,
+                'status' => $status,
+                'was_allowed' => $isCurrentlyAllowed,
+                'now_allowed' => $isEnabled
+            ]);
         }
 
         $this->markAsReplied($context);

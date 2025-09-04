@@ -31,6 +31,9 @@ class XbotMessageContext
     // 联系人详细数据
     public ?array $fromContact = null;  // 发送者联系人详细数据
     public ?array $roomContact = null;  // 群聊联系人详细数据
+    public ?array $contact = null;      // 当前消息的主联系人（群消息为群，私聊为对方）
+    public ?int $timestamp = null;      // 消息时间戳
+    public ?string $content = null;     // 消息内容
 
     public function __construct(WechatBot $wechatBot, array $requestRawData, string $msgType, ?int $clientId = null)
     {
@@ -66,6 +69,8 @@ class XbotMessageContext
         }
         $this->wxid = $wxid;
         $this->fromWxid = $fromWxid;
+        $this->timestamp = $requestRawData['timestamp'] ?? null;
+        $this->content = $requestRawData['msg'] ?? '';
         
         // 预加载联系人数据
         $this->loadContactsData();
@@ -95,6 +100,15 @@ class XbotMessageContext
             if ($this->roomContact) {
                 unset($this->roomContact['member_list']);
             }
+        }
+        
+        // 设置主联系人（群消息为群，私聊为对方）
+        if ($this->isRoom) {
+            $this->contact = $this->roomContact;
+        } else {
+            // 私聊消息，主联系人是对话的另一方
+            $targetWxid = $this->isFromBot ? $toWxid : $fromWxid;
+            $this->contact = $contacts[$targetWxid] ?? null;
         }
     }
 
@@ -266,6 +280,22 @@ class XbotMessageContext
     }
 
     /**
+     * 检查是否是机器人发送的消息
+     */
+    public function isSentByBot(): bool
+    {
+        return $this->isFromBot;
+    }
+    
+    /**
+     * 检查是否是群消息
+     */
+    public function isRoomMessage(): bool
+    {
+        return $this->isRoom;
+    }
+
+    /**
      * 转换为数组
      */
     public function toArray(): array
@@ -281,6 +311,9 @@ class XbotMessageContext
             'metadata' => $this->metadata,
             'fromContact' => $this->fromContact,
             'roomContact' => $this->roomContact,
+            'contact' => $this->contact,
+            'timestamp' => $this->timestamp,
+            'content' => $this->content,
         ];
     }
 }
