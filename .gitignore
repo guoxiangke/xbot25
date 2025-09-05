@@ -25,3 +25,6 @@ Thumbs.db
 app.old
 GEMINI.md
 .claude/
+**/caddy
+frankenphp
+frankenphp-worker.php

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Laravel-based WeChat automation bot system called "Xbot". It provides a comprehensive API for WeChat automation including:
+This is a Laravel-based (Laravel 12) WeChat automation bot system called "Xbot". It provides a comprehensive API for WeChat automation including:
 - User management (login, logout, friend operations)
 - Message sending (text, images, files, links)
 - Group management (create, invite, remove members)
@@ -111,7 +111,7 @@ The system handles various WeChat message types including:
 - Timezone is set to Asia/Shanghai for WeChat operations
 
 ## Guidelines for Claude Code by Developers
-- 这是一个laravel 重构项目，旧的部分代码放在了old.app中以供参考，不要改动app.old 下的内容
+- 这是一个laravel 重构项目，旧的部分代码放在了 ../xbot 中以供参考，不要改动 ../xbot 下的内容
 - 请你先帮我分析一下需求，找出并描述bug后，提出修改方案，得到我的允许后再改动代码
 - 设计到删除文件的，先不删除，继续执行下一步，任务结束后列出需要手动删除的文件
 - 重构主要变动：
@@ -140,7 +140,7 @@ The system handles various WeChat message types including:
 - 请注意代码的可读性优化
 
 - 不要执行 php artisan lint Bash(./vendor/bin/pint) 等
-- 在clear和compact时， •结束会话前：总是告诉Claude：“请更新.claude/activeContext.md和./claude/progress.md，总结完成的工作并概述后续步骤。
+- 在clear和compact时，请更新 .claude/done/$date.md 总结完成的工作
 
 ## WechatBot 查找逻辑 (重要)
 
@@ -165,8 +165,6 @@ The system handles various WeChat message types including:
     回应文本是：'已请求同步，请稍后确认！'
   2. 在每种消息Handler处理后，发给最后一个TextMessageHandler前，需要保留一个origin_msg_type,以后后来扩展功能时使用。
   3. MT_DATA_WXID_MSG 消息类型处理：已添加到联系人同步流程，能正确处理单个联系人信息同步
-
-- MT_RECV_VOICE_MSG 消息体： {"data":{"from_wxid":"bluesky_still","is_pc":0,"mp3_file":"C:\\Users\\win11\\Documents\\WeChat Files\\wxid_t36o5djpivk312\\mp3\\1598934079525226.mp3","msgid":"7762958499218113803","raw_msg":"<msg><voicemsg endflag=\"1\" cancelflag=\"0\" forwardflag=\"0\" voiceformat=\"4\" voicelength=\"1560\" length=\"2933\" bufid=\"0\" aeskey=\"7e889c457f301d8b4118a8a07eb3e1ff\" voiceurl=\"3052020100044b304902010002043ac6d79302030f5efb02040c90af2b020468b51f48042466333261363331662d323161342d343164622d383638322d6538326231393632353837630204011c000f0201000400c27235ca\" voicemd5=\"\" clientmsgid=\"493474d1b0bfa9ac2fb4bd883b4c3891wxid_t36o5djpivk312_3370_1756700486\" fromusername=\"bluesky_still\" /></msg>","room_wxid":"","silk_file":"","timestamp":1756700488,"to_wxid":"wxid_t36o5djpivk312","wx_type":34},"type":"MT_RECV_VOICE_MSG","client_id":12}
 
 ## MCP Context7 技术文档需求
 

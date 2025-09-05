@@ -1,0 +1,38 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: guoxiangke/xbot25
+    restart: unless-stopped
+    ports:
+      - "80:8000"
+    volumes:
+      - ./:/app
+    environment:
+      CONTAINER_ROLE: app
+    #entrypoint: php artisan octane:start --watch
+    entrypoint: php artisan serve --port 8000 --host 0.0.0.0
+
+  scheduler:
+    depends_on:
+      - app
+    image: guoxiangke/xbot25
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+    environment:
+      CONTAINER_ROLE: scheduler
+    entrypoint: ["sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; echo 'scheduler running'; done"]
+
+  queue:
+    depends_on:
+      - app
+    image: guoxiangke/xbot25
+    restart: always
+    volumes:
+      - ./:/app
+    environment:
+      CONTAINER_ROLE: queue
+    entrypoint: php artisan queue:work --verbose --tries=3 --timeout=90

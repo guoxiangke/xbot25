@@ -99,8 +99,8 @@ class SubscriptionHandler extends BaseXbotHandler
         );
 
         if ($subscription->wasRecentlyCreated) {
-            $hour = $this->getHourFromCron($cron);
-            $this->sendTextMessage($context, "成功订阅，每早{$hour}点，不见不散！");
+            $chinaHour = ($context->wechatBot->id == 13) ? 5 : 7;
+            $this->sendTextMessage($context, "成功订阅，每早{$chinaHour}点，不见不散！");
         } else {
             $this->sendTextMessage($context, '已订阅成功！时间和之前一样');
         }
@@ -158,11 +158,17 @@ class SubscriptionHandler extends BaseXbotHandler
     /**
      * 获取cron时间配置
      * 根据旧代码逻辑：FEBC-US(id=13)群5点发送，其他7点发送
+     * 注意：由于调度器运行在UTC时区，需要将东八区时间转换为UTC时间
+     * 东八区早上7点 = UTC晚上23点（前一天）
+     * 东八区早上5点 = UTC晚上21点（前一天）
      */
     private function getCronTime($wechatBot, $isRoom): string
     {
-        $hour = ($wechatBot->id == 13) ? 5 : 7;
-        return "0 {$hour} * * *";
+        // 东八区时间
+        $chinaHour = ($wechatBot->id == 13) ? 5 : 7;
+        // 转换为UTC时间（东八区 -8小时 = UTC）
+        $utcHour = ($chinaHour - 8 + 24) % 24;
+        return "0 {$utcHour} * * *";
     }
 
     /**
