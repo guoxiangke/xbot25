@@ -32,7 +32,7 @@ class LocationMessageHandler extends BaseXbotHandler
         }
 
         // 保存原始消息类型
-        $context->setMetadata('origin_msg_type', $context->msgType);
+        $context->requestRawData['origin_msg_type'] = $context->msgType;
 
         // 转换为文本消息格式
         $this->convertToTextMessage($context, $locationInfo);

@@ -19,6 +19,15 @@ class XbotConfigManager
         'room_msg' => '群消息处理',
         'keyword_resources' => '关键词资源响应',
         'keyword_sync' => '关键词同步',
+        'payment_auto' => '自动收款',
+    ];
+
+    /**
+     * 配置默认值定义
+     * 未在此列表中的配置默认为 false
+     */
+    const DEFAULT_VALUES = [
+        'payment_auto' => true, // 自动收款默认开启
     ];
 
     private WechatBot $wechatBot;
@@ -52,7 +61,8 @@ class XbotConfigManager
         }
 
         $configKey = $this->getConfigKey($command);
-        $value = $this->wechatBot->getMeta($configKey, false);
+        $defaultValue = self::DEFAULT_VALUES[$command] ?? false;
+        $value = $this->wechatBot->getMeta($configKey, $defaultValue);
 
         $this->cache[$cacheKey] = $value;
         return $value;

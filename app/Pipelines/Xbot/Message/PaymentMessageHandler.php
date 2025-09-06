@@ -4,6 +4,7 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\XbotConfigManager;
 use Closure;
 use Illuminate\Support\Facades\Log;
 
@@ -33,16 +34,27 @@ class PaymentMessageHandler extends BaseXbotHandler
             return $next($context);
         }
 
-        // 保存原始消息类型
-        $context->setMetadata('origin_msg_type', $context->msgType);
+        // 保存原始消息类型（用于Chatwoot）
+        $context->requestRawData['origin_msg_type'] = $context->msgType;
 
-        // 默认自动收款处理
-        $this->handleAutoPayment($context, $paymentInfo);
+        // 检查配置是否开启自动收款（默认开启）
+        $configManager = new XbotConfigManager($context->wechatBot);
+        $autoPaymentEnabled = $configManager->get('payment_auto');
+
+        if ($autoPaymentEnabled) {
+            // 自动收款处理
+            $this->handleAutoPayment($context, $paymentInfo);
+        } else {
+            $this->log('Auto payment is disabled', [
+                'transferid' => $paymentInfo['transferid'],
+                'feedesc' => $paymentInfo['feedesc']
+            ]);
+        }
         
         // 转换为文本消息继续处理，发送到Chatwoot
         $this->convertToTextMessage($context, $paymentInfo);
         
-        $context->markAsProcessed(static::class);
+        // 不标记为已处理，让消息继续流入TextMessageHandler和ChatwootHandler
         return $next($context);
     }
 
@@ -84,6 +96,7 @@ class PaymentMessageHandler extends BaseXbotHandler
             $transferId = $wcpayinfo['transferid'] ?? null;
             $feedesc = $wcpayinfo['feedesc'] ?? null;
             $payMemo = $wcpayinfo['pay_memo'] ?? '';
+            $paySubtype = $wcpayinfo['paysubtype'] ?? null;
 
             if (!$transferId || !$feedesc) {
                 $this->logError('Missing required payment info', [
@@ -98,7 +111,8 @@ class PaymentMessageHandler extends BaseXbotHandler
                 'transferid' => $transferId,
                 'feedesc' => $feedesc,
                 'pay_memo' => $payMemo,
-                'amount' => $this->parseAmount($feedesc)
+                'amount' => $this->parseAmount($feedesc),
+                'paysubtype' => $paySubtype
             ];
             
         } catch (\Exception $e) {
@@ -159,17 +173,39 @@ class PaymentMessageHandler extends BaseXbotHandler
         $isSelf = $context->isFromBot;
         $feedesc = $paymentInfo['feedesc'];
         $payMemo = $paymentInfo['pay_memo'] ?? '';
+        $paySubtype = $paymentInfo['paysubtype'] ?? null;
+        $amount = $paymentInfo['amount'];
 
-        $content = $isSelf ? '[已收款]' : '[收到转账]';
-        $content .= ':' . $feedesc;
+        // 根据paysubtype和消息发送者判断消息类型
+        // paysubtype=1: 收到转账（联系人发起）
+        // paysubtype=4: 已收款/已退款（机器人回应）
+        
+        if ($paySubtype == 4) {
+            // 机器人的回应消息：判断是收款还是退款
+            if ($amount == 1) {
+                $content = '[已退款]';
+            } else {
+                $content = '[已收款]';
+            }
+            $context->isFromBot = true; // 机器人发送的消息
+        } else {
+            // 联系人发起的转账消息
+            $content = '[收到转账]';
+            $context->isFromBot = false; // 联系人发送的消息
+        }
+        
+        $content .= ' ' . $feedesc; // 使用空格而不是冒号
         
         if (!empty($payMemo)) {
-            $content .= ':附言:' . $payMemo;
+            $content .= ' 附言: ' . $payMemo; // 使用空格分隔
         }
 
         // 修改为文本消息类型
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $content;
+        
+        // 为支付相关消息添加特殊标记，确保即使keyword_sync关闭也能发送到Chatwoot
+        $context->requestRawData['force_chatwoot_sync'] = true;
         
         $this->log('Payment message converted to text', [
             'content' => $content,

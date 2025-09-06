@@ -37,7 +37,7 @@ class SubscriptionHandler extends BaseXbotHandler
         if (Str::startsWith($content, '订阅')) {
             $this->handleSubscribe($context, $content);
             // 保留原始消息类型以便后续扩展
-            $context->setMetadata('origin_msg_type', $context->requestRawData['type'] ?? '');
+            $context->requestRawData['origin_msg_type'] = $context->msgType;
             // 继续传递到下游处理器（如ChatwootHandler）
             return $next($context);
         }
@@ -46,7 +46,7 @@ class SubscriptionHandler extends BaseXbotHandler
         if (Str::startsWith($content, '取消订阅')) {
             $this->handleUnsubscribe($context, $content);
             // 保留原始消息类型以便后续扩展
-            $context->setMetadata('origin_msg_type', $context->requestRawData['type'] ?? '');
+            $context->requestRawData['origin_msg_type'] = $context->msgType;
             // 继续传递到下游处理器（如ChatwootHandler）
             return $next($context);
         }

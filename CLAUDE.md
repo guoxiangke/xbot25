@@ -174,7 +174,7 @@ The system handles various WeChat message types including:
 - **Chatwoot API 文档** - 客服系统集成
 - ** plank/laravel-metable 文档 ** https://github.com/plank/laravel-metable
 
-## 总结prepend写入到 .claude/done/{date}.md
+## 总结 prepend 写入到 .claude/done/{date}.md
 
 ## 重构差异
 - 不再需要的功能
