@@ -46,4 +46,7 @@ return [
     'chatwoot' => [
         'base_url' => env('CHATWOOT_BASE_URL', 'https://demo.chatwoot.com'),
     ],
+    'bark' => [
+        'url' => env('BARK_NOTIFY', ''), // bark 推送 token
+    ],
 ];

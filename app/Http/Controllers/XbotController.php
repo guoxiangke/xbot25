@@ -177,12 +177,12 @@ class XbotController extends Controller
         $isRoom = $requestRawData['room_wxid'] ?? false;
         if ($isRoom) {
             $configManager = new XbotConfigManager($wechatBot);
-            
+
             if (!$configManager->isEnabled('room_msg')) {
                 // 检查是否为始终放行的命令
                 $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
                 $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
-                
+
                 if (!$filter->shouldProcess($requestRawData['room_wxid'] ?? '', $messageContent)) {
                     return null;
                 }
@@ -238,7 +238,7 @@ class XbotController extends Controller
         if ($context->isRoom) {
             $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new \App\Services\XbotConfigManager($wechatBot));
             $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
-            
+
             if (!$filter->shouldProcess($context->roomWxid, $messageContent)) {
                 Log::debug('Room message filtered out', [
                     'room_wxid' => $context->roomWxid,
@@ -306,11 +306,7 @@ class XbotController extends Controller
         app(Pipeline::class)
             ->send($context)
             ->through($messageHandlers)
-            ->then(function ($context) {
-                Log::debug('Message pipeline completed', [
-                    'context' => $context->toArray()
-                ]);
-            });
+            ->thenReturn();
 
         return null;
     }

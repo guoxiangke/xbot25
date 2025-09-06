@@ -111,7 +111,7 @@ The system handles various WeChat message types including:
 - Timezone is set to Asia/Shanghai for WeChat operations
 
 ## Guidelines for Claude Code by Developers
-- 这是一个laravel 重构项目，旧的部分代码放在了 ../xbot 中以供参考，不要改动 ../xbot 下的内容
+- 这是一个 laravel 重构项目，旧的部分代码放在了 /Users/guo/Herd/xbot/ 目录下，不要改动其中的内容
 - 请你先帮我分析一下需求，找出并描述bug后，提出修改方案，得到我的允许后再改动代码
 - 设计到删除文件的，先不删除，继续执行下一步，任务结束后列出需要手动删除的文件
 - 重构主要变动：
@@ -175,3 +175,12 @@ The system handles various WeChat message types including:
 - ** plank/laravel-metable 文档 ** https://github.com/plank/laravel-metable
 
 ## 总结prepend写入到 .claude/done/{date}.md
+
+## 重构差异
+- 不再需要的功能
+  - 自动回复系统，因为chatwoot 系统中可以设置自动回复功能
+  - WechatContent 模型支持多种消息类型（文本、图片、链接、音乐等15种） 
+  - SilkConvertQueue 队列处理语音文件转换
+  - WechatMessageVoice 存储语音转文字结果
+  - 语音文件 silk → mp3 转换
+  - WechatMessageFile 存储文件路径和URL映射

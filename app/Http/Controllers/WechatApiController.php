@@ -32,9 +32,9 @@ class WechatApiController extends Controller
         $xbot = $wechatBot->xbot();
         
         if ($request['type'] === 'text') {
-            $xbot->sendText($request['to'], $request['data']['content']);
+            $xbot->sendTextMessage($request['to'], $request['data']['content']);
         } elseif ($request['type'] === 'at') {
-            $xbot->sendAtText(
+            $xbot->sendAtMessage(
                 $request['to'], 
                 $request['data']['content'], 
                 $request['data']['at']
@@ -43,7 +43,7 @@ class WechatApiController extends Controller
 
         if (isset($request['addition'])) {
             if ($request['addition']['type'] === 'text') {
-                $xbot->sendText($request['to'], $request['addition']['data']['content']);
+                $xbot->sendTextMessage($request['to'], $request['addition']['data']['content']);
             }
         }
 

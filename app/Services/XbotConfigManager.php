@@ -40,7 +40,7 @@ class XbotConfigManager
     /**
      * 获取配置值
      */
-    public function get(string $command, string $roomWxid = null): mixed
+    public function get(string $command, ?string $roomWxid = null): mixed
     {
         if (!isset(self::CONFIGS[$command])) {
             return false; // 友好处理，返回默认值
@@ -61,7 +61,7 @@ class XbotConfigManager
     /**
      * 设置配置值
      */
-    public function set(string $command, $value, string $roomWxid = null): bool
+    public function set(string $command, $value, ?string $roomWxid = null): bool
     {
         if (!isset(self::CONFIGS[$command])) {
             throw new InvalidArgumentException("Unknown command: {$command}");
@@ -82,7 +82,7 @@ class XbotConfigManager
     /**
      * 检查配置是否启用
      */
-    public function isEnabled(string $command, string $roomWxid = null): bool
+    public function isEnabled(string $command, ?string $roomWxid = null): bool
     {
         return (bool)$this->get($command, $roomWxid);
     }
@@ -132,7 +132,7 @@ class XbotConfigManager
     /**
      * 生成缓存键
      */
-    private function getCacheKey(string $command, string $roomWxid = null): string
+    private function getCacheKey(string $command, ?string $roomWxid = null): string
     {
         return $roomWxid ? "{$command}:{$roomWxid}" : $command;
     }
@@ -140,7 +140,7 @@ class XbotConfigManager
     /**
      * 清除缓存
      */
-    private function clearCache(string $command, string $roomWxid = null): void
+    private function clearCache(string $command, ?string $roomWxid = null): void
     {
         $cacheKey = $this->getCacheKey($command, $roomWxid);
         unset($this->cache[$cacheKey]);

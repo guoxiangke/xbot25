@@ -28,7 +28,7 @@ class ChatwootWebhookController extends Controller
             return;
         }
 
-        Log::error('debug chatwoot webhook', [$request->all()]);
+        // Log::error('debug chatwoot webhook', [$request->all()]);
 
         $toWxid = $request['conversation']['meta']['sender']['custom_attributes']['wxid'] ?? '';
         if (empty($toWxid)) {
@@ -41,19 +41,19 @@ class ChatwootWebhookController extends Controller
             $wechatBot->xbot()->sendTextMessage($toWxid, $content);
             Cache::set("chatwoot_outgoing_{$wechatBot->id}_{$toWxid}", $content, 30);
         }
-        
+
         // 处理附件
         $attachments = $request['attachments'] ?? [];
         foreach ($attachments as $attachment) {
             $fileType = $attachment['file_type'];
             $fileUrl = $attachment['data_url'];
-            
+
             if ($fileType === 'image') {
                 $wechatBot->xbot()->sendImageByUrl($toWxid, $fileUrl);
-                
+
                 // 缓存图片附件信息，用于避免重复发送到Chatwoot
                 Cache::set("chatwoot_outgoing_attachment_{$wechatBot->id}_{$toWxid}_image", true, 30);
-                
+
                 Log::info('Chatwoot image sent to WeChat', [
                     'to_wxid' => $toWxid,
                     'file_url' => $fileUrl,
@@ -61,10 +61,10 @@ class ChatwootWebhookController extends Controller
                 ]);
             } elseif (in_array($fileType, ['audio', 'file', 'video'])) {
                 $wechatBot->xbot()->sendFileByUrl($toWxid, $fileUrl);
-                
+
                 // 缓存文件附件信息，用于避免重复发送到Chatwoot
                 Cache::set("chatwoot_outgoing_attachment_{$wechatBot->id}_{$toWxid}_{$fileType}", true, 30);
-                
+
                 Log::info('Chatwoot file sent to WeChat', [
                     'to_wxid' => $toWxid,
                     'file_type' => $fileType,
