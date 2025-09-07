@@ -32,6 +32,7 @@ class XbotMessageContext
     public ?array $fromContact = null;  // 发送者联系人详细数据
     public ?array $roomContact = null;  // 群聊联系人详细数据
     public ?array $contact = null;      // 当前消息的主联系人（群消息为群，私聊为对方）
+    public ?array $allContacts = null; // 缓存的所有联系人数据，避免重复获取
     public ?int $timestamp = null;      // 消息时间戳
     public ?string $content = null;     // 消息内容
 
@@ -81,7 +82,9 @@ class XbotMessageContext
      */
     private function loadContactsData(): void
     {
-        $contacts = $this->wechatBot->getMeta('contacts', []);
+        // 缓存联系人数据，避免重复获取
+        $this->allContacts = $this->wechatBot->getMeta('contacts', []);
+        $contacts = $this->allContacts;
         
         $fromWxid = $this->requestRawData['from_wxid'] ?? '';
         $toWxid = $this->requestRawData['to_wxid'] ?? '';
@@ -163,6 +166,17 @@ class XbotMessageContext
         }
 
         return $fromWxid;
+    }
+
+    /**
+     * 获取缓存的联系人数据，避免重复查询
+     */
+    public function getAllContacts(): array
+    {
+        if ($this->allContacts === null) {
+            $this->allContacts = $this->wechatBot->getMeta('contacts', []);
+        }
+        return $this->allContacts;
     }
 
     /**

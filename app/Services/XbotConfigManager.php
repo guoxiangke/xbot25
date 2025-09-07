@@ -18,8 +18,9 @@ class XbotConfigManager
         'chatwoot' => 'Chatwoot同步',
         'room_msg' => '群消息处理',
         'keyword_resources' => '关键词资源响应',
-        'keyword_sync' => '关键词同步',
+        'keyword_sync' => 'Chatwoot同步关键词',
         'payment_auto' => '自动收款',
+        'check_in' => '签到系统',
     ];
 
     /**
@@ -103,11 +104,11 @@ class XbotConfigManager
     public function getAll(): array
     {
         $configs = [];
-        
+
         foreach (self::CONFIGS as $command => $configName) {
             $configs[$command] = $this->get($command);
         }
-        
+
         return $configs;
     }
 

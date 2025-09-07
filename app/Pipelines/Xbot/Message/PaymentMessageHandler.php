@@ -204,8 +204,6 @@ class PaymentMessageHandler extends BaseXbotHandler
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $content;
         
-        // 为支付相关消息添加特殊标记，确保即使keyword_sync关闭也能发送到Chatwoot
-        $context->requestRawData['force_chatwoot_sync'] = true;
         
         $this->log('Payment message converted to text', [
             'content' => $content,

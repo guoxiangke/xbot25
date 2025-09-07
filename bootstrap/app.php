@@ -27,7 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             
         foreach ($xbotSubscriptions as $xbotSubscription) {
             $schedule->command("subscription:trigger {$xbotSubscription->id}")
-                ->cron($xbotSubscription->cron);
+                ->cron($xbotSubscription->cron)
+                ->timezone('Asia/Shanghai');
         }
     })
     ->withExceptions(function (Exceptions $exceptions): void {

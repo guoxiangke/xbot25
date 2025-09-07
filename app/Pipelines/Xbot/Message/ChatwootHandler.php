@@ -27,16 +27,7 @@ class ChatwootHandler extends BaseXbotHandler
             return $next($context);
         }
 
-        // 检查关键词响应同步开关（只对Bot发出的消息进行检查）
-        // 但支付相关消息（有force_chatwoot_sync标记）总是同步
-        if ($context->isFromBot) {
-            $configManager = new XbotConfigManager($context->wechatBot);
-            $forceChatwootSync = $context->requestRawData['force_chatwoot_sync'] ?? false;
-            
-            if (!$forceChatwootSync && !$configManager->isEnabled('keyword_sync')) {
-                return $next($context);
-            }
-        }
+        // 机器人发出的消息（系统命令响应等）始终同步到 Chatwoot
 
         // 把消息存储到 chatwoot 中（通过队列异步处理）
         ChatwootHandleQueue::dispatch(

@@ -6,6 +6,7 @@ use App\Models\XbotSubscription;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\XbotConfigManager;
+use App\Services\CheckInPermissionService;
 use Closure;
 
 /**
@@ -52,22 +53,11 @@ class BuiltinCommandHandler extends BaseXbotHandler
             $method = self::COMMANDS[$matchedCommand]['method'];
             $this->log('Executing command', ['command' => $matchedCommand, 'method' => $method, 'originalKeyword' => $keyword]);
             $this->$method($context);
-            $context->markAsProcessed(static::class);
-            return $context;
+            // 继续传递到下游处理器（如ChatwootHandler），让命令也同步到Chatwoot
+            return $next($context);
         }
 
-        // 处理 /set 开头的命令（但先排除精确匹配的命令）
-        if (str_starts_with($keyword, '/set ') && !$commandFound) {
-            if ($context->isFromBot) {
-                // 机器人执行配置命令
-                $this->handleSetCommand($context, $keyword);
-            } else {
-                // 非机器人用户提示权限不足
-                $this->handleSetCommandHint($context);
-            }
-            $context->markAsProcessed(static::class);
-            return $context;
-        }
+
 
         return $next($context);
     }
@@ -90,14 +80,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $this->markAsReplied($context);
     }
 
-    /**
-     * 处理 set 命令提示
-     */
-    private function handleSetCommandHint(XbotMessageContext $context): void
-    {
-        $this->sendTextMessage($context, "⚠️ 权限不足\n设置命令需要使用机器人自己来发送");
-        $this->markAsReplied($context);
-    }
 
     /**
      * 处理帮助命令
@@ -110,11 +92,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
             $helpText .= "{$command} - {$config['description']}\n";
         }
 
-        // 添加特殊命令说明
-        $helpText .= "\n🔧 配置命令（需机器人执行）：\n";
-        $helpText .= "/set room_listen 0/1 - 设置群消息监听状态\n";
-        $helpText .= "/set youtube_allowed 0/1 - 设置YouTube链接响应权限\n";
-        $helpText .= "/set <其他配置> 0/1 - 设置其他系统配置\n";
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
@@ -140,7 +117,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $configManager = new XbotConfigManager($context->wechatBot);
         $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) {
-            $this->sendTextMessage($context, '⚠️ Chatwoot同步未启用\n请先使用 /set chatwoot 1 启用');
+            $this->sendTextMessage($context, '⚠️ Chatwoot同步未启用\n请先启用 chatwoot 配置');
             $this->markAsReplied($context);
             return;
         }
@@ -157,96 +134,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
     }
 
 
-    /**
-     * 处理机器人 set 命令
-     */
-    private function handleSetCommand(XbotMessageContext $context, string $keyword): void
-    {
-        // 解析命令: /set chatwoot 0/1, /set room_msg 0/1, /set keyword_resources 0/1, /set keyword_sync 0/1
-        // 使用 preg_split 处理多个空格的情况
-        $parts = array_values(array_filter(preg_split('/\s+/', trim($keyword)), 'strlen'));
-
-        if (count($parts) < 3) {
-            $this->sendTextMessage($context, '⚠️ 命令格式错误\n正确格式：/set <setting> 0/1');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $command = $parts[1] ?? '';
-        $value = $parts[2] ?? '';
-
-        // 特殊处理 room_listen 命令
-        if ($command === 'room_listen') {
-            $this->handleSetRoomListenCommand($context, $value);
-            return;
-        }
-
-        // 特殊处理 youtube_allowed 命令
-        if ($command === 'youtube_allowed') {
-            $this->handleSetYoutubeAllowedCommand($context, $value);
-            return;
-        }
-
-        // 使用统一的配置设置方法
-        $this->handleUnifiedSetCommand($context, $command, $value);
-    }
-
-    /**
-     * 统一的配置设置处理方法
-     */
-    private function handleUnifiedSetCommand(XbotMessageContext $context, string $command, string $value): void
-    {
-        // 检查参数值
-        if (!in_array($value, ['0', '1'])) {
-            $this->sendTextMessage($context, '⚠️ 参数错误\n请使用 0（关闭）或 1（开启）');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $configManager = new XbotConfigManager($context->wechatBot);
-        $isEnabled = $value === '1';
-
-        try {
-            // 检查配置是否存在
-            if (!in_array($command, $configManager::getAvailableCommands())) {
-                $availableCommands = implode(', ', $configManager::getAvailableCommands());
-                $this->sendTextMessage($context, "⚠️ 未知的设置命令\n可用命令：{$availableCommands}");
-                $this->markAsReplied($context);
-                return;
-            }
-
-            // 设置配置
-            $configManager->set($command, $isEnabled);
-
-            // 发送确认消息
-            $configName = $configManager->getConfigName($command);
-            $this->sendConfigUpdateMessage($context, $configName, $isEnabled);
-            $this->markAsReplied($context);
-
-            $this->log('Config updated', [
-                'command' => $command,
-                'value' => $value,
-                'enabled' => $isEnabled
-            ]);
-
-        } catch (\Exception $e) {
-            $this->sendTextMessage($context, "❌ 配置设置失败：{$e->getMessage()}");
-            $this->markAsReplied($context);
-        }
-    }
-
-
-    /**
-     * 发送配置更新消息
-     */
-    private function sendConfigUpdateMessage(XbotMessageContext $context, string $configName, bool $isEnabled): void
-    {
-        if ($isEnabled) {
-            $this->sendTextMessage($context, "✅ 已开启{$configName}");
-        } else {
-            $this->sendTextMessage($context, "❌ 已关闭{$configName}");
-        }
-    }
 
 
     /**
@@ -325,7 +212,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         }
 
 
-        $message .= "\n💡 使用 /set <配置名> 0/1 修改配置";
         $message .= "\n💡 使用 /help 查看所有命令";
 
         $this->sendTextMessage($context, $message);
@@ -337,130 +223,4 @@ class BuiltinCommandHandler extends BaseXbotHandler
         ]);
     }
 
-    /**
-     * 处理 /set room_listen 命令
-     * 设置特定群的监听状态
-     */
-    private function handleSetRoomListenCommand(XbotMessageContext $context, string $value): void
-    {
-        if (!$context->isRoom) {
-            $this->sendTextMessage($context, '❌ 此命令只能在群聊中使用');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $status = (int)$value;
-        if ($status !== 0 && $status !== 1) {
-            $this->sendTextMessage($context, '❌ 状态值必须是 0 (关闭) 或 1 (开启)');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $filter = new \App\Services\ChatroomMessageFilter($context->wechatBot, new XbotConfigManager($context->wechatBot));
-        $success = $filter->setRoomListenStatus($context->roomWxid, (bool)$status);
-
-        if ($success) {
-            $statusText = $status ? '✅开启' : '❌关闭';
-            $this->sendTextMessage($context, "📢 群监听状态已设置为: {$statusText}");
-            $this->log('Room listen status set', [
-                'room_wxid' => $context->roomWxid,
-                'status' => $status,
-                'success' => $success
-            ]);
-        } else {
-            $this->sendTextMessage($context, '❌ 设置群监听状态失败');
-        }
-
-        $this->markAsReplied($context);
-    }
-
-    /**
-     * 处理 /set youtube_allowed 命令
-     * 设置YouTube链接响应权限（群聊或私聊）
-     */
-    private function handleSetYoutubeAllowedCommand(XbotMessageContext $context, string $value): void
-    {
-        $status = (int)$value;
-        if ($status !== 0 && $status !== 1) {
-            $this->sendTextMessage($context, '❌ 状态值必须是 0 (关闭) 或 1 (开启)');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $wechatBot = $context->wechatBot;
-        $isEnabled = (bool)$status;
-
-        if ($context->isRoom) {
-            // 群聊：管理 youtube_allowed_rooms
-            $allowedRooms = $wechatBot->getMeta('youtube_allowed_rooms', [
-                "26570621741@chatroom",
-                "18403467252@chatroom",  // Youtube精选
-                "34974119368@chatroom",
-                "57526085509@chatroom",  // LFC活力生命
-                "58088888496@chatroom",  // 活泼的生命
-                "57057092201@chatroom",  // 每天一章
-                "51761446745@chatroom",  // Linda
-            ]);
-
-            $roomWxid = $context->roomWxid;
-            $isCurrentlyAllowed = in_array($roomWxid, $allowedRooms);
-
-            if ($isEnabled && !$isCurrentlyAllowed) {
-                // 添加到允许列表
-                $allowedRooms[] = $roomWxid;
-                $wechatBot->setMeta('youtube_allowed_rooms', $allowedRooms);
-                $this->sendTextMessage($context, '✅ 本群已开启YouTube链接响应功能');
-            } elseif (!$isEnabled && $isCurrentlyAllowed) {
-                // 从允许列表移除
-                $allowedRooms = array_filter($allowedRooms, fn($room) => $room !== $roomWxid);
-                $wechatBot->setMeta('youtube_allowed_rooms', array_values($allowedRooms));
-                $this->sendTextMessage($context, '❌ 本群已关闭YouTube链接响应功能');
-            } else {
-                // 状态未变化
-                $statusText = $isEnabled ? '已开启' : '已关闭';
-                $this->sendTextMessage($context, "📋 本群YouTube链接响应功能{$statusText}");
-            }
-
-            $this->log('Room YouTube allowed status set', [
-                'room_wxid' => $roomWxid,
-                'status' => $status,
-                'was_allowed' => $isCurrentlyAllowed,
-                'now_allowed' => $isEnabled
-            ]);
-
-        } else {
-            // 私聊：管理 youtube_allowed_users
-            $allowedUsers = $wechatBot->getMeta('youtube_allowed_users', ['keke302','bluesky_still']);
-
-            // 机器人发送消息时，目标用户是to_wxid；用户发送消息时，目标用户是from_wxid
-            $targetWxid = $context->isFromBot ? $context->requestRawData['to_wxid'] : $context->fromWxid;
-            $isCurrentlyAllowed = in_array($targetWxid, $allowedUsers);
-
-            if ($isEnabled && !$isCurrentlyAllowed) {
-                // 添加到允许列表
-                $allowedUsers[] = $targetWxid;
-                $wechatBot->setMeta('youtube_allowed_users', $allowedUsers);
-                $this->sendTextMessage($context, '✅ 已开启YouTube链接响应功能');
-            } elseif (!$isEnabled && $isCurrentlyAllowed) {
-                // 从允许列表移除
-                $allowedUsers = array_filter($allowedUsers, fn($user) => $user !== $targetWxid);
-                $wechatBot->setMeta('youtube_allowed_users', array_values($allowedUsers));
-                $this->sendTextMessage($context, '❌ 已关闭YouTube链接响应功能');
-            } else {
-                // 状态未变化
-                $statusText = $isEnabled ? '已开启' : '已关闭';
-                $this->sendTextMessage($context, "📋 YouTube链接响应功能{$statusText}");
-            }
-
-            $this->log('User YouTube allowed status set', [
-                'target_wxid' => $targetWxid,
-                'is_from_bot' => $context->isFromBot,
-                'status' => $status,
-                'was_allowed' => $isCurrentlyAllowed,
-                'now_allowed' => $isEnabled
-            ]);
-        }
-
-        $this->markAsReplied($context);
-    }
 }

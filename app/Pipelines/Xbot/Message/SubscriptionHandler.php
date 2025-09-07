@@ -82,13 +82,16 @@ class SubscriptionHandler extends BaseXbotHandler
 
         // 检查个人订阅限制
         $isRoom = !empty($context->roomWxid);
-        if (!$isRoom && $this->isPersonalSubscriptionDisabled($context->wechatBot)) {
-            $this->sendTextMessage($context, '暂不支持个人订阅，请入群获取或回复编号！');
+        if (!$isRoom) {
+            $donateText = config('services.xbot.donate', '');
+            $this->sendTextMessage($context, "资源有限\n请入群或回复编号获取！\n{$donateText}");
             return;
         }
 
         // 设置发送时间
-        $cron = $this->getCronTime($context->wechatBot, $isRoom);
+        $chinaHour = 5;
+        $cron =  "0 {$chinaHour} * * *";
+        //$this->getCronTime($context->wechatBot, $isRoom);
 
         // 创建或恢复订阅
         $subscription = XbotSubscription::createOrRestore(
@@ -99,7 +102,6 @@ class SubscriptionHandler extends BaseXbotHandler
         );
 
         if ($subscription->wasRecentlyCreated) {
-            $chinaHour = ($context->wechatBot->id == 13) ? 5 : 7;
             $this->sendTextMessage($context, "成功订阅，每早{$chinaHour}点，不见不散！");
         } else {
             $this->sendTextMessage($context, '已订阅成功！时间和之前一样');
@@ -141,42 +143,5 @@ class SubscriptionHandler extends BaseXbotHandler
         } else {
             $this->sendTextMessage($context, '查无此订阅！');
         }
-    }
-
-
-    /**
-     * 检查是否禁用个人订阅
-     * 根据旧代码逻辑，某些特定bot（如id=13的FEBC-US）不支持个人订阅
-     */
-    private function isPersonalSubscriptionDisabled($wechatBot): bool
-    {
-        // 这里可以根据具体业务需求配置哪些bot不支持个人订阅
-        // 目前参考旧代码的逻辑，id=13的bot不支持个人订阅
-        return $wechatBot->id == 13;
-    }
-
-    /**
-     * 获取cron时间配置
-     * 根据旧代码逻辑：FEBC-US(id=13)群5点发送，其他7点发送
-     * 注意：由于调度器运行在UTC时区，需要将东八区时间转换为UTC时间
-     * 东八区早上7点 = UTC晚上23点（前一天）
-     * 东八区早上5点 = UTC晚上21点（前一天）
-     */
-    private function getCronTime($wechatBot, $isRoom): string
-    {
-        // 东八区时间
-        $chinaHour = ($wechatBot->id == 13) ? 5 : 7;
-        // 转换为UTC时间（东八区 -8小时 = UTC）
-        $utcHour = ($chinaHour - 8 + 24) % 24;
-        return "0 {$utcHour} * * *";
-    }
-
-    /**
-     * 从cron表达式中提取小时
-     */
-    private function getHourFromCron(string $cron): int
-    {
-        $parts = explode(' ', $cron);
-        return isset($parts[1]) ? intval($parts[1]) : 7;
     }
 }

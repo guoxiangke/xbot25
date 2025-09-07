@@ -176,6 +176,243 @@ The system handles various WeChat message types including:
 
 ## 总结 prepend 写入到 .claude/done/{date}.md
 
+## Pipeline 架构详解 (重要)
+
+### 三阶段 Pipeline 处理流程
+
+系统使用 Laravel Pipeline 将消息处理分为三个独立的阶段，每个阶段都有明确的职责：
+
+1. **第一阶段：状态管理 Pipeline (State)**
+   - 处理系统状态相关的消息
+   - 包含处理器：`ZombieCheckHandler`
+   - 作用：管理机器人在线状态、系统级别的检查
+
+2. **第二阶段：联系人管理 Pipeline (Contact)**
+   - 处理联系人和关系相关的消息
+   - 包含处理器：`NotificationHandler`, `FriendRequestHandler`
+   - 作用：处理好友请求、群成员变化、联系人通知等
+
+3. **第三阶段：消息内容处理 Pipeline (Message)**
+   - 处理具体消息内容
+   - 核心处理器链：
+     ```php
+     BuiltinCommandHandler::class,        // 内置命令处理
+     SelfMessageHandler::class,           // 自己发送的消息
+     PaymentMessageHandler::class,        // 支付消息
+     SystemMessageHandler::class,         // 系统消息
+     LocationMessageHandler::class,       // 位置消息
+     ImageMessageHandler::class,          // 图片消息
+     FileVideoMessageHandler::class,      // 文件/视频消息
+     VoiceMessageHandler::class,          // 语音消息
+     VoiceTransMessageHandler::class,     // 语音转文字消息
+     EmojiMessageHandler::class,          // 表情消息
+     LinkMessageHandler::class,           // 链接消息
+     OtherAppMessageHandler::class,       // 其他应用消息
+     SubscriptionHandler::class,          // 订阅处理
+     CheckInMessageHandler::class,        // 签到处理
+     TextMessageHandler::class,           // 文本消息处理
+     KeywordResponseHandler::class,       // 关键词响应
+     WebhookHandler::class,               // Webhook处理
+     ChatwootHandler::class,              // Chatwoot集成
+     ```
+
+### Handler 基类架构
+
+所有消息处理器都继承自 `BaseXbotHandler`，实现 `XbotHandlerInterface` 接口：
+
+#### 核心方法和模式：
+
+1. **消息发送**：
+   ```php
+   // ✅ 正确的消息发送方式
+   $this->sendTextMessage($context, $text, $target);
+   
+   // ❌ 错误的假设方法（不存在）
+   $context->addPendingMessage($text); // 这个方法不存在！
+   ```
+
+2. **消息处理检查**：
+   ```php
+   protected function shouldProcess(XbotMessageContext $context): bool
+   protected function isMessageType(XbotMessageContext $context, string|array $types): bool
+   ```
+
+3. **状态管理**：
+   ```php
+   $context->markAsProcessed(); // 标记消息已处理，阻止后续处理器执行
+   $context->isProcessed();     // 检查是否已被处理
+   ```
+
+### XbotMessageContext 上下文管理
+
+`XbotMessageContext` 是消息在整个 Pipeline 中的状态载体：
+
+```php
+// 核心属性
+$context->wechatBot      // WechatBot 实例
+$context->requestRawData // 原始消息数据
+$context->msgType        // 消息类型
+$context->clientId       // 客户端ID
+$context->isRoom         // 是否群消息
+$context->roomWxid       // 群微信ID（如果是群消息）
+
+// 状态管理
+$context->isProcessed()  // 检查是否已处理
+$context->markAsProcessed() // 标记为已处理
+
+// 回复目标获取
+$context->getReplyTarget() // 获取回复目标（私聊或群）
+```
+
+### 消息类型标准化
+
+系统将各种消息类型处理后，统一转换为文本格式传递给后续处理器：
+
+1. **类型转换流程**：各种专门的 Handler（如 `ImageMessageHandler`, `VoiceMessageHandler`）将特殊消息类型转换为标准文本
+2. **origin_msg_type 保留**：在转换过程中，保留原始消息类型 `origin_msg_type`，以便后续扩展功能使用
+3. **统一处理**：最终所有消息都以文本形式传递给 `TextMessageHandler` 及后续处理器
+
+### 关键架构要点
+
+1. **Pipeline 顺序很重要**：每个阶段必须按顺序执行，前一阶段标记为 `processed` 的消息不会进入下一阶段
+2. **Handler 继承关系**：所有 Handler 必须继承 `BaseXbotHandler` 并正确使用其提供的方法
+3. **状态传递**：使用 `XbotMessageContext` 在整个处理链中传递状态和数据
+4. **消息发送模式**：统一使用 `$this->sendTextMessage()` 方法发送消息，不要假设存在其他发送方法
+
+### 常见架构错误
+
+1. **假设不存在的方法**：
+   ```php
+   // ❌ 错误：假设 XbotMessageContext 有 addPendingMessage 方法
+   $context->addPendingMessage($text);
+   
+   // ✅ 正确：使用 BaseXbotHandler 提供的发送方法
+   $this->sendTextMessage($context, $text);
+   ```
+
+2. **忽略 Pipeline 处理状态**：
+   ```php
+   // ❌ 错误：不检查处理状态，可能重复处理
+   public function handle($context, $next) {
+       // 直接处理...
+   }
+   
+   // ✅ 正确：检查处理状态
+   public function handle($context, $next) {
+       if (!$this->shouldProcess($context)) {
+           return $next($context);
+       }
+       // 处理逻辑...
+   }
+   ```
+
+3. **联系人数据查找错误**：
+   ```php
+   // ❌ 错误：联系人数据是关联数组，不应该用foreach遍历查找
+   foreach ($contacts as $contact) {
+       if ($contact['wxid'] === $wxid) {
+           return $contact['nickname'];
+       }
+   }
+   
+   // ✅ 正确：联系人数据以wxid为键，直接访问
+   if (isset($contacts[$wxid])) {
+       $contact = $contacts[$wxid];
+       return $contact['nickname'] ?? $contact['remark'] ?? $wxid;
+   }
+   ```
+   
+   **重要提醒**：`$wechatBot->getMeta('contacts')` 返回的数据结构是：
+   ```php
+   $contacts = [
+       'wxid1' => ['nickname' => '昵称', 'remark' => '备注', ...],
+       'wxid2' => ['nickname' => '昵称2', 'remark' => '备注2', ...],
+   ];
+   ```
+
+## 消息同步架构（2025-09-07 更新）
+
+### Chatwoot 同步策略
+
+系统中所有消息的同步遵循以下简洁规则：
+
+1. **用户消息**：始终同步到 Chatwoot
+2. **机器人响应**：始终同步到 Chatwoot  
+3. **关键词响应**：根据 `keyword_sync` 配置决定是否同步
+
+### Handler 消息传递策略
+
+**重要架构原则：所有 Handler 处理完消息后都应该继续传递给下游，而不是直接 `markAsProcessed()`**
+
+#### ✅ 正确的 Handler 模式：
+```php
+public function handle(XbotMessageContext $context, Closure $next) {
+    if (!$this->shouldProcess($context)) {
+        return $next($context);
+    }
+    
+    // 处理业务逻辑
+    $this->processMessage($context);
+    
+    // 继续传递到下游处理器（重要！）
+    return $next($context);
+}
+```
+
+#### ❌ 错误的 Handler 模式：
+```php
+public function handle(XbotMessageContext $context, Closure $next) {
+    // 处理业务逻辑
+    $this->processMessage($context);
+    
+    // ❌ 错误：直接标记为已处理，阻止同步到 Chatwoot
+    $context->markAsProcessed(static::class);
+    return $context;
+}
+```
+
+### 配置管理统一化
+
+所有配置项通过 `XbotConfigManager` 统一管理：
+
+#### 支持的配置项：
+```php
+'chatwoot' => 'Chatwoot同步',
+'room_msg' => '群消息处理',
+'keyword_resources' => '关键词资源响应',
+'keyword_sync' => 'Chatwoot同步关键词',
+'payment_auto' => '自动收款',
+'check_in' => '签到系统',
+```
+
+#### 配置命令支持（SelfMessageHandler）：
+- `/set <key> <value>` - 设置配置项
+- `/config <key> <value>` - 设置配置项（与 `/set` 等效）
+- `/config` - 查看所有配置状态（BuiltinCommandHandler 处理）
+
+#### 重要：动态配置列表
+SelfMessageHandler 使用 `XbotConfigManager::getAvailableCommands()` 动态获取允许的配置项，确保与配置定义保持同步。
+
+### 系统命令架构分离
+
+#### BuiltinCommandHandler（查询命令）：
+- `/help` - 显示帮助信息
+- `/whoami` - 显示登录信息  
+- `/config` - 查看配置状态
+- `/sync contacts` - 同步联系人
+- `/list subscriptions` - 查看订阅
+- `/get room_id` - 获取群ID
+
+#### SelfMessageHandler（配置命令）：
+- `/set <key> <value>` - 设置配置项
+- `/config <key> <value>` - 设置配置项（等效格式）
+
+### 已移除的复杂性
+
+1. **force_chatwoot_sync 标记**：不再需要特殊标记，所有消息按统一规则同步
+2. **复杂的同步判断逻辑**：ChatwootHandler 简化为直接同步所有传递过来的消息
+3. **硬编码的配置项列表**：改为动态从 XbotConfigManager 获取
+
 ## 重构差异
 - 不再需要的功能
   - 自动回复系统，因为chatwoot 系统中可以设置自动回复功能
@@ -184,3 +421,4 @@ The system handles various WeChat message types including:
   - WechatMessageVoice 存储语音转文字结果
   - 语音文件 silk → mp3 转换
   - WechatMessageFile 存储文件路径和URL映射
+  - force_chatwoot_sync 强制同步标记（已移除复杂性）

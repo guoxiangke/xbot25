@@ -4,6 +4,7 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\XbotConfigManager;
 use Closure;
 use Illuminate\Support\Str;
 
@@ -25,8 +26,15 @@ class SelfMessageHandler extends BaseXbotHandler
 
             if (Str::startsWith($msg, '/set ')) {
                 $this->handleSetCommand($context, $msg);
-                $context->markAsProcessed(static::class);
-                return $context;
+                // 继续传递到下游处理器（如ChatwootHandler），让命令也同步到Chatwoot
+                return $next($context);
+            }
+
+            // 同时支持 /config <key> <value> 格式
+            if (Str::startsWith($msg, '/config ') && str_word_count(trim($msg)) >= 3) {
+                $this->handleSetCommand($context, $msg);
+                // 继续传递到下游处理器（如ChatwootHandler），让命令也同步到Chatwoot
+                return $next($context);
             }
         }
 
@@ -34,22 +42,23 @@ class SelfMessageHandler extends BaseXbotHandler
     }
 
     /**
-     * 处理设置命令
+     * 处理设置命令（支持 /set 和 /config 两种格式）
      */
     private function handleSetCommand(XbotMessageContext $context, string $message): void
     {
         $parts = explode(' ', $message);
 
         if (count($parts) < 3) {
-            $this->sendTextMessage($context, "用法: /set <key> <value>\n例如: /set room_msg 1");
+            $commandFormat = Str::startsWith($message, '/config') ? '/config' : '/set';
+            $this->sendTextMessage($context, "用法: {$commandFormat} <key> <value>\n例如: {$commandFormat} room_msg 1");
             return;
         }
 
         $key = $parts[1];
         $value = $parts[2];
 
-        // 允许处理的设置项
-        $allowedKeys = ['room_msg', 'chatwoot', 'keyword_response_sync_to_chatwoot'];
+        // 允许处理的设置项（从 XbotConfigManager 获取所有可用配置）
+        $allowedKeys = XbotConfigManager::getAvailableCommands();
         if (!in_array($key, $allowedKeys)) {
             $this->sendTextMessage($context, "未知的设置项: $key\n目前支持: " . implode(', ', $allowedKeys));
             return;
