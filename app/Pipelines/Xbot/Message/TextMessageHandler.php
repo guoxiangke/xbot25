@@ -5,6 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use Closure;
+use Illuminate\Support\Str;
 
 /**
  * 文本消息处理器
@@ -21,6 +22,14 @@ class TextMessageHandler extends BaseXbotHandler
         }
 
         $message = trim($context->requestRawData['msg'] ?? '');
+        
+        // 检查是否为配置命令，如果是且用户无权限，则给出提示
+        if ($this->isConfigCommand($message) && !$context->isSelfToSelf) {
+            $this->sendTextMessage($context, "⚠️ 无权限执行配置命令，仅机器人管理员可用");
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+        
         // 繁体转简体
 
         // 将处理后的消息存储到上下文中，供后续处理器使用
@@ -34,5 +43,36 @@ class TextMessageHandler extends BaseXbotHandler
         return $next($context);
     }
 
+    /**
+     * 检查是否为配置命令
+     */
+    private function isConfigCommand(string $message): bool
+    {
+        $normalizedMessage = strtolower(trim($message));
+        
+        // 群级别配置命令列表（这些命令只能在群里由机器人执行）
+        $groupLevelCommands = [
+            'room_listen', 'check_in_room', 'youtube_room'
+        ];
+        
+        // 解析命令参数
+        $parts = array_values(array_filter(preg_split('/\s+/', trim($message)), 'strlen'));
+        
+        // 检查 /set 命令
+        if (Str::startsWith($normalizedMessage, '/set ') && count($parts) >= 2) {
+            $key = $parts[1] ?? '';
+            // 如果是群级别配置命令，则不拦截（让 SelfMessageHandler 处理）
+            return !in_array($key, $groupLevelCommands);
+        }
+        
+        // 检查 /config <key> <value> 格式（包含3个或更多单词）
+        if (Str::startsWith($normalizedMessage, '/config ') && count($parts) >= 3) {
+            $key = $parts[1] ?? '';
+            // 如果是群级别配置命令，则不拦截（让 SelfMessageHandler 处理）
+            return !in_array($key, $groupLevelCommands);
+        }
+        
+        return false;
+    }
 
 }

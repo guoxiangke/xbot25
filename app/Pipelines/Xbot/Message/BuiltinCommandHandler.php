@@ -7,6 +7,7 @@ use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\XbotConfigManager;
 use App\Services\CheckInPermissionService;
+use App\Services\ChatroomMessageFilter;
 use Closure;
 
 /**
@@ -22,7 +23,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/sync contacts' => ['method' => 'handleSyncContactsCommand', 'description' => '同步联系人列表'],
         '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
         '/get room_id' => ['method' => 'handleGetRoomIdCommand', 'description' => '获取群聊ID'],
-        '/config' => ['method' => 'handleConfigCommand', 'description' => '查看和管理系统配置'],
+        '/config' => ['method' => 'handleConfigCommand', 'description' => '', 'hidden' => true], // 隐藏命令，不在帮助中显示
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -89,6 +90,10 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $helpText = "Hi，我是一个AI机器人，暂支持以下指令：\n";
 
         foreach (self::COMMANDS as $command => $config) {
+            // 跳过隐藏的命令或空描述的命令
+            if (!empty($config['hidden']) || empty($config['description'])) {
+                continue;
+            }
             $helpText .= "{$command} - {$config['description']}\n";
         }
 
@@ -197,6 +202,13 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleConfigCommand(XbotMessageContext $context): void
     {
+        // 检查权限：只有机器人自己可以查看配置
+        if (!$context->isSelfToSelf) {
+            $this->sendTextMessage($context, "⚠️ 无权限执行此命令，仅机器人管理员可用");
+            $this->markAsReplied($context);
+            return;
+        }
+
         $configManager = new XbotConfigManager($context->wechatBot);
 
         // 构建配置状态消息
@@ -211,6 +223,9 @@ class BuiltinCommandHandler extends BaseXbotHandler
             $message .= "• {$command}: {$status} {$configName}\n";
         }
 
+        // 添加群级别配置显示
+        $message .= "\n🏘️ 群级别配置：\n";
+        $message .= $this->getGroupLevelConfigs($context);
 
         $message .= "\n💡 使用 /help 查看所有命令";
 
@@ -221,6 +236,48 @@ class BuiltinCommandHandler extends BaseXbotHandler
             'is_room' => $context->isRoom,
             'room_wxid' => $context->roomWxid ?? null
         ]);
+    }
+
+    /**
+     * 获取群级别配置信息
+     */
+    private function getGroupLevelConfigs(XbotMessageContext $context): string
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new XbotConfigManager($wechatBot);
+        $groupConfigs = "";
+
+        // 1. 群消息处理配置
+        $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
+        $roomConfigs = $chatroomFilter->getAllRoomConfigs();
+        $roomCount = count($roomConfigs);
+        if ($roomCount > 0) {
+            $groupConfigs .= "• room_listen: {$roomCount}个群特例配置\n";
+        } else {
+            $groupConfigs .= "• room_listen: 无特例配置\n";
+        }
+
+        // 2. 签到系统配置
+        $checkInService = new CheckInPermissionService($wechatBot);
+        $checkInRoomConfigs = $checkInService->getAllRoomCheckInConfigs();
+        $checkInCount = count($checkInRoomConfigs);
+        if ($checkInCount > 0) {
+            $groupConfigs .= "• check_in_rooms: {$checkInCount}个群特例配置\n";
+        } else {
+            $groupConfigs .= "• check_in_rooms: 无特例配置\n";
+        }
+
+        // 3. YouTube 响应配置
+        $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
+        $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
+        $youtubeCount = count($youtubeRooms) + count($youtubeUsers);
+        if ($youtubeCount > 0) {
+            $groupConfigs .= "• youtube_allowed: {$youtubeCount}个群/用户配置\n";
+        } else {
+            $groupConfigs .= "• youtube_allowed: 无配置\n";
+        }
+
+        return $groupConfigs;
     }
 
 }

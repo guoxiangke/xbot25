@@ -16,6 +16,11 @@ class ChatroomMessageFilter
     // 始终放行的命令列表
     private const ALWAYS_ALLOWED_COMMANDS = [
         '/set room_listen',
+        '/set check_in_room',
+        '/set youtube_room',
+        '/config room_listen',
+        '/config check_in_room', 
+        '/config youtube_room',
         '/get room_id'
     ];
 

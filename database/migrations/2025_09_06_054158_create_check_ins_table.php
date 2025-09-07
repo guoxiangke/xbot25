@@ -14,7 +14,6 @@ return new class extends Migration
         Schema::create('check_ins', function (Blueprint $table) {
             $table->id();
             $table->string('wxid');
-            $table->string('nickname');
             $table->string('content'); // 群聊 room_wxid
             $table->timestamp('check_in_at')->nullable();
             $table->softDeletes();
