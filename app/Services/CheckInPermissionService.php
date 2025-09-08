@@ -85,7 +85,7 @@ class CheckInPermissionService
             $roomConfig = $this->getRoomCheckInConfig();
             $roomConfig[$roomWxid] = $status;
             
-            $this->wechatBot->setMeta('check_in_allowed_rooms', $roomConfig);
+            $this->wechatBot->setMeta('check_in_specials', $roomConfig);
             return true;
         } catch (\Exception $e) {
             \Log::error('Failed to set room check-in status', [
@@ -127,7 +127,7 @@ class CheckInPermissionService
      */
     private function getRoomCheckInConfig(): array
     {
-        return $this->wechatBot->getMeta('check_in_allowed_rooms', []);
+        return $this->wechatBot->getMeta('check_in_specials', []);
     }
 
     /**

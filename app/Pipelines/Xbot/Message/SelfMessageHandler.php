@@ -94,6 +94,27 @@ class SelfMessageHandler extends BaseXbotHandler
             return;
         }
 
+        // 特殊处理：chatwoot 启用时检查必要配置
+        if ($key === 'chatwoot' && $boolValue === true) {
+            $missingConfigs = [];
+            
+            if (!$context->wechatBot->chatwoot_account_id) {
+                $missingConfigs[] = 'chatwoot_account_id';
+            }
+            if (!$context->wechatBot->chatwoot_inbox_id) {
+                $missingConfigs[] = 'chatwoot_inbox_id';
+            }
+            if (!$context->wechatBot->chatwoot_token) {
+                $missingConfigs[] = 'chatwoot_token';
+            }
+            
+            if (!empty($missingConfigs)) {
+                $this->sendTextMessage($context, "❌ 无法启用 Chatwoot，缺少必要配置：\n" . implode(', ', $missingConfigs) . "\n请先完成 Chatwoot 配置");
+                $this->markAsReplied($context);
+                return;
+            }
+        }
+
         // 'chatwoot_enabled'
         // 'room_msg_enabled' ...
         $metaKey = "{$key}_enabled";

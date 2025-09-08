@@ -46,7 +46,7 @@ class ChatroomMessageFilter
         }
 
         try {
-            $roomConfig = $this->wechatBot->getMeta('allowed_or_denied_chatrooms', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
         } catch (\Exception $e) {
             \Log::error('Failed to get room config', [
                 'room_wxid' => $roomWxid,
@@ -100,10 +100,10 @@ class ChatroomMessageFilter
     public function setRoomListenStatus(string $roomWxid, bool $status): bool
     {
         try {
-            $roomConfig = $this->wechatBot->getMeta('allowed_or_denied_chatrooms', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
             $roomConfig[$roomWxid] = $status;
             
-            $this->wechatBot->setMeta('allowed_or_denied_chatrooms', $roomConfig);
+            $this->wechatBot->setMeta('room_msg_enabled_specials', $roomConfig);
             return true;
         } catch (\Exception $e) {
             \Log::error('Failed to set room listen status', [
@@ -121,7 +121,7 @@ class ChatroomMessageFilter
     public function getRoomListenStatus(string $roomWxid): ?bool
     {
         try {
-            $roomConfig = $this->wechatBot->getMeta('allowed_or_denied_chatrooms', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
             return $roomConfig[$roomWxid] ?? null;
         } catch (\Exception $e) {
             \Log::error('Failed to get room listen status', [
@@ -137,6 +137,6 @@ class ChatroomMessageFilter
      */
     public function getAllRoomConfigs(): array
     {
-        return $this->wechatBot->getMeta('allowed_or_denied_chatrooms', []);
+        return $this->wechatBot->getMeta('room_msg_enabled_specials', []);
     }
 }
