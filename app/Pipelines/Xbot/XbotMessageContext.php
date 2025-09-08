@@ -27,6 +27,7 @@ class XbotMessageContext
     public string $fromWxid; //群信息的消息发送者的微信ID
     public ?int $clientId; // 客户端ID
     public ?string $processedMessage = null; // 处理后的消息内容
+    public bool $isKeywordResponse = false; // 是否为关键词响应消息
     
     // 联系人详细数据
     public ?array $fromContact = null;  // 发送者联系人详细数据
@@ -72,6 +73,10 @@ class XbotMessageContext
         $this->fromWxid = $fromWxid;
         $this->timestamp = $requestRawData['timestamp'] ?? null;
         $this->content = $requestRawData['msg'] ?? '';
+        
+        // 检查是否为关键词响应消息
+        $this->isKeywordResponse = $requestRawData['_keyword_response'] ?? 
+                                  ($requestRawData['data']['_keyword_response'] ?? false);
         
         // 预加载联系人数据
         $this->loadContactsData();
@@ -123,6 +128,24 @@ class XbotMessageContext
         $this->isProcessed = true;
         $this->metadata['processed_by'] = $handlerName;
         $this->metadata['processed_at'] = Carbon::now();
+    }
+
+    /**
+     * 标记消息为关键词响应
+     */
+    public function markAsKeywordResponse(): void
+    {
+        $this->isKeywordResponse = true;
+        $this->metadata['is_keyword_response'] = true;
+        $this->metadata['keyword_response_at'] = Carbon::now();
+    }
+
+    /**
+     * 检查是否为关键词响应消息
+     */
+    public function isKeywordResponse(): bool
+    {
+        return $this->isKeywordResponse;
     }
 
     /**

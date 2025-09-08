@@ -85,7 +85,7 @@ class SubscriptionHandler extends BaseXbotHandler
         if (!$isRoom) {
             $donateText = config('services.xbot.donate', '');
             $this->sendTextMessage($context, "资源有限\n请入群或回复编号获取！\n{$donateText}");
-            return;
+            // return;
         }
 
         // 设置发送时间

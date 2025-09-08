@@ -3,9 +3,7 @@
 use App\Models\WechatBot;
 use App\Models\WechatClient;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Pipelines\Xbot\Message\KeywordResponseHandler;
 use App\Pipelines\Xbot\Message\ChatwootHandler;
-use App\Services\XbotConfigManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -25,14 +23,10 @@ describe('Message Processing Integration Tests', function () {
         ]);
     });
 
-    describe('Keyword Response and Chatwoot Sync Logic', function () {
+    describe('Chatwoot Sync Logic', function () {
         
-        test('user message triggers keyword response and both sync when keyword_sync enabled', function () {
-            // 设置配置
-            $this->wechatBot->setMeta('keyword_resources_enabled', true);
-            $this->wechatBot->setMeta('keyword_sync_enabled', true);
-            
-            // 模拟用户发送关键词消息
+        test('user message always sync to chatwoot', function () {
+            // 模拟用户发送消息
             $userMessageData = [
                 'type' => 'MT_RECV_TEXT_MSG',
                 'client_id' => 1,
@@ -62,12 +56,12 @@ describe('Message Processing Integration Tests', function () {
             $method = $reflection->getMethod('shouldSyncToChatwoot');
             $method->setAccessible(true);
             
-            // 用户消息应该同步，无论keyword_sync如何设置
+            // 用户消息应该始终同步
             expect($method->invoke($handler, $context, '621'))->toBeTrue();
         });
         
-        test('bot keyword response message sync depends on keyword_sync setting', function () {
-            // 模拟机器人发送的关键词响应消息
+        test('bot messages always sync to chatwoot', function () {
+            // 模拟机器人发送的消息
             $botResponseData = [
                 'type' => 'MT_RECV_TEXT_MSG',
                 'client_id' => 1,
@@ -93,57 +87,9 @@ describe('Message Processing Integration Tests', function () {
             $reflection = new ReflectionClass($handler);
             $shouldSyncMethod = $reflection->getMethod('shouldSyncToChatwoot');
             $shouldSyncMethod->setAccessible(true);
-            $isKeywordMethod = $reflection->getMethod('isKeywordResponseMessage');
-            $isKeywordMethod->setAccessible(true);
             
-            // 验证能正确识别关键词响应消息
-            expect($isKeywordMethod->invoke($handler, '【621】真道分解 09-08'))->toBeTrue();
-            
-            // 场景1：keyword_sync 启用时，关键词响应应该同步
-            $this->wechatBot->setMeta('keyword_sync_enabled', true);
+            // 所有机器人消息都应该同步到 Chatwoot
             expect($shouldSyncMethod->invoke($handler, $context, '【621】真道分解 09-08'))->toBeTrue();
-            
-            // 场景2：keyword_sync 禁用时，关键词响应不应该同步
-            $this->wechatBot->setMeta('keyword_sync_enabled', false);
-            expect($shouldSyncMethod->invoke($handler, $context, '【621】真道分解 09-08'))->toBeFalse();
-        });
-        
-        test('bot system messages always sync regardless of keyword_sync', function () {
-            // 模拟机器人发送的系统消息
-            $botSystemData = [
-                'type' => 'MT_RECV_TEXT_MSG',
-                'client_id' => 1,
-                'data' => [
-                    'from_wxid' => 'test-bot-wxid',
-                    'to_wxid' => 'user123',
-                    'msg' => '设置成功: chatwoot 已启用',
-                    'msgid' => '123456791',
-                    'timestamp' => time(),
-                    'room_wxid' => '',
-                    'at_user_list' => [],
-                    'is_pc' => 1,
-                    'wx_type' => 1
-                ]
-            ];
-            
-            $context = new XbotMessageContext($this->wechatBot, $botSystemData, 'MT_RECV_TEXT_MSG', 123);
-            
-            $handler = new ChatwootHandler();
-            $reflection = new ReflectionClass($handler);
-            $shouldSyncMethod = $reflection->getMethod('shouldSyncToChatwoot');
-            $shouldSyncMethod->setAccessible(true);
-            $isKeywordMethod = $reflection->getMethod('isKeywordResponseMessage');
-            $isKeywordMethod->setAccessible(true);
-            
-            // 验证不是关键词响应消息
-            expect($isKeywordMethod->invoke($handler, '设置成功: chatwoot 已启用'))->toBeFalse();
-            
-            // 系统消息应该始终同步，无论keyword_sync如何设置
-            $this->wechatBot->setMeta('keyword_sync_enabled', true);
-            expect($shouldSyncMethod->invoke($handler, $context, '设置成功: chatwoot 已启用'))->toBeTrue();
-            
-            $this->wechatBot->setMeta('keyword_sync_enabled', false);
-            expect($shouldSyncMethod->invoke($handler, $context, '设置成功: chatwoot 已启用'))->toBeTrue();
         });
         
         test('group message with room_wxid handling', function () {
@@ -179,8 +125,6 @@ describe('Message Processing Integration Tests', function () {
     describe('Configuration Edge Cases', function () {
         
         test('chatwoot configuration validation when enabling', function () {
-            $configManager = new XbotConfigManager($this->wechatBot);
-            
             // 场景1：缺少chatwoot配置时不应该通过验证
             $this->wechatBot->chatwoot_account_id = null;
             $this->wechatBot->chatwoot_inbox_id = null;
@@ -201,32 +145,6 @@ describe('Message Processing Integration Tests', function () {
             expect($this->wechatBot->chatwoot_account_id)->toBe(1);
             expect($this->wechatBot->chatwoot_inbox_id)->toBe(1);
             expect($this->wechatBot->chatwoot_token)->toBe('test-token');
-        });
-        
-        test('different keyword response message formats', function () {
-            $handler = new ChatwootHandler();
-            $reflection = new ReflectionClass($handler);
-            $method = $reflection->getMethod('isKeywordResponseMessage');
-            $method->setAccessible(true);
-            
-            // 测试各种关键词响应格式
-            $testCases = [
-                '【621】真道分解 09-08' => true,
-                '【新闻】今日头条' => true,
-                '【音乐】赞美诗歌' => true,
-                '【】空标签' => true,
-                '【多个】【标签】测试' => true,
-                '普通消息' => false,
-                'help指令' => false,
-                '/config 配置' => false,
-                '设置成功: room_msg 已启用' => false,
-                '恭喜！登陆成功，正在初始化...' => false,
-            ];
-            
-            foreach ($testCases as $message => $expected) {
-                expect($method->invoke($handler, $message))
-                    ->toBe($expected, "Message: '{$message}' should " . ($expected ? 'match' : 'not match') . ' keyword response pattern');
-            }
         });
     });
 

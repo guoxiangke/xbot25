@@ -56,9 +56,6 @@ class KeywordResponseHandler extends BaseXbotHandler
         $resource = $context->wechatBot->getResouce($keyword);
 
         if ($resource) {
-            // 检查关键词响应同步开关
-            $isKeywordResponseSyncEnabled = $configManager->isEnabled('keyword_sync');
-
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);
 
@@ -66,12 +63,6 @@ class KeywordResponseHandler extends BaseXbotHandler
                 'keyword' => $keyword,
                 'to' => $context->wxid
             ]);
-
-            // 如果关键词响应同步被关闭，标记消息为已处理，阻止发送到Chatwoot
-            if (!$isKeywordResponseSyncEnabled) {
-                $context->markAsProcessed(static::class);
-                return $context;
-            }
 
             // 关键词响应后继续处理，让原始消息也发送到Chatwoot
             return $next($context);
@@ -188,11 +179,15 @@ class KeywordResponseHandler extends BaseXbotHandler
      */
     private function sendKeywordResponse(XbotMessageContext $context, array $resource): void
     {
+        // 标记为关键词响应消息
+        $resource['is_keyword_response'] = true;
+        
         // 使用WechatBot的send方法发送资源
         $context->wechatBot->send([$context->wxid], $resource);
 
         // 发送附加内容
         if (isset($resource['addition'])) {
+            $resource['addition']['is_keyword_response'] = true;
             $context->wechatBot->send([$context->wxid], $resource['addition']);
         }
     }

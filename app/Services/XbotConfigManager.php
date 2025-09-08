@@ -18,7 +18,6 @@ class XbotConfigManager
         'chatwoot' => 'Chatwoot同步',
         'room_msg' => '群消息处理',
         'keyword_resources' => '关键词资源响应',
-        'keyword_sync' => 'Chatwoot同步关键词',
         'payment_auto' => '自动收款',
         'check_in' => '签到系统',
     ];

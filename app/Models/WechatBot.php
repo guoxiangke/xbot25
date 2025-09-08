@@ -129,6 +129,11 @@ class WechatBot extends Model
 
         $data = $resource['data'];
         $type = $resource['type'] ?? 'text';
+        
+        // 如果是关键词响应消息，添加标记
+        if (isset($resource['is_keyword_response'])) {
+            $data['_keyword_response'] = true;
+        }
 
         foreach ($tos as $to) {
             switch ($type) {
