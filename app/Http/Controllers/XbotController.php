@@ -183,9 +183,40 @@ class XbotController extends Controller
                 // 检查是否为始终放行的命令
                 $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
                 $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
+                $roomWxid = $requestRawData['room_wxid'] ?? '';
 
-                if (!$filter->shouldProcess($requestRawData['room_wxid'] ?? '', $messageContent)) {
-                    return null;
+                // 先检查基本的群消息过滤
+                $basicFilterPassed = $filter->shouldProcess($roomWxid, $messageContent);
+                
+                if (!$basicFilterPassed) {
+                    // 检查是否为群级别配置命令（这些命令需要始终放行）
+                    $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
+                    
+                    // 检查是否为签到消息且该群开启了签到
+                    $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
+                    $isCheckInMessage = $this->isCheckInMessage($messageContent);
+                    $canCheckIn = $checkInService->canCheckIn($roomWxid);
+                    
+                    // 如果是群配置命令或者是签到消息且该群可以签到，则放行
+                    if (!$isGroupConfigCommand && !($isCheckInMessage && $canCheckIn)) {
+                        Log::debug('Room message filtered in processMessage', [
+                            'room_wxid' => $roomWxid,
+                            'message_content' => $messageContent,
+                            'basic_filter_passed' => $basicFilterPassed,
+                            'is_group_config_command' => $isGroupConfigCommand,
+                            'is_check_in_message' => $isCheckInMessage,
+                            'can_check_in' => $canCheckIn
+                        ]);
+                        return null;
+                    } else {
+                        Log::debug('Room message allowed in processMessage', [
+                            'room_wxid' => $roomWxid,
+                            'message_content' => $messageContent,
+                            'is_group_config_command' => $isGroupConfigCommand,
+                            'is_check_in_message' => $isCheckInMessage,
+                            'can_check_in' => $canCheckIn
+                        ]);
+                    }
                 }
             }
         }
@@ -237,16 +268,44 @@ class XbotController extends Controller
 
         // 群消息过滤检查
         if ($context->isRoom) {
-            $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new \App\Services\XbotConfigManager($wechatBot));
+            $configManager = new \App\Services\XbotConfigManager($wechatBot);
+            $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
             $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
 
-            if (!$filter->shouldProcess($context->roomWxid, $messageContent)) {
-                Log::debug('Room message filtered out', [
-                    'room_wxid' => $context->roomWxid,
-                    'message_content' => $messageContent,
-                    'is_room_msg_enabled' => (new \App\Services\XbotConfigManager($wechatBot))->isEnabled('room_msg')
-                ]);
-                return null;
+            // 先检查基本的群消息过滤
+            $basicFilterPassed = $filter->shouldProcess($context->roomWxid, $messageContent);
+            
+            // 如果基本过滤不通过，检查是否为特殊消息需要放行
+            if (!$basicFilterPassed) {
+                // 检查是否为群级别配置命令（这些命令需要始终放行）
+                $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
+                
+                // 检查是否为签到消息且该群开启了签到
+                $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
+                $isCheckInMessage = $this->isCheckInMessage($messageContent);
+                $canCheckIn = $checkInService->canCheckIn($context->roomWxid);
+                
+                // 如果是群配置命令或者是签到消息且该群可以签到，则放行
+                if ($isGroupConfigCommand || ($isCheckInMessage && $canCheckIn)) {
+                    Log::debug('Room message allowed for special case', [
+                        'room_wxid' => $context->roomWxid,
+                        'message_content' => $messageContent,
+                        'basic_filter_passed' => false,
+                        'is_group_config_command' => $isGroupConfigCommand,
+                        'is_check_in_message' => $isCheckInMessage,
+                        'can_check_in' => $canCheckIn
+                    ]);
+                } else {
+                    Log::debug('Room message filtered out', [
+                        'room_wxid' => $context->roomWxid,
+                        'message_content' => $messageContent,
+                        'basic_filter_passed' => $basicFilterPassed,
+                        'is_group_config_command' => $isGroupConfigCommand,
+                        'is_check_in_message' => $isCheckInMessage,
+                        'can_check_in' => $canCheckIn
+                    ]);
+                    return null;
+                }
             }
         }
 
@@ -311,5 +370,48 @@ class XbotController extends Controller
             ->thenReturn();
 
         return null;
+    }
+
+    /**
+     * 检查消息是否为群级别配置命令
+     */
+    private function isGroupConfigCommand(string $messageContent): bool
+    {
+        $trimmedMessage = trim($messageContent);
+        
+        // 群级别配置命令模式（支持多个空格）
+        $groupConfigPatterns = [
+            '/^\/set\s+room_listen\s+[01]$/i',
+            '/^\/config\s+room_listen\s+[01]$/i',
+            '/^\/set\s+check_in_room\s+[01]$/i',
+            '/^\/config\s+check_in_room\s+[01]$/i',
+            '/^\/set\s+youtube_room\s+[01]$/i',
+            '/^\/config\s+youtube_room\s+[01]$/i',
+        ];
+
+        foreach ($groupConfigPatterns as $pattern) {
+            if (preg_match($pattern, $trimmedMessage)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查消息是否为签到相关消息
+     */
+    private function isCheckInMessage(string $messageContent): bool
+    {
+        $checkInKeywords = [
+            'qd', 'Qd', 'qiandao', 'Qiandao', '签到', '簽到',
+            'dk', 'Dk', 'Daka', 'daka', '打卡',
+            '已读', '已看', '已讀', '已听', '已聽', '已完成',
+            '报名', '報名', 'bm', 'Bm', 'baoming', 'Baoming',
+            '打卡排行', '我的打卡'
+        ];
+
+        $trimmedMessage = trim($messageContent);
+        return in_array($trimmedMessage, $checkInKeywords);
     }
 }

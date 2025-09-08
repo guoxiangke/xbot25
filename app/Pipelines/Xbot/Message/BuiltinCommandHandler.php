@@ -245,7 +245,62 @@ class BuiltinCommandHandler extends BaseXbotHandler
     {
         $wechatBot = $context->wechatBot;
         $configManager = new XbotConfigManager($wechatBot);
-        $groupConfigs = "";
+
+        // 如果是在群聊中执行，显示当前群的具体配置状态
+        if ($context->isRoom && $context->roomWxid) {
+            return $this->getCurrentRoomConfig($wechatBot, $configManager, $context->roomWxid);
+        }
+
+        // 如果是私聊，显示所有群的统计信息
+        return $this->getAllRoomsConfigSummary($wechatBot, $configManager);
+    }
+
+    /**
+     * 获取当前群的配置状态
+     */
+    private function getCurrentRoomConfig($wechatBot, $configManager, string $roomWxid): string
+    {
+        $groupConfigs = "📍 当前群配置状态：\n";
+
+        // 1. 群消息处理配置
+        $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
+        $roomListenStatus = $chatroomFilter->getRoomListenStatus($roomWxid);
+        $globalRoomMsg = $configManager->isEnabled('room_msg');
+        
+        if ($roomListenStatus === null) {
+            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❌继承(关闭)";
+        } else {
+            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❌特例关闭";
+        }
+        $groupConfigs .= "• room_listen: {$roomListenDisplay}\n";
+
+        // 2. 签到系统配置
+        $checkInService = new CheckInPermissionService($wechatBot);
+        $checkInStatus = $checkInService->getRoomCheckInStatus($roomWxid);
+        $globalCheckIn = $configManager->isEnabled('check_in');
+        
+        if ($checkInStatus === null) {
+            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❌继承(关闭)";
+        } else {
+            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❌特例关闭";
+        }
+        $groupConfigs .= "• check_in_room: {$checkInDisplay}\n";
+
+        // 3. YouTube 响应配置
+        $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
+        $youtubeAllowed = isset($youtubeRooms[$roomWxid]) && $youtubeRooms[$roomWxid];
+        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❌关闭";
+        $groupConfigs .= "• youtube_room: {$youtubeDisplay}\n";
+
+        return $groupConfigs;
+    }
+
+    /**
+     * 获取所有群配置的统计信息
+     */
+    private function getAllRoomsConfigSummary($wechatBot, $configManager): string
+    {
+        $groupConfigs = "📊 群级别配置统计：\n";
 
         // 1. 群消息处理配置
         $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
@@ -262,9 +317,9 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $checkInRoomConfigs = $checkInService->getAllRoomCheckInConfigs();
         $checkInCount = count($checkInRoomConfigs);
         if ($checkInCount > 0) {
-            $groupConfigs .= "• check_in_rooms: {$checkInCount}个群特例配置\n";
+            $groupConfigs .= "• check_in_room: {$checkInCount}个群特例配置\n";
         } else {
-            $groupConfigs .= "• check_in_rooms: 无特例配置\n";
+            $groupConfigs .= "• check_in_room: 无特例配置\n";
         }
 
         // 3. YouTube 响应配置
@@ -272,9 +327,9 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
         $youtubeCount = count($youtubeRooms) + count($youtubeUsers);
         if ($youtubeCount > 0) {
-            $groupConfigs .= "• youtube_allowed: {$youtubeCount}个群/用户配置\n";
+            $groupConfigs .= "• youtube_room: {$youtubeCount}个群/用户配置\n";
         } else {
-            $groupConfigs .= "• youtube_allowed: 无配置\n";
+            $groupConfigs .= "• youtube_room: 无配置\n";
         }
 
         return $groupConfigs;

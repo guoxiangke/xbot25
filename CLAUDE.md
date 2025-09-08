@@ -422,3 +422,18 @@ SelfMessageHandler 使用 `XbotConfigManager::getAvailableCommands()` 动态获�
   - 语音文件 silk → mp3 转换
   - WechatMessageFile 存储文件路径和URL映射
   - force_chatwoot_sync 强制同步标记（已移除复杂性）
+
+
+
+## 逻辑是：
+
+  1. room_msg (群消息处理) 和 room_listen (群级别配置) 的关系：
+    - 如果全局 room_msg 关闭，但某个群的 room_listen 开启 → 该群要处理消息
+    - 如果全局 room_msg 开启，但某个群的 room_listen 关闭 → 该群不处理消息
+  2. check_in (全局签到) 和 check_in_room (群级别签到) 的关系也类似：
+    - 如果全局 check_in 关闭，但某个群的 check_in_room 开启 → 该群可以签到
+    - 如果全局 check_in 开启，但某个群的 check_in_room 关闭 → 该群不能签到
+
+  这个逻辑实际上是一个"例外列表"的概念：
+  - 全局配置作为默认值
+  - 群级别配置作为例外/覆盖
