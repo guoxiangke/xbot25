@@ -29,24 +29,11 @@ class CheckInPermissionService
         // 第一步：检查 room_msg 前置条件
         $roomMsgPermission = $this->checkRoomMessagePermission($roomWxid);
         if (!$roomMsgPermission) {
-            \Log::debug(static::class, [
-                'message' => 'Room message permission denied',
-                'room_wxid' => $roomWxid,
-                'room_msg_permission' => $roomMsgPermission
-            ]);
             return false;
         }
 
         // 第二步：检查签到系统权限
         $checkInPermission = $this->checkCheckInPermission($roomWxid);
-        \Log::debug(static::class, [
-            'message' => 'Final check-in permission',
-            'room_wxid' => $roomWxid,
-            'room_msg_permission' => $roomMsgPermission,
-            'check_in_permission' => $checkInPermission,
-            'final_result' => $checkInPermission
-        ]);
-
         return $checkInPermission;
     }
 

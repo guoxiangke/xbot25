@@ -37,11 +37,6 @@ class ChatroomMessageFilter
     {
         // 首先检查是否为始终放行的命令
         if ($this->isAlwaysAllowedCommand($messageContent)) {
-            \Log::debug(static::class, [
-                'message' => 'Always allowed command',
-                'room_wxid' => $roomWxid,
-                'message_content' => $messageContent
-            ]);
             return true;
         }
 
@@ -65,15 +60,6 @@ class ChatroomMessageFilter
             // room_msg 关闭：默认不处理，但配置为true的群特例处理
             $result = $roomSpecificConfig ?? false;
         }
-
-        \Log::debug(static::class, [
-            'message' => 'Permission check result',
-            'room_wxid' => $roomWxid,
-            'message_content' => $messageContent,
-            'global_room_msg_enabled' => $isRoomMsgEnabled,
-            'room_specific_config' => $roomSpecificConfig,
-            'final_result' => $result
-        ]);
 
         return $result;
     }

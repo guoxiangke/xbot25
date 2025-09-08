@@ -199,23 +199,7 @@ class XbotController extends Controller
                     
                     // 如果是群配置命令或者是签到消息且该群可以签到，则放行
                     if (!$isGroupConfigCommand && !($isCheckInMessage && $canCheckIn)) {
-                        Log::debug('Room message filtered in processMessage', [
-                            'room_wxid' => $roomWxid,
-                            'message_content' => $messageContent,
-                            'basic_filter_passed' => $basicFilterPassed,
-                            'is_group_config_command' => $isGroupConfigCommand,
-                            'is_check_in_message' => $isCheckInMessage,
-                            'can_check_in' => $canCheckIn
-                        ]);
                         return null;
-                    } else {
-                        Log::debug('Room message allowed in processMessage', [
-                            'room_wxid' => $roomWxid,
-                            'message_content' => $messageContent,
-                            'is_group_config_command' => $isGroupConfigCommand,
-                            'is_check_in_message' => $isCheckInMessage,
-                            'can_check_in' => $canCheckIn
-                        ]);
                     }
                 }
             }
@@ -287,23 +271,8 @@ class XbotController extends Controller
                 
                 // 如果是群配置命令或者是签到消息且该群可以签到，则放行
                 if ($isGroupConfigCommand || ($isCheckInMessage && $canCheckIn)) {
-                    Log::debug('Room message allowed for special case', [
-                        'room_wxid' => $context->roomWxid,
-                        'message_content' => $messageContent,
-                        'basic_filter_passed' => false,
-                        'is_group_config_command' => $isGroupConfigCommand,
-                        'is_check_in_message' => $isCheckInMessage,
-                        'can_check_in' => $canCheckIn
-                    ]);
+                    // 允许处理
                 } else {
-                    Log::debug('Room message filtered out', [
-                        'room_wxid' => $context->roomWxid,
-                        'message_content' => $messageContent,
-                        'basic_filter_passed' => $basicFilterPassed,
-                        'is_group_config_command' => $isGroupConfigCommand,
-                        'is_check_in_message' => $isCheckInMessage,
-                        'can_check_in' => $canCheckIn
-                    ]);
                     return null;
                 }
             }
