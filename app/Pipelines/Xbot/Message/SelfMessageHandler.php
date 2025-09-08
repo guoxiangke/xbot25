@@ -435,9 +435,9 @@ class SelfMessageHandler extends BaseXbotHandler
         $message .= "/sync contacts - 同步联系人列表\n";
         $message .= "/check online - 检查微信在线状态\n\n";
 
-        $message .= "💡 可用配置项：\n";
-        $allowedKeys = XbotConfigManager::getAvailableCommands();
-        $message .= "• " . implode("\n• ", $allowedKeys);
+        $message .= "\n💡 其他配置项：\n";
+        $chatwootConfigs = array_keys(XbotConfigManager::CHATWOOT_CONFIGS);
+        $message .= "• " . implode("\n• ", $chatwootConfigs);
 
         $this->sendTextMessage($context, $message);
         $this->markAsReplied($context);

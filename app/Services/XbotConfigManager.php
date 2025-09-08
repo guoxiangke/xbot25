@@ -138,6 +138,14 @@ class XbotConfigManager
     }
 
     /**
+     * 获取主要配置项列表（用于显示帮助信息）
+     */
+    public static function getMainConfigs(): array
+    {
+        return array_keys(self::CONFIGS);
+    }
+
+    /**
      * 检查命令是否有效
      */
     public function isValidCommand(string $command): bool
