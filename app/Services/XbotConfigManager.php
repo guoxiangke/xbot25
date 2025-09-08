@@ -128,6 +128,22 @@ class XbotConfigManager
         return array_keys(self::CONFIGS);
     }
 
+    /**
+     * 检查命令是否有效
+     */
+    public function isValidCommand(string $command): bool
+    {
+        return isset(self::CONFIGS[$command]);
+    }
+
+    /**
+     * setConfig 方法的别名，用于向后兼容
+     */
+    public function setConfig(string $command, $value, ?string $roomWxid = null): bool
+    {
+        return $this->set($command, $value, $roomWxid);
+    }
+
     // ========= 内部辅助方法 =========
 
     /**

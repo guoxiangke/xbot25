@@ -13,7 +13,7 @@ class WechatBotFactory extends Factory
     public function definition(): array
     {
         return [
-            'wxid' => $this->faker->unique()->userName(),
+            'wxid' => 'wxid_' . $this->faker->unique()->word . $this->faker->unique()->randomNumber(4),
             'wechat_client_id' => WechatClient::factory(),
             'client_id' => $this->faker->unique()->numberBetween(1, 999),
             'login_at' => now(),

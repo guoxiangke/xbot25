@@ -20,15 +20,24 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('xbot:islive')->hourly();
 
-        // 获取有有效wechatBot关联的订阅
-        $xbotSubscriptions = XbotSubscription::with(['wechatBot'])
-            ->whereHas('wechatBot')
-            ->get();
-            
-        foreach ($xbotSubscriptions as $xbotSubscription) {
-            $schedule->command("subscription:trigger {$xbotSubscription->id}")
-                ->cron($xbotSubscription->cron)
-                ->timezone('Asia/Shanghai');
+        // 在测试环境中跳过动态定时任务设置
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        try {
+            // 获取有有效wechatBot关联的订阅
+            $xbotSubscriptions = XbotSubscription::with(['wechatBot'])
+                ->whereHas('wechatBot')
+                ->get();
+                
+            foreach ($xbotSubscriptions as $xbotSubscription) {
+                $schedule->command("subscription:trigger {$xbotSubscription->id}")
+                    ->cron($xbotSubscription->cron)
+                    ->timezone('Asia/Shanghai');
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to load subscription schedules: ' . $e->getMessage());
         }
     })
     ->withExceptions(function (Exceptions $exceptions): void {

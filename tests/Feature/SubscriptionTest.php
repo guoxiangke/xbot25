@@ -3,22 +3,15 @@
 use App\Models\WechatBot;
 use App\Models\WechatClient;
 use App\Models\XbotSubscription;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 test('subscription creation and recovery', function () {
-    // 创建必要的测试数据
-    $wechatClient = WechatClient::create([
-        'token' => 'test_token',
-        'endpoint' => 'http://localhost:8001',
-        'file_path' => 'C:\test',
-        'file_url' => 'http://localhost:8004',
-        'voice_url' => 'http://localhost:8003',
-        'silk_path' => 'C:\temp',
-    ]);
-
-    $wechatBot = WechatBot::create([
-        'wxid' => 'test_bot_wxid',
+    // 使用Factory创建测试数据
+    $wechatClient = WechatClient::factory()->create();
+    $wechatBot = WechatBot::factory()->create([
         'wechat_client_id' => $wechatClient->id,
-        'client_id' => 1,
     ]);
 
     $testWxid = 'test_user_wxid';

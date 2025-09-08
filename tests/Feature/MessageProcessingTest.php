@@ -49,7 +49,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $userMessageData);
+            $context = new XbotMessageContext($this->wechatBot, $userMessageData, 'MT_RECV_TEXT_MSG', 123);
             
             // 验证用户消息应该被处理
             expect($context->isFromBot)->toBeFalse();
@@ -84,7 +84,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $botResponseData);
+            $context = new XbotMessageContext($this->wechatBot, $botResponseData, 'MT_RECV_TEXT_MSG', 123);
             
             // 验证这是机器人消息
             expect($context->isFromBot)->toBeTrue();
@@ -126,7 +126,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $botSystemData);
+            $context = new XbotMessageContext($this->wechatBot, $botSystemData, 'MT_RECV_TEXT_MSG', 123);
             
             $handler = new ChatwootHandler();
             $reflection = new ReflectionClass($handler);
@@ -164,7 +164,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $groupMessageData);
+            $context = new XbotMessageContext($this->wechatBot, $groupMessageData, 'MT_RECV_TEXT_MSG', 123);
             
             // 验证群消息特征
             expect($context->isRoom)->toBeTrue();
@@ -249,7 +249,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $loginData);
+            $context = new XbotMessageContext($this->wechatBot, $loginData, 'MT_USER_LOGIN', 123);
             
             expect($context->msgType)->toBe('MT_USER_LOGIN');
             expect($context->requestRawData['data']['wxid'])->toBe('wxid_test123');
@@ -274,7 +274,7 @@ describe('Message Processing Integration Tests', function () {
                 ]
             ];
             
-            $context = new XbotMessageContext($this->wechatBot, $textData);
+            $context = new XbotMessageContext($this->wechatBot, $textData, 'MT_RECV_TEXT_MSG', 123);
             
             expect($context->msgType)->toBe('MT_RECV_TEXT_MSG');
             expect($context->fromWxid)->toBe('wxid_user123');

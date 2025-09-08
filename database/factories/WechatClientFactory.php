@@ -16,8 +16,6 @@ class WechatClientFactory extends Factory
             'endpoint' => 'http://100.96.141.89:8001',
             'file_url' => 'http://localhost:8004',
             'file_path' => 'C:\\Users\\Public\\Pictures\\WeChat Files',
-            'voice_url' => 'http://localhost:8003',
-            'silk_path' => 'C:\\Users\\Administrator\\Desktop\\xbot\\temp',
             'created_at' => now(),
             'updated_at' => now(),
         ];
