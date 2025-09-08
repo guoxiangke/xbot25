@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WechatBot;
+use App\Services\XbotConfigManager;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -16,9 +17,10 @@ class Chatwoot
     public $token;
 
     function __construct(WechatBot $wechatBot) {
-        $this->accountId = $wechatBot->chatwoot_account_id;
-        $this->inboxId = $wechatBot->chatwoot_inbox_id;
-        $this->token = $wechatBot->chatwoot_token;
+        $configManager = new XbotConfigManager($wechatBot);
+        $this->accountId = $configManager->getChatwootConfig('chatwoot_account_id');
+        $this->inboxId = $configManager->getChatwootConfig('chatwoot_inbox_id');
+        $this->token = $configManager->getChatwootConfig('chatwoot_token');
         $this->baseUrl = config('services.chatwoot.base_url');
 
         $headers = [

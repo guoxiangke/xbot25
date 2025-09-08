@@ -19,11 +19,8 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private const COMMANDS = [
         '/help' => ['method' => 'handleHelpCommand', 'description' => '显示帮助信息'],
         '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
-        '/check online' => ['method' => 'handleCheckOnlineCommand', 'description' => '检查微信在线状态'],
-        '/sync contacts' => ['method' => 'handleSyncContactsCommand', 'description' => '同步联系人列表'],
         '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
         '/get room_id' => ['method' => 'handleGetRoomIdCommand', 'description' => '获取群聊ID'],
-        '/config' => ['method' => 'handleConfigCommand', 'description' => '', 'hidden' => true], // 隐藏命令，不在帮助中显示
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -94,7 +91,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
             if (!empty($config['hidden']) || empty($config['description'])) {
                 continue;
             }
-            $helpText .= "{$command} - {$config['description']}\n";
+            $helpText .= "\n{$command} - {$config['description']}";
         }
 
 
@@ -102,41 +99,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $this->markAsReplied($context);
     }
 
-    /**
-     * 处理 /check online 命令
-     * 发送 xbot->getSelfInfo() 检查在线状态
-     */
-    private function handleCheckOnlineCommand(XbotMessageContext $context): void
-    {
-        $context->wechatBot->xbot()->getSelfInfo();
-        $this->sendTextMessage($context, "已发送状态检查请求，请稍候...");
-    }
-
-    /**
-     * 处理 /sync contacts 命令
-     * 同步联系人列表
-     */
-    private function handleSyncContactsCommand(XbotMessageContext $context): void
-    {
-        // 检查是否启用Chatwoot同步
-        $configManager = new XbotConfigManager($context->wechatBot);
-        $isChatwootEnabled = $configManager->isEnabled('chatwoot');
-        if (!$isChatwootEnabled) {
-            $this->sendTextMessage($context, '⚠️ Chatwoot同步未启用\n请先启用 chatwoot 配置');
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $xbot = $context->wechatBot->xbot();
-
-        // 调用三个同步API
-        $xbot->getFriendsList();
-        $xbot->getChatroomsList();
-        $xbot->getPublicAccountsList();
-
-        $this->sendTextMessage($context, '已请求同步，请稍后确认！');
-        $this->markAsReplied($context);
-    }
 
 
 
@@ -195,144 +157,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $roomWxid = $context->requestRawData['room_wxid'] ?? '';
         $this->sendTextMessage($context, $roomWxid);
         $this->markAsReplied($context);
-    }
-
-    /**
-     * 处理配置查看命令
-     */
-    private function handleConfigCommand(XbotMessageContext $context): void
-    {
-        // 检查权限：只有机器人自己可以查看配置
-        if (!$context->isSelfToSelf) {
-            $this->sendTextMessage($context, "⚠️ 无权限执行此命令，仅机器人管理员可用");
-            $this->markAsReplied($context);
-            return;
-        }
-
-        $configManager = new XbotConfigManager($context->wechatBot);
-
-        // 构建配置状态消息
-        $message = "📋 当前配置状态：\n\n";
-        $message .= "🌐 全局配置：\n";
-
-        // 显示全局配置
-        $globalConfigs = $configManager->getAll();
-        foreach ($globalConfigs as $command => $value) {
-            $status = $value ? '✅开启' : '❌关闭';
-            $configName = $configManager->getConfigName($command);
-            $message .= "• {$command}: {$status} {$configName}\n";
-        }
-
-        // 添加群级别配置显示
-        $message .= "\n🏘️ 群级别配置：\n";
-        $message .= $this->getGroupLevelConfigs($context);
-
-        $message .= "\n💡 使用 /help 查看所有命令";
-
-        $this->sendTextMessage($context, $message);
-        $this->markAsReplied($context);
-
-        $this->log('Config status displayed', [
-            'is_room' => $context->isRoom,
-            'room_wxid' => $context->roomWxid ?? null
-        ]);
-    }
-
-    /**
-     * 获取群级别配置信息
-     */
-    private function getGroupLevelConfigs(XbotMessageContext $context): string
-    {
-        $wechatBot = $context->wechatBot;
-        $configManager = new XbotConfigManager($wechatBot);
-
-        // 如果是在群聊中执行，显示当前群的具体配置状态
-        if ($context->isRoom && $context->roomWxid) {
-            return $this->getCurrentRoomConfig($wechatBot, $configManager, $context->roomWxid);
-        }
-
-        // 如果是私聊，显示所有群的统计信息
-        return $this->getAllRoomsConfigSummary($wechatBot, $configManager);
-    }
-
-    /**
-     * 获取当前群的配置状态
-     */
-    private function getCurrentRoomConfig($wechatBot, $configManager, string $roomWxid): string
-    {
-        $groupConfigs = "📍 当前群配置状态：\n";
-
-        // 1. 群消息处理配置
-        $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
-        $roomListenStatus = $chatroomFilter->getRoomListenStatus($roomWxid);
-        $globalRoomMsg = $configManager->isEnabled('room_msg');
-        
-        if ($roomListenStatus === null) {
-            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❌继承(关闭)";
-        } else {
-            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❌特例关闭";
-        }
-        $groupConfigs .= "• room_listen: {$roomListenDisplay}\n";
-
-        // 2. 签到系统配置
-        $checkInService = new CheckInPermissionService($wechatBot);
-        $checkInStatus = $checkInService->getRoomCheckInStatus($roomWxid);
-        $globalCheckIn = $configManager->isEnabled('check_in');
-        
-        if ($checkInStatus === null) {
-            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❌继承(关闭)";
-        } else {
-            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❌特例关闭";
-        }
-        $groupConfigs .= "• check_in_room: {$checkInDisplay}\n";
-
-        // 3. YouTube 响应配置
-        $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
-        $youtubeAllowed = isset($youtubeRooms[$roomWxid]) && $youtubeRooms[$roomWxid];
-        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❌关闭";
-        $groupConfigs .= "• youtube_room: {$youtubeDisplay}\n";
-
-        return $groupConfigs;
-    }
-
-    /**
-     * 获取所有群配置的统计信息
-     */
-    private function getAllRoomsConfigSummary($wechatBot, $configManager): string
-    {
-        $groupConfigs = "📊 群级别配置统计：\n";
-
-        // 1. 群消息处理配置
-        $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
-        $roomConfigs = $chatroomFilter->getAllRoomConfigs();
-        $roomCount = count($roomConfigs);
-        if ($roomCount > 0) {
-            $groupConfigs .= "• room_listen: {$roomCount}个群特例配置\n";
-        } else {
-            $groupConfigs .= "• room_listen: 无特例配置\n";
-        }
-
-        // 2. 签到系统配置
-        $checkInService = new CheckInPermissionService($wechatBot);
-        $checkInRoomConfigs = $checkInService->getAllRoomCheckInConfigs();
-        $checkInCount = count($checkInRoomConfigs);
-        if ($checkInCount > 0) {
-            $groupConfigs .= "• check_in_room: {$checkInCount}个群特例配置\n";
-        } else {
-            $groupConfigs .= "• check_in_room: 无特例配置\n";
-        }
-
-        // 3. YouTube 响应配置
-        $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
-        $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
-        $youtubeCount = count($youtubeRooms) + count($youtubeUsers);
-        if ($youtubeCount > 0) {
-            $groupConfigs .= "• youtube_room: {$youtubeCount}个群/用户配置\n";
-        } else {
-            $groupConfigs .= "• youtube_room: 无配置\n";
-        }
-
-        return $groupConfigs;
     }
 
 }

@@ -24,6 +24,15 @@ class XbotConfigManager
     ];
 
     /**
+     * Chatwoot 专用配置项（非布尔值）
+     */
+    const CHATWOOT_CONFIGS = [
+        'chatwoot_account_id' => 'Chatwoot账户ID',
+        'chatwoot_inbox_id' => 'Chatwoot收件箱ID',
+        'chatwoot_token' => 'ChatwootAPI令牌',
+    ];
+
+    /**
      * 配置默认值定义
      * 未在此列表中的配置默认为 false
      */
@@ -117,7 +126,7 @@ class XbotConfigManager
      */
     public function getConfigName(string $command): string
     {
-        return self::CONFIGS[$command] ?? $command;
+        return self::CONFIGS[$command] ?? self::CHATWOOT_CONFIGS[$command] ?? $command;
     }
 
     /**
@@ -125,7 +134,7 @@ class XbotConfigManager
      */
     public static function getAvailableCommands(): array
     {
-        return array_keys(self::CONFIGS);
+        return array_merge(array_keys(self::CONFIGS), array_keys(self::CHATWOOT_CONFIGS));
     }
 
     /**
@@ -133,7 +142,76 @@ class XbotConfigManager
      */
     public function isValidCommand(string $command): bool
     {
-        return isset(self::CONFIGS[$command]);
+        return isset(self::CONFIGS[$command]) || isset(self::CHATWOOT_CONFIGS[$command]);
+    }
+
+    /**
+     * 检查是否为 Chatwoot 配置项
+     */
+    public function isChatwootConfig(string $command): bool
+    {
+        return isset(self::CHATWOOT_CONFIGS[$command]);
+    }
+
+    /**
+     * 获取 Chatwoot 配置值
+     */
+    public function getChatwootConfig(string $command, $default = null)
+    {
+        if (!$this->isChatwootConfig($command)) {
+            return $default;
+        }
+
+        $chatwootMeta = $this->wechatBot->getMeta('chatwoot', []);
+        return $chatwootMeta[$command] ?? $default;
+    }
+
+    /**
+     * 设置 Chatwoot 配置值
+     */
+    public function setChatwootConfig(string $command, $value): bool
+    {
+        if (!$this->isChatwootConfig($command)) {
+            return false;
+        }
+
+        $chatwootMeta = $this->wechatBot->getMeta('chatwoot', []);
+        $chatwootMeta[$command] = $value;
+        $this->wechatBot->setMeta('chatwoot', $chatwootMeta);
+        
+        return true;
+    }
+
+    /**
+     * 获取所有 Chatwoot 配置
+     */
+    public function getAllChatwootConfigs(): array
+    {
+        $chatwootMeta = $this->wechatBot->getMeta('chatwoot', []);
+        $configs = [];
+        
+        foreach (self::CHATWOOT_CONFIGS as $command => $description) {
+            $configs[$command] = $chatwootMeta[$command] ?? null;
+        }
+        
+        return $configs;
+    }
+
+    /**
+     * 检查 Chatwoot 配置是否完整
+     */
+    public function isChatwootConfigComplete(): array
+    {
+        $chatwootMeta = $this->wechatBot->getMeta('chatwoot', []);
+        $missingConfigs = [];
+
+        foreach (array_keys(self::CHATWOOT_CONFIGS) as $configKey) {
+            if (empty($chatwootMeta[$configKey])) {
+                $missingConfigs[] = $configKey;
+            }
+        }
+
+        return $missingConfigs;
     }
 
     /**

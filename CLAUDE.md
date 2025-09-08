@@ -439,4 +439,4 @@ SelfMessageHandler 使用 `XbotConfigManager::getAvailableCommands()` 动态获�
   - 群级别配置作为例外/覆盖
 
 ## 测试 修改debug后，需要执行下面的测试，确保通过（总共18个测试组，195个断言）
-    php artisan test tests/Unit/Configuration* -v
+    php artisan test tests/Specifications/Configuration* -v

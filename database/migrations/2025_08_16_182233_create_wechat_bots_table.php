@@ -25,10 +25,6 @@ return new class extends Migration
             // 1分钟后 check，如果 live_at diff now > 3分钟，则代表已崩溃离线，需要手动重启，发信息给管理员
             $table->timestamp('is_live_at')->nullable()->useCurrent();
             $table->timestamp('expires_at')->nullable()->useCurrent()->comment('默认1个月内有效，超过需要付费');
-
-            $table->unsignedTinyInteger('chatwoot_account_id')->nullable();
-            $table->unsignedTinyInteger('chatwoot_inbox_id')->nullable();
-            $table->string('chatwoot_token')->nullable();
             $table->timestamps();
         });
     }
