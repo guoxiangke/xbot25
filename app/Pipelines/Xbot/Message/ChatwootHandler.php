@@ -106,10 +106,20 @@ class ChatwootHandler extends BaseXbotHandler
     /**
      * 判断是否为关键词响应消息
      * 关键词响应消息通常有特定格式，如：【关键词】标题
+     * 或者音频消息格式：[音频消息]👉点此收听👈
      */
     private function isKeywordResponseMessage(string $message): bool
     {
         // 检查是否以【】格式开头，这是关键词响应的典型格式
-        return preg_match('/^【.*?】/', $message);
+        if (preg_match('/^【.*?】/', $message)) {
+            return true;
+        }
+        
+        // 检查是否为音频消息格式
+        if (str_contains($message, '[音频消息]👉') && str_contains($message, '👈')) {
+            return true;
+        }
+        
+        return false;
     }
 }

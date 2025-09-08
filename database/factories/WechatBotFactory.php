@@ -19,9 +19,6 @@ class WechatBotFactory extends Factory
             'login_at' => now(),
             'is_live_at' => now(),
             'expires_at' => now()->addMonths(3),
-            'chatwoot_account_id' => null,
-            'chatwoot_inbox_id' => null,
-            'chatwoot_token' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ];
@@ -32,10 +29,6 @@ class WechatBotFactory extends Factory
      */
     public function withChatwoot(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'chatwoot_account_id' => $this->faker->numberBetween(1, 99),
-            'chatwoot_inbox_id' => $this->faker->numberBetween(1, 99),
-            'chatwoot_token' => $this->faker->sha256(),
-        ]);
+        return $this->state(fn (array $attributes) => []);
     }
 }
