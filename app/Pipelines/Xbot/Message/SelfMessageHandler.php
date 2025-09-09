@@ -313,8 +313,12 @@ class SelfMessageHandler extends BaseXbotHandler
                 break;
 
             case 'check_in_room':
-                $this->handleCheckInRoomConfig($context, $roomWxid, $boolValue);
-                $this->sendTextMessage($context, "群设置成功: {$configName} {$status}");
+                $autoEnabledRoomListen = $this->handleCheckInRoomConfig($context, $roomWxid, $boolValue);
+                $message = "群设置成功: {$configName} {$status}";
+                if ($autoEnabledRoomListen) {
+                    $message .= "\n自动启用了该群的消息监听 (room_listen)";
+                }
+                $this->sendTextMessage($context, $message);
                 break;
 
             case 'youtube_room':
@@ -338,11 +342,34 @@ class SelfMessageHandler extends BaseXbotHandler
 
     /**
      * 处理群签到配置
+     * 
+     * @return bool 是否自动启用了 room_listen
      */
-    private function handleCheckInRoomConfig(XbotMessageContext $context, string $roomWxid, bool $enabled): void
+    private function handleCheckInRoomConfig(XbotMessageContext $context, string $roomWxid, bool $enabled): bool
     {
         $checkInService = new CheckInPermissionService($context->wechatBot);
         $checkInService->setRoomCheckInStatus($roomWxid, $enabled);
+        
+        $autoEnabledRoomListen = false;
+        
+        // 当启用群签到时，自动启用该群的消息监听以确保签到功能可以正常工作
+        if ($enabled) {
+            $configManager = new XbotConfigManager($context->wechatBot);
+            $filter = new ChatroomMessageFilter($context->wechatBot, $configManager);
+            
+            // 只有在全局 room_msg 关闭且该群没有设置 room_listen 时才自动启用
+            if (!$configManager->isEnabled('room_msg')) {
+                $roomConfigs = $context->wechatBot->getMeta('room_msg_enabled_specials', []);
+                
+                // 如果该群还没有专门的 room_listen 配置，则自动设置为开启
+                if (!isset($roomConfigs[$roomWxid])) {
+                    $filter->setRoomListenStatus($roomWxid, true);
+                    $autoEnabledRoomListen = true;
+                }
+            }
+        }
+        
+        return $autoEnabledRoomListen;
     }
 
     /**
