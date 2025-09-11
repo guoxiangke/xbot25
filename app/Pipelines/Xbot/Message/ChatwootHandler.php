@@ -30,7 +30,7 @@ class ChatwootHandler extends BaseXbotHandler
         // 检查是否应该同步到 Chatwoot
         if (!$this->shouldSyncToChatwoot($context, $message)) {
             $this->log('Message blocked from Chatwoot sync', [
-                'content_preview' => substr($message, 0, 50),
+                'msgId' => $context->msgId,
                 'is_from_bot' => $context->isFromBot,
                 'from' => $context->fromWxid
             ]);
@@ -38,18 +38,10 @@ class ChatwootHandler extends BaseXbotHandler
         }
 
         // 把消息存储到 chatwoot 中（通过队列异步处理）
-        ChatwootHandleQueue::dispatch(
-            $context->wechatBot,
-            $context->wxid,
-            $context->fromWxid,
-            $message,
-            $context->isFromBot,
-            $context->isRoom,
-            $context->requestRawData['origin_msg_type'] ?? $context->msgType // 使用原始消息类型
-        );
+        ChatwootHandleQueue::dispatch($context, $message);
 
         $this->log('Message sent to Chatwoot queue', [
-            'content_length' => strlen($message),
+            'msgId' => $context->msgId,
             'origin_type' => $context->msgType,
             'from' => $context->fromWxid
         ]);

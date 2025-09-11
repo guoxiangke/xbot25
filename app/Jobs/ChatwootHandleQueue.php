@@ -25,24 +25,19 @@ class ChatwootHandleQueue implements ShouldQueue
     public $isFromBot;
     public $isRoom;
     public $originMsgType;
+    public $msgId;
     protected Chatwoot $chatwoot;
 
-    public function __construct(
-        WechatBot $wechatBot,
-        string $wxid,
-        string $fromWxid,
-        string $content,
-        bool $isFromBot,
-        bool $isRoom,
-        string $originMsgType = ''
-    ) {
-        $this->wechatBot = $wechatBot;
-        $this->wxid = $wxid;
-        $this->fromWxid = $fromWxid;
+    public function __construct(XbotMessageContext $context, string $content)
+    {
+        $this->wechatBot = $context->wechatBot;
+        $this->wxid = $context->wxid;
+        $this->fromWxid = $context->fromWxid;
         $this->content = $content;
-        $this->isFromBot = $isFromBot;
-        $this->isRoom = $isRoom;
-        $this->originMsgType = $originMsgType;
+        $this->isFromBot = $context->isFromBot;
+        $this->isRoom = $context->isRoom;
+        $this->originMsgType = $context->requestRawData['origin_msg_type'] ?? $context->msgType;
+        $this->msgId = $context->msgId;
     }
 
     public function handle()
@@ -136,8 +131,9 @@ class ChatwootHandleQueue implements ShouldQueue
         }
 
         Log::info('Message sent to Chatwoot via queue', [
+            'msgId' => $this->msgId,
             'wxid' => $this->wxid,
-            'content_length' => strlen($content)
+            'origin_msg_type' => $this->originMsgType
         ]);
     }
 
