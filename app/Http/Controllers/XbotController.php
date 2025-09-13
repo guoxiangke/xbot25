@@ -16,6 +16,7 @@ use App\Pipelines\Xbot\XbotMessageContext;
 use App\Pipelines\Xbot\State\ZombieCheckHandler;
 use App\Pipelines\Xbot\Contact\FriendRequestHandler;
 use App\Pipelines\Xbot\Contact\NotificationHandler;
+use App\Pipelines\Xbot\Contact\SearchContactHandler;
 use App\Pipelines\Xbot\Message\SystemMessageHandler;
 use App\Pipelines\Xbot\Message\SelfMessageHandler;
 use App\Pipelines\Xbot\Message\BuiltinCommandHandler;
@@ -297,6 +298,7 @@ class XbotController extends Controller
         $contactHandlers = [
             NotificationHandler::class,
             FriendRequestHandler::class,
+            SearchContactHandler::class,
         ];
 
         $contactResult = app(Pipeline::class)

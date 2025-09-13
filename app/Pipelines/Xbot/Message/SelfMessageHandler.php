@@ -123,6 +123,12 @@ class SelfMessageHandler extends BaseXbotHandler
             return;
         }
 
+        // 检查是否为好友配置项
+        if ($configManager->isFriendConfig($key)) {
+            $this->handleFriendConfigCommand($context, $key, $value);
+            return;
+        }
+
         // 解析值：支持 0/1, ON/OFF, true/false
         $boolValue = $this->parseBooleanValue($value);
 
@@ -565,6 +571,60 @@ class SelfMessageHandler extends BaseXbotHandler
         }
 
         return $groupConfigs;
+    }
+
+    /**
+     * 处理好友配置命令
+     */
+    private function handleFriendConfigCommand(XbotMessageContext $context, string $key, string $value): void
+    {
+        $configManager = new XbotConfigManager($context->wechatBot);
+        
+        // 验证值不为空
+        if (empty(trim($value))) {
+            $configName = $configManager->getConfigName($key);
+            $this->sendTextMessage($context, "❌ {$configName} 的值不能为空");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 特殊处理数字类型配置（friend_daily_limit）
+        if ($key === 'friend_daily_limit') {
+            if (!is_numeric($value) || (int)$value <= 0) {
+                $this->sendTextMessage($context, "❌ 每日好友请求处理上限必须是大于0的数字");
+                $this->markAsReplied($context);
+                return;
+            }
+            
+            $configManager->setFriendConfig($key, (int)$value);
+            $this->sendTextMessage($context, "✅ 好友配置更新成功\n每日处理上限: {$value}");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 处理欢迎消息模板（支持@nickname变量）
+        if (in_array($key, ['welcome_msg', 'room_welcome_msg'])) {
+            $configManager->setFriendConfig($key, $value);
+            $configName = $configManager->getConfigName($key);
+            
+            // 提示变量使用说明
+            $tips = "✅ {$configName}更新成功\n";
+            $tips .= "消息模板: {$value}\n";
+            
+            if (strpos($value, '@nickname') !== false) {
+                $tips .= "\n💡 @nickname 会自动替换为好友的昵称或备注";
+            } else {
+                $tips .= "\n💡 提示: 可以使用 @nickname 变量自动替换为好友昵称";
+            }
+            
+            $this->sendTextMessage($context, $tips);
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 其他未知的好友配置项
+        $this->sendTextMessage($context, "❌ 未知的好友配置项: {$key}");
+        $this->markAsReplied($context);
     }
 
 }

@@ -20,6 +20,8 @@ class XbotConfigManager
         'keyword_resources' => '关键词资源响应',
         'payment_auto' => '自动收款',
         'check_in' => '签到系统',
+        'friend_auto_accept' => '自动同意好友请求',
+        'friend_welcome_enabled' => '新好友欢迎消息',
     ];
 
     /**
@@ -32,11 +34,31 @@ class XbotConfigManager
     ];
 
     /**
+     * 好友请求相关配置项（非布尔值）
+     */
+    const FRIEND_CONFIGS = [
+        'friend_daily_limit' => '每日好友请求处理上限',
+        'welcome_msg' => '好友欢迎消息模板',
+        'room_welcome_msg' => '群聊欢迎消息模板',
+    ];
+
+    /**
      * 配置默认值定义
      * 未在此列表中的配置默认为 false
      */
     const DEFAULT_VALUES = [
         'payment_auto' => true, // 自动收款默认开启
+        'friend_auto_accept' => false, // 自动同意好友请求默认关闭
+        'friend_welcome_enabled' => false, // 新好友欢迎消息默认关闭
+    ];
+
+    /**
+     * 好友配置默认值
+     */
+    const FRIEND_DEFAULT_VALUES = [
+        'friend_daily_limit' => 50,
+        'welcome_msg' => '@nickname 你好，欢迎你！',
+        'room_welcome_msg' => '@nickname 欢迎入群',
     ];
 
     private WechatBot $wechatBot;
@@ -125,7 +147,7 @@ class XbotConfigManager
      */
     public function getConfigName(string $command): string
     {
-        return self::CONFIGS[$command] ?? self::CHATWOOT_CONFIGS[$command] ?? $command;
+        return self::CONFIGS[$command] ?? self::CHATWOOT_CONFIGS[$command] ?? self::FRIEND_CONFIGS[$command] ?? $command;
     }
 
     /**
@@ -133,7 +155,7 @@ class XbotConfigManager
      */
     public static function getAvailableCommands(): array
     {
-        return array_merge(array_keys(self::CONFIGS), array_keys(self::CHATWOOT_CONFIGS));
+        return array_merge(array_keys(self::CONFIGS), array_keys(self::CHATWOOT_CONFIGS), array_keys(self::FRIEND_CONFIGS));
     }
 
     /**
@@ -149,7 +171,7 @@ class XbotConfigManager
      */
     public function isValidCommand(string $command): bool
     {
-        return isset(self::CONFIGS[$command]) || isset(self::CHATWOOT_CONFIGS[$command]);
+        return isset(self::CONFIGS[$command]) || isset(self::CHATWOOT_CONFIGS[$command]) || isset(self::FRIEND_CONFIGS[$command]);
     }
 
     /**
@@ -219,6 +241,58 @@ class XbotConfigManager
         }
 
         return $missingConfigs;
+    }
+
+    /**
+     * 检查是否为好友配置项
+     */
+    public function isFriendConfig(string $command): bool
+    {
+        return isset(self::FRIEND_CONFIGS[$command]);
+    }
+
+    /**
+     * 获取好友配置值
+     */
+    public function getFriendConfig(string $command, $default = null)
+    {
+        if (!$this->isFriendConfig($command)) {
+            return $default;
+        }
+
+        $friendMeta = $this->wechatBot->getMeta('friend', []);
+        return $friendMeta[$command] ?? (self::FRIEND_DEFAULT_VALUES[$command] ?? $default);
+    }
+
+    /**
+     * 设置好友配置值
+     */
+    public function setFriendConfig(string $command, $value): bool
+    {
+        if (!$this->isFriendConfig($command)) {
+            return false;
+        }
+
+        $friendMeta = $this->wechatBot->getMeta('friend', []);
+        $friendMeta[$command] = $value;
+        $this->wechatBot->setMeta('friend', $friendMeta);
+        
+        return true;
+    }
+
+    /**
+     * 获取所有好友配置
+     */
+    public function getAllFriendConfigs(): array
+    {
+        $friendMeta = $this->wechatBot->getMeta('friend', []);
+        $configs = [];
+        
+        foreach (self::FRIEND_CONFIGS as $command => $description) {
+            $configs[$command] = $friendMeta[$command] ?? (self::FRIEND_DEFAULT_VALUES[$command] ?? null);
+        }
+        
+        return $configs;
     }
 
     /**

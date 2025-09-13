@@ -19,8 +19,10 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private const COMMANDS = [
         '/help' => ['method' => 'handleHelpCommand', 'description' => '显示帮助信息'],
         '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
+        '/config' => ['method' => 'handleConfigCommand', 'description' => '查看配置状态'],
         '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
-        '/get room_id' => ['method' => 'handleGetRoomIdCommand', 'description' => '获取群聊ID'],
+        '/get wxid' => ['method' => 'handleGetWxidCommand', 'description' => '获取wxID'],
+        '/sync contacts' => ['method' => 'handleSyncContactsCommand', 'description' => '同步联系人信息'],
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -144,19 +146,114 @@ class BuiltinCommandHandler extends BaseXbotHandler
     }
 
     /**
-     * 处理获取群ID命令
+     * 处理获取wxID命令
      */
-    private function handleGetRoomIdCommand(XbotMessageContext $context): void
+    private function handleGetWxidCommand(XbotMessageContext $context): void
     {
-        if (!$context->isRoom) {
-            $this->sendTextMessage($context, '⚠️ 此命令只能在群聊中使用');
-            $this->markAsReplied($context);
-            return;
+        if ($context->isRoom) {
+            // 在群聊中，返回群ID
+            $roomWxid = $context->requestRawData['room_wxid'] ?? '';
+            $this->sendTextMessage($context, $roomWxid);
+        } else {
+            // 在私聊中，返回对方的wxid
+            $fromWxid = $context->requestRawData['from_wxid'] ?? '';
+            $this->sendTextMessage($context, $fromWxid);
+        }
+        
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理配置查看命令
+     */
+    private function handleConfigCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new XbotConfigManager($wechatBot);
+
+        // 获取所有配置状态
+        $configText = "🔧 当前配置状态：\n\n";
+
+        // 1. 全局配置
+        $configText .= "📋 全局配置：\n";
+        $globalConfigs = $configManager->getAll();
+        foreach ($globalConfigs as $key => $value) {
+            $configName = $configManager->getConfigName($key);
+            $status = $value ? '✅ 已启用 ' : '❌ 已禁用 ';
+            $configText .= "• {$configName}: {$status}{$key}\n";
         }
 
-        $roomWxid = $context->requestRawData['room_wxid'] ?? '';
-        $this->sendTextMessage($context, $roomWxid);
+        // 2. Chatwoot配置
+        $chatwootConfigs = $configManager->getAllChatwootConfigs();
+        if (!empty(array_filter($chatwootConfigs))) {
+            $configText .= "\n💬 Chatwoot配置：\n";
+            foreach ($chatwootConfigs as $key => $value) {
+                $configName = $configManager->getConfigName($key);
+                if (!empty($value)) {
+                    $displayValue = ($key === 'chatwoot_token') ? '***已设置***' : $value;
+                    $configText .= "• {$configName}: {$displayValue} {$key}\n";
+                } else {
+                    $configText .= "• {$configName}: ❌ 未设置 {$key}\n";
+                }
+            }
+        }
+
+        // 3. 好友配置
+        $friendConfigs = $configManager->getAllFriendConfigs();
+        if (!empty(array_filter($friendConfigs))) {
+            $configText .= "\n👥 好友配置：\n";
+            foreach ($friendConfigs as $key => $value) {
+                $configName = $configManager->getConfigName($key);
+                if (!empty($value)) {
+                    $configText .= "• {$configName}: {$value} {$key}\n";
+                } else {
+                    $configText .= "• {$configName}: ❌ 未设置 {$key}\n";
+                }
+            }
+
+            // 显示今日好友请求处理统计
+            $dailyStats = $configManager->getFriendConfig('daily_stats', []);
+            if (!empty($dailyStats) && $dailyStats['date'] === now()->toDateString()) {
+                $configText .= "\n📊 今日统计：\n";
+                $configText .= "• 已处理好友请求: {$dailyStats['count']}个\n";
+                if (!empty($dailyStats['last_processed'])) {
+                    $configText .= "• 最近处理时间: {$dailyStats['last_processed']}\n";
+                }
+            }
+        }
+
+        // 4. 配置说明
+        $configText .= "\n💡 配置命令说明：\n";
+        $configText .= "• /set <key> <value> - 设置配置项\n";
+
+        $this->sendTextMessage($context, $configText);
         $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理同步联系人命令
+     */
+    private function handleSyncContactsCommand(XbotMessageContext $context): void
+    {
+        try {
+            $xbot = $context->wechatBot->xbot();
+
+            // 同步好友列表
+            $friendsResult = $xbot->getFriendsList();
+
+            // 同步群聊列表
+            $roomsResult = $xbot->getChatroomsList();
+
+            // 同步公众号列表
+            $publicResult = $xbot->getPublicAccountsList();
+
+            $this->sendTextMessage($context, '已请求同步，请稍后确认！');
+            $this->markAsReplied($context);
+
+        } catch (\Exception $e) {
+            $this->sendTextMessage($context, '同步失败：' . $e->getMessage());
+            $this->markAsReplied($context);
+        }
     }
 
 }
