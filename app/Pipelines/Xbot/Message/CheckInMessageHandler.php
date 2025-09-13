@@ -150,14 +150,13 @@ class CheckInMessageHandler extends BaseXbotHandler
         };
 
         if ($wasRecentlyCreated) {
-            // 首次签到 - 发个人消息
-            $personalContent = "{$first}\n✊您已连续坚持了 {$stats['current_streak']} 天\n🏅您总共攒了 {$stats['total_days']} 枚🌟\n您是今天第 {$stats['rank']} 个签到的🥇\n给你一个大大的赞👍\n{$randomEncourage}";
-
-            $this->sendMessage($context, $fromWxid, $personalContent);
-
-            // 群消息
+            // 首次签到 - 先发群消息
             $groupContent = "{$first}\n🥇今天您是第 {$stats['rank']} 位挑战者";
             $this->sendMessage($context, $roomWxid, $groupContent);
+
+            // 再发个人消息
+            $personalContent = "{$first}\n✊您已连续坚持了 {$stats['current_streak']} 天\n🏅您总共攒了 {$stats['total_days']} 枚🌟\n您是今天第 {$stats['rank']} 个签到的🥇\n给你一个大大的赞👍\n{$randomEncourage}";
+            $this->sendMessage($context, $fromWxid, $personalContent);
         } else {
             // 重复签到
             $content = "✅再次祝贺你！今日您已经挑战过了！";
