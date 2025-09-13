@@ -188,16 +188,16 @@ class XbotController extends Controller
 
                 // 先检查基本的群消息过滤
                 $basicFilterPassed = $filter->shouldProcess($roomWxid, $messageContent);
-                
+
                 if (!$basicFilterPassed) {
                     // 检查是否为群级别配置命令（这些命令需要始终放行）
                     $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
-                    
+
                     // 检查是否为签到消息且该群开启了签到
                     $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
                     $isCheckInMessage = $this->isCheckInMessage($messageContent);
                     $canCheckIn = $checkInService->canCheckIn($roomWxid);
-                    
+
                     // 如果是群配置命令或者是签到消息且该群可以签到，则放行
                     if (!$isGroupConfigCommand && !($isCheckInMessage && $canCheckIn)) {
                         return null;
@@ -207,6 +207,22 @@ class XbotController extends Controller
         }
 
         // 路由其他消息到相应处理管道
+        if(!$wechatBot){
+            // 假掉线恢复：尝试通过消息中的wxid查找并更新字段
+            $recoveredBot = $this->recoverFromFakeDisconnection($wechatClient, $clientId, $requestRawData, $msgType);
+            if ($recoveredBot) {
+                $wechatBot = $recoveredBot;
+                Log::info('WechatBot recovered from fake disconnection', [
+                    'wxid' => $wechatBot->wxid,
+                    'old_client_id' => $wechatBot->client_id,
+                    'new_client_id' => $clientId,
+                    'msgType' => $msgType
+                ]);
+            } else {
+                Log::error('WechatBot not found for message processing', ['msgType' => $msgType, 'data' => $requestRawData]);
+                return null;
+            }
+        }
         return $this->routeMessage($wechatBot, $requestRawData, $msgType, $clientId);
     }
 
@@ -259,17 +275,17 @@ class XbotController extends Controller
 
             // 先检查基本的群消息过滤
             $basicFilterPassed = $filter->shouldProcess($context->roomWxid, $messageContent);
-            
+
             // 如果基本过滤不通过，检查是否为特殊消息需要放行
             if (!$basicFilterPassed) {
                 // 检查是否为群级别配置命令（这些命令需要始终放行）
                 $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
-                
+
                 // 检查是否为签到消息且该群开启了签到
                 $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
                 $isCheckInMessage = $this->isCheckInMessage($messageContent);
                 $canCheckIn = $checkInService->canCheckIn($context->roomWxid);
-                
+
                 // 如果是群配置命令或者是签到消息且该群可以签到，则放行
                 if ($isGroupConfigCommand || ($isCheckInMessage && $canCheckIn)) {
                     // 允许处理
@@ -349,7 +365,7 @@ class XbotController extends Controller
     private function isGroupConfigCommand(string $messageContent): bool
     {
         $trimmedMessage = trim($messageContent);
-        
+
         // 群级别配置命令模式（支持多个空格）
         $groupConfigPatterns = [
             '/^\/set\s+room_listen\s+[01]$/i',
@@ -384,5 +400,80 @@ class XbotController extends Controller
 
         $trimmedMessage = trim($messageContent);
         return in_array($trimmedMessage, $checkInKeywords);
+    }
+
+    /**
+     * 尝试从假掉线状态恢复WechatBot
+     * 
+     * @param WechatClient $wechatClient
+     * @param int $clientId
+     * @param array $requestRawData
+     * @param string $msgType
+     * @return WechatBot|null
+     */
+    private function recoverFromFakeDisconnection(WechatClient $wechatClient, int $clientId, array $requestRawData, string $msgType): ?WechatBot
+    {
+        // 从消息数据中提取wxid
+        $wxid = $this->extractWxidFromMessage($requestRawData, $msgType);
+        
+        if (!$wxid) {
+            Log::warning('Cannot extract wxid from message for recovery', ['msgType' => $msgType, 'data' => $requestRawData]);
+            return null;
+        }
+
+        // 通过wxid精确查找WechatBot
+        $wechatBot = WechatBot::where('wxid', $wxid)->first();
+
+        if ($wechatBot) {
+            // 更新关键字段以恢复连接
+            $wechatBot->update([
+                'client_id' => $clientId,
+                'login_at' => now(),
+                'is_live_at' => now(),
+            ]);
+
+            Log::info('假掉线，已修复。', [
+                'wxid' => $wxid,
+                'old_client_id' => $wechatBot->client_id,
+                'new_client_id' => $clientId,
+                'msgType' => $msgType
+            ]);
+
+            return $wechatBot;
+        }
+
+        return null;
+    }
+
+    /**
+     * 从消息数据中提取wxid
+     * 
+     * @param array $requestRawData
+     * @param string $msgType
+     * @return string|null
+     */
+    private function extractWxidFromMessage(array $requestRawData, string $msgType): ?string
+    {
+        // 群消息：bot的wxid通常在to_wxid字段
+        if (!empty($requestRawData['room_wxid'])) {
+            return $requestRawData['to_wxid'] ?? null;
+        }
+
+        // 普通私聊消息：bot的wxid在to_wxid字段
+        if (!empty($requestRawData['to_wxid'])) {
+            return $requestRawData['to_wxid'];
+        }
+
+        // 某些消息类型中，bot的wxid在from_wxid字段（自己发送的消息）
+        if (!empty($requestRawData['from_wxid'])) {
+            return $requestRawData['from_wxid'];
+        }
+
+        // MT_DATA_WXID_MSG 类型：wxid在data.wxid字段
+        if ($msgType === 'MT_DATA_WXID_MSG' && !empty($requestRawData['wxid'])) {
+            return $requestRawData['wxid'];
+        }
+
+        return null;
     }
 }
