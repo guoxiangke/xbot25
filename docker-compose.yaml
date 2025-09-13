@@ -35,4 +35,4 @@ services:
       - ./:/app
     environment:
       CONTAINER_ROLE: queue
-    entrypoint: php artisan queue:work --verbose --tries=3 --timeout=90
+    entrypoint: php artisan queue:work --queue=default,contacts --verbose --tries=3 --timeout=90

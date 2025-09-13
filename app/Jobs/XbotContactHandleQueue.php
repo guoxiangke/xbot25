@@ -24,14 +24,17 @@ class XbotContactHandleQueue implements ShouldQueue
      * Create a new job instance.
      *
      * @param WechatBot $wechatBot
-     * @param array $contacts
-     * @param Chatwoot $chatwoot
+     * @param array $contact
+     * @param string $label
      */
     public function __construct(WechatBot $wechatBot, array $contact, $label)
     {
         $this->wechatBot = $wechatBot;
         $this->contact = $contact;
         $this->label = $label;
+        
+        // 指定使用 contacts 队列
+        $this->onQueue('contacts');
     }
 
     /**

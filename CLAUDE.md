@@ -52,11 +52,27 @@ php artisan make:migration create_table_name
 ```
 
 ### Queue Processing
+
+系统使用双队列架构，分离联系人同步和消息处理：
+
 ```bash
-# Process queued messages
+# 处理默认队列（消息处理、其他任务）
+php artisan queue:work --queue=default
+
+# 处理联系人同步队列（独立运行，避免阻塞消息处理）
+php artisan queue:work --queue=contacts
+
+# 同时处理两个队列（推荐用于开发环境）
+php artisan queue:work --queue=default,contacts
+
+# 监听所有队列
 php artisan queue:listen
-php artisan queue:work
 ```
+
+**生产环境建议**：
+- 分别启动两个 worker 进程处理不同队列
+- contacts 队列可以使用较少的 worker 数量
+- default 队列使用更多 worker 确保消息及时处理
 
 ## API Endpoints
 
