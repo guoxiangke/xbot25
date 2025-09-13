@@ -76,15 +76,18 @@ class XbotTestHelpers
     /**
      * 创建带有Chatwoot配置的机器人
      */
-    public static function createWechatBotWithChatwoot(array $attributes = []): WechatBot
+    public static function createWechatBotWithChatwoot(array $chatwootConfig = []): WechatBot
     {
-        $bot = self::createWechatBot(array_merge([
+        $bot = self::createWechatBot();
+
+        // 设置Chatwoot配置在meta中
+        $defaultChatwootConfig = [
             'chatwoot_account_id' => 1,
             'chatwoot_inbox_id' => 1,
             'chatwoot_token' => 'test-chatwoot-token'
-        ], $attributes));
-
-        // 启用chatwoot配置
+        ];
+        
+        $bot->setMeta('chatwoot', array_merge($defaultChatwootConfig, $chatwootConfig));
         $bot->setMeta('chatwoot_enabled', true);
         
         return $bot;

@@ -7,6 +7,7 @@ use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\XbotConfigManager;
 use App\Services\Chatwoot;
+use App\Helpers\FriendSourceAnalyzer;
 use Closure;
 
 /**
@@ -44,11 +45,15 @@ class FriendRequestHandler extends BaseXbotHandler
             ]);
         }
 
+        // 分析好友来源
+        $sourceAnalysis = FriendSourceAnalyzer::analyze($data);
+        $context->setMetadata('friend_source_analysis', $sourceAnalysis);
+
         // 同步联系人信息到Chatwoot并发送通知
-        $this->handleFriendRequestNotification($context, $rawMsg);
+        $this->handleFriendRequestNotification($context, $rawMsg, $sourceAnalysis);
 
         // 转换为文本消息以便同步到Chatwoot
-        $this->convertToTextMessage($context, $rawMsg);
+        $this->convertToTextMessage($context, $rawMsg, $sourceAnalysis);
 
         // 继续传递到下一个处理器（重要：不再markAsProcessed）
         return $next($context);
@@ -187,7 +192,7 @@ class FriendRequestHandler extends BaseXbotHandler
     /**
      * 处理好友请求通知：同步联系人到Chatwoot并发送通知
      */
-    private function handleFriendRequestNotification(XbotMessageContext $context, string $rawMsg): void
+    private function handleFriendRequestNotification(XbotMessageContext $context, string $rawMsg, array $sourceAnalysis): void
     {
         $friendRequestInfo = $this->parseFriendRequestXml($rawMsg);
         
@@ -213,8 +218,11 @@ class FriendRequestHandler extends BaseXbotHandler
             $this->updateChatwootContact($chatwoot, $existingContact, $friendRequestInfo);
             $contact = $existingContact;
         } else {
-            // 创建新联系人
-            $contact = $chatwoot->saveContact($friendRequestInfo);
+            // 创建新联系人 - 添加scene字段
+            $contactData = $friendRequestInfo;
+            $contactData['scene'] = $sourceAnalysis['details']['scene'] ?? '';
+            
+            $contact = $chatwoot->saveContact($contactData);
         }
 
         if (!$contact || !isset($contact['id'])) {
@@ -226,7 +234,7 @@ class FriendRequestHandler extends BaseXbotHandler
         }
 
         // 格式化通知消息
-        $notificationMessage = $this->formatFriendRequestMessage($friendRequestInfo);
+        $notificationMessage = $this->formatFriendRequestMessage($friendRequestInfo, $sourceAnalysis);
 
         // 发送通知消息到Chatwoot（以客服身份）
         $response = $chatwoot->sendMessageAsAgentToContact($contact, $notificationMessage);
@@ -275,13 +283,20 @@ class FriendRequestHandler extends BaseXbotHandler
     /**
      * 格式化好友请求通知消息
      */
-    private function formatFriendRequestMessage(array $friendRequestInfo): string
+    private function formatFriendRequestMessage(array $friendRequestInfo, array $sourceAnalysis): string
     {
         $nickname = $friendRequestInfo['nickname'] ?? '未知用户';
         $content = $friendRequestInfo['content'] ?? '';
+        $sourceDesc = $sourceAnalysis['source_desc'] ?? '未知来源';
+        $scene = $sourceAnalysis['details']['scene'] ?? '';
         
         $message = "收到好友请求";
         $message .= "\n来自：{$nickname}";
+        $message .= "\n来源：{$sourceDesc}";
+        
+        if (!empty($scene)) {
+            $message .= " (scene:{$scene})";
+        }
         
         if (!empty($content)) {
             $message .= "\n消息：{$content}";
@@ -306,16 +321,23 @@ class FriendRequestHandler extends BaseXbotHandler
     /**
      * 将好友请求转换为文本消息，以便同步到Chatwoot
      */
-    private function convertToTextMessage(XbotMessageContext $context, string $rawMsg): void
+    private function convertToTextMessage(XbotMessageContext $context, string $rawMsg, array $sourceAnalysis): void
     {
         $friendRequestInfo = $this->parseFriendRequestXml($rawMsg);
         
         if ($friendRequestInfo) {
             $fromnickname = $friendRequestInfo['fromnickname'] ?? '未知用户';
             $content = $friendRequestInfo['content'] ?? '';
+            $sourceDesc = $sourceAnalysis['source_desc'] ?? '未知来源';
+            $scene = $sourceAnalysis['details']['scene'] ?? '';
             
             $textMessage = "收到好友请求";
             $textMessage .= "\n来自：{$fromnickname}";
+            $textMessage .= "\n来源：{$sourceDesc}";
+            
+            if (!empty($scene)) {
+                $textMessage .= " (scene:{$scene})";
+            }
             
             if (!empty($content)) {
                 $textMessage .= "\n消息：{$content}";

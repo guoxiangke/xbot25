@@ -82,6 +82,7 @@ class Chatwoot
                 "country" => $contact['country'] ?? '',
                 "province" => $contact['province'] ?? '',
                 "remark" => $contact['remark'] ?? '',
+                "scene" => $contact['scene'] ?? '', // 好友来源scene字段
             ],
             // 用于存储系统预定义的属性
             "additional_attributes" => [
