@@ -21,7 +21,6 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
         '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
         '/get wxid' => ['method' => 'handleGetWxidCommand', 'description' => '获取wxID'],
-        '/sync contacts' => ['method' => 'handleSyncContactsCommand', 'description' => '同步联系人信息'],
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -164,30 +163,5 @@ class BuiltinCommandHandler extends BaseXbotHandler
     }
 
 
-    /**
-     * 处理同步联系人命令
-     */
-    private function handleSyncContactsCommand(XbotMessageContext $context): void
-    {
-        try {
-            $xbot = $context->wechatBot->xbot();
-
-            // 同步好友列表
-            $friendsResult = $xbot->getFriendsList();
-
-            // 同步群聊列表
-            $roomsResult = $xbot->getChatroomsList();
-
-            // 同步公众号列表
-            $publicResult = $xbot->getPublicAccountsList();
-
-            $this->sendTextMessage($context, '已请求同步，请稍后确认！');
-            $this->markAsReplied($context);
-
-        } catch (\Exception $e) {
-            $this->sendTextMessage($context, '同步失败：' . $e->getMessage());
-            $this->markAsReplied($context);
-        }
-    }
 
 }
