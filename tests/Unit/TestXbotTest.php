@@ -15,8 +15,8 @@ describe('TestXbot Integration', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return $data['msg'] === 'test message' && 
-                   $data['to_wxid'] === 'test_target';
+            return XbotTestHelpers::extractMessageContent($data) === 'test message' && 
+                   $data['data']['to_wxid'] === 'test_target';
         });
     });
 });

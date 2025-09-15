@@ -4,8 +4,8 @@ namespace App\Jobs;
 
 use App\Models\WechatBot;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\Chatwoot;
-use App\Services\XbotConfigManager;
+use App\Services\Clients\ChatwootClient;
+use App\Services\Managers\ConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -26,7 +26,7 @@ class ChatwootHandleQueue implements ShouldQueue
     public $isRoom;
     public $originMsgType;
     public $msgId;
-    protected Chatwoot $chatwoot;
+    protected ChatwootClient $chatwoot;
 
     public function __construct(XbotMessageContext $context, string $content)
     {
@@ -43,7 +43,7 @@ class ChatwootHandleQueue implements ShouldQueue
     public function handle()
     {
         // 检查Chatwoot是否启用
-        $configManager = new XbotConfigManager($this->wechatBot);
+        $configManager = new ConfigManager($this->wechatBot);
         $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) return;
 
@@ -65,7 +65,7 @@ class ChatwootHandleQueue implements ShouldQueue
             return;
         }
 
-        $this->chatwoot = new Chatwoot($this->wechatBot);
+        $this->chatwoot = new ChatwootClient($this->wechatBot);
 
         // 获取或创建Chatwoot联系人
         $contact = $this->chatwoot->searchContact($this->wxid);
@@ -85,7 +85,7 @@ class ChatwootHandleQueue implements ShouldQueue
 
                 // 添加标签
                 $label =  WechatBot::getContactTypeLabel($contactData['type'] ?? 0);
-                if ($label) {
+                if ($label && $contact && isset($contact['id'])) {
                     $this->chatwoot->setLabel($contact['id'], $label);
                 }
             } else {
@@ -130,10 +130,11 @@ class ChatwootHandleQueue implements ShouldQueue
             $this->chatwoot->sendMessageAsContact($contact, $content, $isHost);
         }
 
-        Log::info('Message sent to Chatwoot via queue', [
+        Log::info(__FUNCTION__, [
             'msgId' => $this->msgId,
             'wxid' => $this->wxid,
-            'origin_msg_type' => $this->originMsgType
+            'origin_msg_type' => $this->originMsgType,
+            'message' => 'Message sent to Chatwoot via queue'
         ]);
     }
 

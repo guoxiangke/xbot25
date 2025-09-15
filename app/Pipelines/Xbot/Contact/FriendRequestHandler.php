@@ -5,9 +5,9 @@ namespace App\Pipelines\Xbot\Contact;
 use App\Jobs\ProcessFriendRequestJob;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
-use App\Services\Chatwoot;
-use App\Helpers\FriendSourceAnalyzer;
+use App\Services\Managers\ConfigManager;
+use App\Services\Clients\ChatwootClient;
+use App\Services\Analytics\FriendSourceAnalyzer;
 use Closure;
 
 /**
@@ -32,14 +32,14 @@ class FriendRequestHandler extends BaseXbotHandler
         $context->setMetadata('origin_msg_type', $context->msgType);
 
         // 使用新的配置管理器
-        $configManager = new XbotConfigManager($context->wechatBot);
+        $configManager = new ConfigManager($context->wechatBot);
         
         // 检查是否开启自动同意好友请求
         if ($configManager->isEnabled('friend_auto_accept')) {
             $this->handleAutoFriendRequest($context, $rawMsg, $configManager);
         } else {
             // 不自动同意，记录日志
-            $this->log('Friend request received (auto accept disabled)', [
+            $this->log(__FUNCTION__, ['message' => 'Friend request received (auto accept disabled)',
                 'from_wxid' => $context->fromWxid,
                 'raw_msg' => $rawMsg
             ]);
@@ -63,7 +63,7 @@ class FriendRequestHandler extends BaseXbotHandler
      * 处理自动同意好友请求 - 使用队列延迟处理
      * 参考 XbotCallbackController.php 第361-364行的逻辑
      */
-    private function handleAutoFriendRequest(XbotMessageContext $context, string $rawMsg, XbotConfigManager $configManager): void
+    private function handleAutoFriendRequest(XbotMessageContext $context, string $rawMsg, ConfigManager $configManager): void
     {
         $friendRequestInfo = $this->parseFriendRequestXml($rawMsg);
         
@@ -86,7 +86,7 @@ class FriendRequestHandler extends BaseXbotHandler
             ProcessFriendRequestJob::dispatch($context->wechatBot->id, $friendRequestInfo)
                 ->delay(now()->addMinutes($delayMinutes));
             
-            $this->log('Friend request queued for processing', [
+            $this->log(__FUNCTION__, ['message' => 'Friend request queued for processing',
                 'from_nickname' => $fromnickname,
                 'content' => $content,
                 'scene' => $scene,
@@ -201,15 +201,15 @@ class FriendRequestHandler extends BaseXbotHandler
             return;
         }
 
-        $configManager = new XbotConfigManager($context->wechatBot);
+        $configManager = new ConfigManager($context->wechatBot);
         
         // 检查是否开启Chatwoot同步
         if (!$configManager->isEnabled('chatwoot')) {
-            $this->log('Chatwoot sync disabled, skipping friend request notification');
+            $this->log(__FUNCTION__, ['message' => 'Chatwoot sync disabled, skipping friend request notification']);
             return;
         }
 
-        $chatwoot = new Chatwoot($context->wechatBot);
+        $chatwoot = new ChatwootClient($context->wechatBot);
         
         // 检查联系人是否已存在
         $existingContact = $chatwoot->searchContact($friendRequestInfo['wxid']);
@@ -240,7 +240,7 @@ class FriendRequestHandler extends BaseXbotHandler
         $response = $chatwoot->sendMessageAsAgentToContact($contact, $notificationMessage);
         
         if ($response && $response->successful()) {
-            $this->log('Friend request notification sent to Chatwoot', [
+            $this->log(__FUNCTION__, ['message' => 'Friend request notification sent to Chatwoot',
                 'contact_id' => $contact['id'],
                 'wxid' => $friendRequestInfo['wxid'],
                 'nickname' => $friendRequestInfo['nickname'] ?? ''
@@ -259,7 +259,7 @@ class FriendRequestHandler extends BaseXbotHandler
     /**
      * 更新Chatwoot联系人信息
      */
-    private function updateChatwootContact(Chatwoot $chatwoot, array $existingContact, array $newContact): void
+    private function updateChatwootContact(ChatwootClient $chatwoot, array $existingContact, array $newContact): void
     {
         $contactId = $existingContact['id'];
 
@@ -312,7 +312,7 @@ class FriendRequestHandler extends BaseXbotHandler
     {
         $this->sendTextMessage($context, $message, 'filehelper');
         
-        $this->log('Friend request notification sent to file helper', [
+        $this->log(__FUNCTION__, ['message' => 'Friend request notification sent to file helper',
             'message' => $message,
             'target' => 'filehelper'
         ]);
@@ -347,7 +347,7 @@ class FriendRequestHandler extends BaseXbotHandler
             $context->msgType = 'MT_RECV_TEXT_MSG';
             $context->requestRawData['msg'] = $textMessage;
             
-            $this->log('Friend request converted to text message', [
+            $this->log(__FUNCTION__, ['message' => 'Friend request converted to text message',
                 'original_type' => 'MT_RECV_FRIEND_MSG',
                 'converted_message' => $textMessage,
                 'from_nickname' => $fromnickname

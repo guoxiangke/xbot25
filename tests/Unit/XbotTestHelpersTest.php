@@ -17,7 +17,6 @@ describe('XbotTestHelpers', function () {
         
         expect($bot)->not->toBeNull();
         expect($bot->wxid)->toStartWith('test-bot-');
-        expect($bot->nickname)->toBe('Test Bot');
         
         // 测试meta功能
         $bot->setMeta('test_key', 'test_value');

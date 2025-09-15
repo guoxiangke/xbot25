@@ -25,7 +25,7 @@ class OtherAppMessageHandler extends BaseXbotHandler
 
         // 只处理 wx_type = 49 的消息
         if ($wxType != 49) {
-            $this->log('Other app message skipped (wx_type not 49)', [
+            $this->log(__FUNCTION__, ['message' => 'Other app message skipped (wx_type not 49)',
                 'wx_type' => $wxType,
                 'wx_sub_type' => $wxSubType,
                 'from' => $context->requestRawData['from_wxid'] ?? ''
@@ -48,7 +48,7 @@ class OtherAppMessageHandler extends BaseXbotHandler
         // 替换消息内容
         $context->requestRawData['msg'] = $formattedMessage;
 
-        $this->log('Other app message converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Other app message converted to text',
             'wx_type' => $wxType,
             'wx_sub_type' => $wxSubType,
             'formatted_message' => $formattedMessage,

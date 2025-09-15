@@ -62,7 +62,7 @@ class WebhookHandler extends BaseXbotHandler
                 ->post($webhookUrl, $data);
 
             if ($response->successful()) {
-                $this->log('Webhook sent successfully', [
+                $this->log(__FUNCTION__, ['message' => 'Webhook sent successfully',
                     'webhook_url' => $webhookUrl,
                     'bot_wxid' => $context->wechatBot->wxid,
                     'msg_type' => $context->msgType

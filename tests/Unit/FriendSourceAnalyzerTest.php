@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use App\Helpers\FriendSourceAnalyzer;
+use App\Services\Analytics\FriendSourceAnalyzer;
 
 class FriendSourceAnalyzerTest extends TestCase
 {
@@ -22,7 +22,7 @@ class FriendSourceAnalyzerTest extends TestCase
         $this->assertEquals('group', $result['source_type']);
         $this->assertEquals('群聊添加', $result['source_desc']);
         $this->assertEquals('14', $result['details']['scene']);
-        $this->assertEquals('我是群聊"好牧人听众群④ *禁言*"的yr', $result['details']['content']);
+        $this->assertEquals('我是群聊&quot;好牧人听众群④ *禁言*&quot;的yr', $result['details']['content']);
         $this->assertEquals('yr', $result['details']['from_nickname']);
         $this->assertEquals('50000744747@chatroom', $result['details']['chatroom_username']);
     }
@@ -41,7 +41,7 @@ class FriendSourceAnalyzerTest extends TestCase
         $this->assertEquals('group', $result['source_type']);
         $this->assertEquals('群聊添加', $result['source_desc']);
         $this->assertEquals('14', $result['details']['scene']);
-        $this->assertEquals('我是群聊"导航褥子铺"的牛先生', $result['details']['content']);
+        $this->assertEquals('我是群聊&quot;导航褥子铺&quot;的牛先生', $result['details']['content']);
         $this->assertEquals('Jason Niu', $result['details']['from_nickname']);
         $this->assertEquals('20314937575@chatroom', $result['details']['chatroom_username']);
     }
@@ -289,7 +289,7 @@ class FriendSourceAnalyzerTest extends TestCase
         $this->assertEquals('group', $result['source_type']);
         $this->assertEquals('群聊添加', $result['source_desc']);
         $this->assertEquals('14', $result['details']['scene']);
-        $this->assertEquals('我是群聊"Trumpet禁言6"的谢水英', $result['details']['content']);
+        $this->assertEquals('我是群聊&quot;Trumpet禁言6&quot;的谢水英', $result['details']['content']);
         $this->assertEquals('谢水英', $result['details']['from_nickname']);
         $this->assertEquals('48607342942@chatroom', $result['details']['chatroom_username']);
     }

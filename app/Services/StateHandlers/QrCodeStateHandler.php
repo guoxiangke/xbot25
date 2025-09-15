@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\XbotServices\State;
+namespace App\Services\StateHandlers;
 
 use App\Models\WechatClient;
 use Illuminate\Support\Facades\Cache;

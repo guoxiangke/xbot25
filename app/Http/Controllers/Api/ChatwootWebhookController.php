@@ -1,12 +1,17 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\WechatBot;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Chatwoot Webhook 控制器
+ * 处理来自Chatwoot的webhook请求
+ */
 class ChatwootWebhookController extends Controller
 {
     /**
@@ -54,27 +59,35 @@ class ChatwootWebhookController extends Controller
                 // 缓存图片附件信息，用于避免重复发送到Chatwoot
                 Cache::set("chatwoot_outgoing_attachment_{$wechatBot->id}_{$toWxid}_image", true, 30);
 
-                Log::info('Chatwoot image sent to WeChat', [
+                Log::info(__FUNCTION__, [
                     'to_wxid' => $toWxid,
                     'file_url' => $fileUrl,
-                    'attachment_id' => $attachment['id']
+                    'attachment_id' => $attachment['id'],
+                    'message' => 'Chatwoot image sent to WeChat'
                 ]);
             } elseif (in_array($fileType, ['audio', 'file', 'video'])) {
                 $wechatBot->xbot()->sendFileByUrl($toWxid, $fileUrl);
 
-                // 缓存文件附件信息，用于避免重复发送到Chatwoot
+                // 缓存附件信息
                 Cache::set("chatwoot_outgoing_attachment_{$wechatBot->id}_{$toWxid}_{$fileType}", true, 30);
 
-                Log::info('Chatwoot file sent to WeChat', [
+                Log::info(__FUNCTION__, [
                     'to_wxid' => $toWxid,
-                    'file_type' => $fileType,
                     'file_url' => $fileUrl,
+                    'file_type' => $fileType,
                     'attachment_id' => $attachment['id'],
-                    'file_size' => $attachment['file_size'] ?? 0
+                    'message' => "Chatwoot {$fileType} sent to WeChat"
                 ]);
             }
         }
 
-        return true;
+        Log::info(__FUNCTION__, [
+            'to_wxid' => $toWxid,
+            'content_length' => strlen($content),
+            'attachments_count' => count($attachments),
+            'message' => 'ChatwootWebhookController'
+        ]);
+        
+        return response()->json(['status' => 'ok']);
     }
 }

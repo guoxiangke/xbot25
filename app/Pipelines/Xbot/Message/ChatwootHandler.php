@@ -5,7 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Jobs\ChatwootHandleQueue;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Closure;
 
 /**
@@ -29,7 +29,7 @@ class ChatwootHandler extends BaseXbotHandler
 
         // 检查是否应该同步到 Chatwoot
         if (!$this->shouldSyncToChatwoot($context, $message)) {
-            $this->log('Message blocked from Chatwoot sync', [
+            $this->log(__FUNCTION__, ['message' => 'Message blocked from Chatwoot sync',
                 'msgId' => $context->msgId,
                 'is_from_bot' => $context->isFromBot,
                 'from' => $context->fromWxid
@@ -40,7 +40,7 @@ class ChatwootHandler extends BaseXbotHandler
         // 把消息存储到 chatwoot 中（通过队列异步处理）
         ChatwootHandleQueue::dispatch($context, $message);
 
-        $this->log('Message sent to Chatwoot queue', [
+        $this->log(__FUNCTION__, ['message' => 'Sent',
             'msgId' => $context->msgId,
             'origin_type' => $context->msgType,
             'from' => $context->fromWxid
@@ -77,7 +77,23 @@ class ChatwootHandler extends BaseXbotHandler
      */
     private function shouldSyncToChatwoot(XbotMessageContext $context, string $message): bool
     {
-        // 所有消息都同步到 Chatwoot
+        $configManager = new ConfigManager($context->wechatBot);
+        
+        // 检查是否启用了Chatwoot
+        if (!$configManager->isEnabled('chatwoot')) {
+            return false;
+        }
+        
+        // 如果是群消息，需要检查群消息过滤配置
+        if ($context->isRoom && !empty($context->roomWxid)) {
+            $filter = new \App\Services\ChatroomMessageFilter($context->wechatBot, $configManager);
+            
+            // 使用群消息过滤器检查是否应该处理这个群的消息
+            if (!$filter->shouldProcess($context->roomWxid, $message)) {
+                return false;
+            }
+        }
+        
         return true;
     }
 

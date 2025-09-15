@@ -4,7 +4,7 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -44,7 +44,7 @@ class KeywordResponseHandler extends BaseXbotHandler
         }
 
         // 检查资源系统是否启用
-        $configManager = new XbotConfigManager($context->wechatBot);
+        $configManager = new ConfigManager($context->wechatBot);
         if (!$configManager->isEnabled('keyword_resources')) {
             return $next($context);
         }
@@ -59,7 +59,7 @@ class KeywordResponseHandler extends BaseXbotHandler
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);
 
-            $this->log('Keyword response sent', [
+            $this->log(__FUNCTION__, ['message' => 'Keyword response sent',
                 'keyword' => $keyword,
                 'to' => $context->wxid
             ]);
@@ -132,7 +132,7 @@ class KeywordResponseHandler extends BaseXbotHandler
             // 发送资源响应
             $this->sendKeywordResponse($context, $resource);
 
-            $this->log('YouTube link response sent', [
+            $this->log(__FUNCTION__, ['message' => 'YouTube link response sent',
                 'content' => $content,
                 'to' => $context->wxid,
                 'is_room' => $context->isRoom

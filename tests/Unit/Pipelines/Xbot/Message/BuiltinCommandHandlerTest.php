@@ -49,10 +49,11 @@ describe('Command Recognition', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '登陆时长') &&
-                   str_contains($data['msg'], '设备端口') &&
-                   str_contains($data['msg'], '北京时间');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '登陆时长') &&
+                   str_contains($msg, '设备端口') &&
+                   str_contains($msg, '北京时间');
         });
     });
     
@@ -149,7 +150,7 @@ describe('Subscription Commands', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('/list subscriptions')
+                ->withMessage('/get subscriptions')
                 ->from('wxid_user123')
                 ->build()
         );
@@ -158,12 +159,13 @@ describe('Subscription Commands', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '当前订阅列表') &&
-                   str_contains($data['msg'], '每日新闻') &&
-                   str_contains($data['msg'], '天气预报') &&
-                   str_contains($data['msg'], '7点') &&
-                   str_contains($data['msg'], '8点');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '当前订阅列表') &&
+                   str_contains($msg, '每日新闻') &&
+                   str_contains($msg, '天气预报') &&
+                   str_contains($msg, '7点') &&
+                   str_contains($msg, '8点');
         });
     });
     
@@ -171,7 +173,7 @@ describe('Subscription Commands', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('/list subscriptions')
+                ->withMessage('/get subscriptions')
                 ->from('wxid_user456')
                 ->build()
         );
@@ -200,7 +202,7 @@ describe('Subscription Commands', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('/list subscriptions')
+                ->withMessage('/get subscriptions')
                 ->from('wxid_user123')
                 ->build()
         );
@@ -209,9 +211,10 @@ describe('Subscription Commands', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '用户123的订阅') &&
-                   !str_contains($data['msg'], '用户456的订阅');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '用户123的订阅') &&
+                   !str_contains($msg, '用户456的订阅');
         });
     });
 });
@@ -305,7 +308,7 @@ describe('Edge Cases', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('/list subscriptions')
+                ->withMessage('/get subscriptions')
                 ->from('wxid_user123')
                 ->build()
         );
@@ -314,9 +317,10 @@ describe('Edge Cases', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '测试订阅') &&
-                   str_contains($data['msg'], '7点'); // 默认值
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '测试订阅') &&
+                   str_contains($msg, '7点'); // 默认值
         });
     });
 });
@@ -327,7 +331,7 @@ describe('Integration with Context', function () {
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/list subscriptions']]
+            ['data' => ['msg' => '/get subscriptions']]
         );
         
         // 为群创建订阅
@@ -342,8 +346,9 @@ describe('Integration with Context', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '群订阅');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '群订阅');
         });
     });
     
@@ -361,8 +366,9 @@ describe('Integration with Context', function () {
         
         Http::assertSent(function ($request) use ($loginTime) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], $loginTime->format('Y-m-d H:i:s'));
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, $loginTime->format('Y-m-d H:i:s'));
         });
     });
 });

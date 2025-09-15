@@ -49,7 +49,7 @@ class FileVideoMessageHandler extends BaseXbotHandler
         // 替换消息内容
         $context->requestRawData['msg'] = $formattedMessage;
 
-        $this->log('File/Video message converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Converted',
             'message_type' => $context->msgType,
             'file_data' => $fileData,
             'file_type' => $fileType,

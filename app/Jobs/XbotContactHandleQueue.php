@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WechatBot;
-use App\Services\Chatwoot;
+use App\Services\Clients\ChatwootClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,7 +18,7 @@ class XbotContactHandleQueue implements ShouldQueue
     public $wechatBot;
     public $contact;
     public $label;
-    protected Chatwoot $chatwoot;
+    protected ChatwootClient $chatwoot;
 
     /**
      * Create a new job instance.
@@ -44,7 +44,7 @@ class XbotContactHandleQueue implements ShouldQueue
      */
     public function handle()
     {
-        $this->chatwoot = new Chatwoot($this->wechatBot);
+        $this->chatwoot = new ChatwootClient($this->wechatBot);
         $contact = $this->contact;
         // 检查联系人是否已存在
         $existingContact = $this->chatwoot->searchContact($contact['wxid']);

@@ -84,7 +84,7 @@ class SubscriptionHandler extends BaseXbotHandler
         $isRoom = !empty($context->roomWxid);
         if (!$isRoom) {
             $donateText = config('services.xbot.donate', '');
-            $this->sendTextMessage($context, "资源有限\n请入群或回复编号获取！\n{$donateText}");
+            $this->sendTextMessage($context, "资源有限，鼓励共享\n请建群订阅或回复编号获取！\n{$donateText}");
             // return;
         }
 
@@ -107,7 +107,7 @@ class SubscriptionHandler extends BaseXbotHandler
             $this->sendTextMessage($context, '已订阅成功！时间和之前一样');
         }
 
-        $this->log('Subscription created', [
+        $this->log(__FUNCTION__, ['message' => 'Subscription created',
             'keyword' => $keyword,
             'wxid' => $context->wxid,
             'cron' => $cron
@@ -136,7 +136,7 @@ class SubscriptionHandler extends BaseXbotHandler
         if ($subscription) {
             $subscription->delete();
             $this->sendTextMessage($context, '已取消订阅！');
-            $this->log('Subscription cancelled', [
+            $this->log(__FUNCTION__, ['message' => 'Subscription cancelled',
                 'keyword' => $keyword,
                 'wxid' => $context->wxid
             ]);

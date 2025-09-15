@@ -322,7 +322,11 @@ class XbotMessageDataset
      */
     public static function randomMsgid(): string
     {
-        return (string) mt_rand(1000000000000000000, 9999999999999999999);
+        // 根据真实日志生成类似范围的消息ID (19位数字)
+        // 真实例子: 8901609546391071995, 1959197905384112073
+        $timestamp = time() * 1000; // 毫秒时间戳
+        $random = mt_rand(100000, 999999);
+        return (string) ($timestamp * 1000000 + $random);
     }
 
     /**

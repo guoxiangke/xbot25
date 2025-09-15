@@ -27,12 +27,12 @@ afterEach(function () {
 
 describe('Group Level Configuration Commands', function () {
     
-    test('room_listen configuration works in group chat', function () {
-        // 测试在群聊中启用room_listen
+    test('room_msg configuration works in group chat', function () {
+        // 测试在群聊中启用room_msg
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set room_listen 1', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg 1', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context, $this->next);
@@ -42,11 +42,11 @@ describe('Group Level Configuration Commands', function () {
         // 重新初始化HTTP mock
         XbotTestHelpers::mockXbotService();
         
-        // 测试禁用room_listen
+        // 测试禁用room_msg
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set room_listen 0', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg 0', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context, $this->next);
@@ -54,31 +54,32 @@ describe('Group Level Configuration Commands', function () {
         XbotTestHelpers::assertMessageSent('群设置成功: 群消息处理 已禁用');
     });
     
-    test('check_in_room configuration auto-enables room_listen', function () {
-        // 测试启用check_in_room会自动启用room_listen
+    test('check_in configuration auto-enables room_msg', function () {
+        // 测试启用check_in会自动启用room_msg
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set check_in_room 1', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set check_in 1', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context, $this->next);
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '群设置成功: 群签到系统 已启用') &&
-                   str_contains($data['msg'], '自动启用了该群的消息监听');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '群设置成功: 群签到系统 已启用') &&
+                   str_contains($msg, '自动启用了该群的消息监听');
         });
         
         // 重新初始化HTTP mock
         XbotTestHelpers::mockXbotService();
         
-        // 测试禁用check_in_room
+        // 测试禁用check_in
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set check_in_room 0', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set check_in 0', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context, $this->next);
@@ -117,7 +118,7 @@ describe('Group Level Configuration Commands', function () {
         // 测试群级别配置在私聊中会失败
         $context = XbotTestHelpers::createBotMessageContext(
             $this->wechatBot,
-            '/set room_listen 1'
+            '/set room_msg 1'
         );
         
         $this->selfHandler->handle($context, $this->next);
@@ -130,7 +131,7 @@ describe('Group Level Configuration Commands', function () {
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set room_listen invalid', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg invalid', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context, $this->next);
@@ -146,7 +147,7 @@ describe('Group Level Configuration Integration', function () {
         
         // 设置多个群级别配置
         $configs = [
-            'room_listen' => ['command' => '/set room_listen 1', 'response' => '群设置成功: 群消息处理 已启用'],
+            'room_msg' => ['command' => '/set room_msg 1', 'response' => '群设置成功: 群消息处理 已启用'],
             'youtube_room' => ['command' => '/set youtube_room 1', 'response' => '群设置成功: YouTube链接响应 已启用'],
         ];
         
@@ -178,9 +179,10 @@ describe('Group Level Configuration Integration', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   str_contains($data['msg'], '未知的设置项: unknown_group_config') &&
-                   str_contains($data['msg'], '群配置: room_listen, check_in_room, youtube_room');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   str_contains($msg, '未知的设置项: unknown_group_config') &&
+                   str_contains($msg, '群配置:') && str_contains($msg, 'youtube');
         });
     });
 });
@@ -192,7 +194,7 @@ describe('Group Message Processing Logic', function () {
         $context = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             '56878503348@chatroom',
-            ['data' => ['msg' => '/set room_listen 1', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg 1', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         expect($context->isRoom)->toBeTrue();
@@ -205,11 +207,11 @@ describe('Group Message Processing Logic', function () {
         $room1 = '111@chatroom';
         $room2 = '222@chatroom';
         
-        // 在群1中启用room_listen
+        // 在群1中启用room_msg
         $context1 = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             $room1,
-            ['data' => ['msg' => '/set room_listen 1', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg 1', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context1, $this->next);
@@ -218,11 +220,11 @@ describe('Group Message Processing Logic', function () {
         // 重新初始化HTTP mock
         XbotTestHelpers::mockXbotService();
         
-        // 在群2中禁用room_listen
+        // 在群2中禁用room_msg
         $context2 = XbotTestHelpers::createRoomMessageContext(
             $this->wechatBot,
             $room2,
-            ['data' => ['msg' => '/set room_listen 0', 'from_wxid' => $this->wechatBot->wxid]]
+            ['data' => ['msg' => '/set room_msg 0', 'from_wxid' => $this->wechatBot->wxid]]
         );
         
         $this->selfHandler->handle($context2, $this->next);

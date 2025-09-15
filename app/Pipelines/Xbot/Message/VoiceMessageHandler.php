@@ -51,13 +51,13 @@ class VoiceMessageHandler extends BaseXbotHandler
                 'timestamp' => time(),
             ], now()->addMinutes(1));
 
-            $this->log('Voice message cached, waiting for text conversion', [
+            $this->log(__FUNCTION__, ['message' => 'Voice message cached, waiting for text conversion',
                 'msgid' => $msgid,
                 'voice_url' => $voiceUrl,
                 'from_wxid' => $fromWxid,
             ]);
         } else {
-            $this->log('Voice message received but no mp3_file', [
+            $this->log(__FUNCTION__, ['message' => 'Voice message received but no mp3_file',
                 'msgid' => $msgid,
                 'from_wxid' => $fromWxid,
             ]);

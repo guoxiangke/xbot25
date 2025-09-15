@@ -40,11 +40,11 @@ Route::post('/xbot/license/info', function (Request $request) {
     ];
 });
 
-use App\Http\Controllers\XbotController;
-use App\Http\Controllers\WechatApiController;
-use App\Http\Controllers\ChatwootWebhookController;
+use App\Http\Controllers\Api\XbotWebhookController;
+use App\Http\Controllers\Api\WechatApiController;
+use App\Http\Controllers\Api\ChatwootWebhookController;
 
-Route::any('/xbot/{winToken}', XbotController::class);
+Route::any('/xbot/{winToken}', XbotWebhookController::class);
 
 // {"type":"text", "to":"bluesky_still", "data": {"content": "API主动发送 文本/链接/名片/图片/视频 消息到好友/群"}}
 // {"type":"at", "to" :"23896218687@chatroom", "data": {"at":["wxid_xxxxxx","wxid_xxxxxxx"],"content": "{$@}消息到好友/群{$@}"}}

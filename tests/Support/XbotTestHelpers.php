@@ -5,7 +5,7 @@ namespace Tests\Support;
 use App\Models\WechatBot;
 use App\Models\WechatClient;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\Xbot;
+use App\Services\Clients\XbotClient;
 use Illuminate\Support\Facades\Http;
 use Tests\Datasets\XbotMessageDataset;
 use Tests\Support\TestWechatBot;
@@ -43,8 +43,6 @@ class XbotTestHelpers
             'wxid' => 'test-bot-' . uniqid(),
             'wechat_client_id' => $client->id,
             'client_id' => 1,
-            'nickname' => 'Test Bot',
-            'avatar' => 'https://example.com/avatar.jpg',
             'login_at' => now(),
             'is_live_at' => now(),
             'expires_at' => now()->addMonths(3)
@@ -191,8 +189,22 @@ class XbotTestHelpers
     {
         $defaultResponses = [
             'app.chatwoot.com/*' => Http::response(['success' => true], 200),
-            '*/api/v1/accounts/*/contacts*' => Http::response(['id' => 123, 'name' => 'Test Contact'], 200),
-            '*/api/v1/accounts/*/conversations*' => Http::response(['id' => 456, 'status' => 'open'], 200)
+            // 修复Chatwoot API响应结构匹配saveContact期望的格式
+            '*/api/v1/accounts/*/contacts*' => Http::response([
+                'payload' => [
+                    'contact' => [
+                        'id' => 123, 
+                        'name' => 'Test Contact', 
+                        'email' => 'test@example.com',
+                        'contact_inboxes' => [
+                            ['source_id' => 'test-source-id', 'inbox_id' => 1]
+                        ]
+                    ]
+                ]
+            ], 200),
+            '*/api/v1/accounts/*/conversations*' => Http::response([
+                'payload' => ['id' => 456, 'status' => 'open']
+            ], 200)
         ];
 
         Http::fake(array_merge($defaultResponses, $responses));
@@ -204,7 +216,7 @@ class XbotTestHelpers
     public static function assertMessageSent(
         string $expectedMessage,
         string $expectedTarget = null,
-        string $expectedMsgType = 'MT_SEND_TEXT_MSG',
+        string $expectedMsgType = 'MT_SEND_TEXTMSG',
         bool $exact = false
     ): void {
         Http::assertSent(function ($request) use ($expectedMessage, $expectedTarget, $expectedMsgType, $exact) {
@@ -215,14 +227,15 @@ class XbotTestHelpers
                 return false;
             }
 
-            // 检查消息内容
-            if (isset($data['msg'])) {
+            // 检查消息内容 - 修复：XbotClient发送的数据结构是data.content而不是msg
+            $messageContent = $data['data']['content'] ?? $data['msg'] ?? null;
+            if ($messageContent) {
                 if ($exact) {
-                    if ($data['msg'] !== $expectedMessage) {
+                    if ($messageContent !== $expectedMessage) {
                         return false;
                     }
                 } else {
-                    if (!str_contains($data['msg'], $expectedMessage)) {
+                    if (!str_contains($messageContent, $expectedMessage)) {
                         return false;
                     }
                 }
@@ -230,8 +243,9 @@ class XbotTestHelpers
                 return false;
             }
 
-            // 检查目标（如果指定）
-            if ($expectedTarget && isset($data['to_wxid']) && $data['to_wxid'] !== $expectedTarget) {
+            // 检查目标（如果指定）- 修复：XbotClient发送的数据结构是data.to_wxid
+            $targetWxid = $data['data']['to_wxid'] ?? $data['to_wxid'] ?? null;
+            if ($expectedTarget && $targetWxid !== $expectedTarget) {
                 return false;
             }
 
@@ -375,9 +389,9 @@ class XbotTestHelpers
     /**
      * 创建模拟的Xbot服务实例
      */
-    public static function createMockXbot(WechatClient $client): Xbot
+    public static function createMockXbot(WechatClient $client): XbotClient
     {
-        return new Xbot($client);
+        return new XbotClient($client);
     }
 
     /**
@@ -400,6 +414,30 @@ class XbotTestHelpers
             default:
                 return "{$basePath}\\{$filename}";
         }
+    }
+
+    /**
+     * 从请求数据中提取消息内容（兼容新旧格式）
+     */
+    public static function extractMessageContent(array $data): ?string
+    {
+        return $data['data']['content'] ?? $data['msg'] ?? null;
+    }
+
+    /**
+     * 从请求数据中提取目标wxid（兼容新旧格式）
+     */
+    public static function extractTargetWxid(array $data): ?string
+    {
+        return $data['data']['to_wxid'] ?? $data['to_wxid'] ?? null;
+    }
+
+    /**
+     * 检查请求是否为指定的消息类型
+     */
+    public static function isMessageType(array $data, string $expectedType): bool
+    {
+        return ($data['type'] ?? '') === $expectedType;
     }
 
     /**

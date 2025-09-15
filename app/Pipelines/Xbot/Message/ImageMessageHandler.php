@@ -40,7 +40,7 @@ class ImageMessageHandler extends BaseXbotHandler
         // 替换消息内容
         $context->requestRawData['msg'] = $formattedMessage;
 
-        $this->log('Image message decrypted and converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Converted',
             'src_file' => $srcFile,
             'image_url' => $imageUrl,
             'formatted_message' => $formattedMessage,

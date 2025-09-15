@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WechatBot;
+use App\Services\Managers\ConfigManager;
 
 /**
  * 签到权限检查服务
@@ -11,13 +12,13 @@ use App\Models\WechatBot;
 class CheckInPermissionService
 {
     private WechatBot $wechatBot;
-    private XbotConfigManager $configManager;
+    private ConfigManager $configManager;
     private ChatroomMessageFilter $roomFilter;
 
     public function __construct(WechatBot $wechatBot)
     {
         $this->wechatBot = $wechatBot;
-        $this->configManager = new XbotConfigManager($wechatBot);
+        $this->configManager = new ConfigManager($wechatBot);
         $this->roomFilter = new ChatroomMessageFilter($wechatBot, $this->configManager);
     }
 
@@ -131,7 +132,7 @@ class CheckInPermissionService
     public function getPermissionStatusDescription(string $roomWxid): array
     {
         // 重新创建配置管理器和过滤器以获取最新状态
-        $this->configManager = new XbotConfigManager($this->wechatBot);
+        $this->configManager = new ConfigManager($this->wechatBot);
         $this->roomFilter = new ChatroomMessageFilter($this->wechatBot, $this->configManager);
         
         $roomMsgAllowed = $this->checkRoomMessagePermission($roomWxid);

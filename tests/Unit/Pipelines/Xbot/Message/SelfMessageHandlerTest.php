@@ -1,7 +1,7 @@
 <?php
 
 use App\Pipelines\Xbot\Message\SelfMessageHandler;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\XbotTestHelpers;
@@ -104,7 +104,7 @@ describe('Set Command Processing', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '未知的设置项: invalid_key');
+            return str_contains(XbotTestHelpers::extractMessageContent($data), '未知的设置项: invalid_key');
         });
     });
     
@@ -170,7 +170,7 @@ describe('Chatwoot Configuration', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '❌ 无法启用 Chatwoot，缺少必要配置');
+            return str_contains(XbotTestHelpers::extractMessageContent($data), '❌ 无法启用 Chatwoot，缺少必要配置');
         });
     });
     
@@ -261,11 +261,13 @@ describe('Get Chatwoot Command', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '🔧 Chatwoot 配置状态') &&
-                   str_contains($data['msg'], 'Chatwoot账户ID: 17') &&
-                   str_contains($data['msg'], 'Chatwoot收件箱ID: 2') &&
-                   str_contains($data['msg'], 'very***2345') && // Token被遮掩
-                   str_contains($data['msg'], '✅ 配置完整');
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg &&
+                   str_contains($msg, '🔧 Chatwoot 配置状态') &&
+                   str_contains($msg, 'Chatwoot账户ID: 17') &&
+                   str_contains($msg, 'Chatwoot收件箱ID: 2') &&
+                   str_contains($msg, 'very***2345') && // Token被遮掩
+                   str_contains($msg, '✅ 配置完整');
         });
     });
     
@@ -279,7 +281,7 @@ describe('Get Chatwoot Command', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '⚠️ 缺少配置');
+            return str_contains(XbotTestHelpers::extractMessageContent($data), '⚠️ 缺少配置');
         });
     });
 });
@@ -296,7 +298,9 @@ describe('Special Configuration Logic', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '签到功能需要群消息处理，已自动开启 room_msg');
+            $messageContent = XbotTestHelpers::extractMessageContent($data);
+            return str_contains($messageContent, '设置成功: check_in 已启用') &&
+                   str_contains($messageContent, '签到功能需要群消息处理，已自动开启 room_msg');
         });
         
         expect($this->wechatBot->getMeta('check_in_enabled'))->toBeTrue();
@@ -316,9 +320,10 @@ describe('Config Help Command', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return isset($data['msg']) && 
-                   (str_contains($data['msg'], '📋 当前配置状态') ||
-                    str_contains($data['msg'], '🔧 配置管理命令'));
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            return $msg && 
+                   (str_contains($msg, '📋 当前配置状态') ||
+                    str_contains($msg, '🔧 配置管理命令'));
         });
     });
 });
@@ -415,16 +420,17 @@ describe('Integration with XbotConfigManager', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            $configManager = new XbotConfigManager($this->wechatBot);
-            $allowedKeys = XbotConfigManager::getAvailableCommands();
+            $msg = XbotTestHelpers::extractMessageContent($data);
+            $configManager = new ConfigManager($this->wechatBot);
+            $allowedKeys = ConfigManager::getAvailableCommands();
             
             // 验证错误消息包含所有允许的配置项
             foreach ($allowedKeys as $key) {
-                if (!str_contains($data['msg'], $key)) {
+                if (!str_contains($msg, $key)) {
                     return false;
                 }
             }
-            return str_contains($data['msg'], '未知的设置项: unknown_config');
+            return str_contains($msg, '未知的设置项: unknown_config');
         });
     });
 });

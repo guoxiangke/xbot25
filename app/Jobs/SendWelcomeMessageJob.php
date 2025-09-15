@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WechatBot;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,13 +43,14 @@ class SendWelcomeMessageJob implements ShouldQueue
             return;
         }
 
-        $configManager = new XbotConfigManager($wechatBot);
+        $configManager = new ConfigManager($wechatBot);
         
         // 检查是否仍然启用欢迎消息
         if (!$configManager->isEnabled('friend_welcome_enabled')) {
-            Log::info('SendWelcomeMessageJob: Welcome message disabled, skipping', [
+            Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
-                'target_wxid' => $this->targetWxid
+                'target_wxid' => $this->targetWxid,
+                'message' => 'SendWelcomeMessageJob: Welcome message disabled, skipping'
             ]);
             return;
         }
@@ -61,7 +62,7 @@ class SendWelcomeMessageJob implements ShouldQueue
     /**
      * 发送欢迎消息
      */
-    private function sendWelcomeMessage(WechatBot $wechatBot, XbotConfigManager $configManager): void
+    private function sendWelcomeMessage(WechatBot $wechatBot, ConfigManager $configManager): void
     {
         try {
             // 获取联系人信息用于nickname替换
@@ -79,14 +80,15 @@ class SendWelcomeMessageJob implements ShouldQueue
             $xbot = $wechatBot->xbot();
             $result = $xbot->sendText($this->targetWxid, $welcomeMessage);
             
-            Log::info('SendWelcomeMessageJob: Welcome message sent successfully', [
+            Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
                 'wxid' => $wechatBot->wxid,
                 'target_wxid' => $this->targetWxid,
                 'nickname' => $nickname,
-                'message' => $welcomeMessage,
+                'welcome_message' => $welcomeMessage,
                 'is_room' => !empty($this->isRoom),
-                'result' => $result
+                'result' => $result,
+                'message' => 'SendWelcomeMessageJob: Welcome message sent successfully'
             ]);
 
         } catch (\Exception $e) {

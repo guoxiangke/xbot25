@@ -5,7 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Models\CheckIn;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\CheckInStatsService;
+use App\Services\Analytics\CheckInAnalytics;
 use App\Services\CheckInPermissionService;
 use Carbon\Carbon;
 use Closure;
@@ -124,7 +124,7 @@ class CheckInMessageHandler extends BaseXbotHandler
             $wasRecentlyCreated = true;
         }
 
-        $service = new CheckInStatsService($fromWxid, $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts());
         $stats = $service->getPersonalStats();
 
         $encourages = [
@@ -163,7 +163,7 @@ class CheckInMessageHandler extends BaseXbotHandler
             $this->sendMessage($context, $roomWxid, $content);
         }
 
-        $this->log('CheckIn processed', [
+        $this->log(__FUNCTION__, ['message' => 'CheckIn processed',
             'wxid' => $fromWxid,
             'room' => $roomWxid,
             'keyword' => $keyword,
@@ -173,7 +173,7 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processCheckInRanking(XbotMessageContext $context, string $roomWxid)
     {
-        $service = new CheckInStatsService('', $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics('', $roomWxid, $context->getAllContacts());
 
         $totalRanking = $service->getTotalDaysRanking(10);
         $streakRanking = $service->getCurrentStreakRanking(10);
@@ -225,7 +225,7 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processPersonalStats(XbotMessageContext $context, string $roomWxid, string $fromWxid, string $fromRemark)
     {
-        $service = new CheckInStatsService($fromWxid, $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts());
         $stats = $service->getPersonalStats();
 
         if ($stats['total_days'] == 0) {

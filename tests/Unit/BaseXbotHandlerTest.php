@@ -31,7 +31,7 @@ describe('BaseXbotHandler', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return $data['msg'] === 'Hello World';
+            return XbotTestHelpers::extractMessageContent($data) === 'Hello World';
         });
     });
 });

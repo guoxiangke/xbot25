@@ -14,7 +14,6 @@ class XbotIsLive extends Command
     {
         WechatBot::query()
             ->whereNotNull('client_id')
-            ->whereNotNull('is_live_at')
             ->each(function(WechatBot $wechatBot) {
                 $isLive = $wechatBot->isLive();
                 if (!$isLive) {

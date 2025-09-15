@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Services\XbotServices\State;
+namespace App\Services\StateHandlers;
 
 use App\Models\WechatBot;
 use App\Models\WechatClient;
-use App\Services\XbotServices\State\QrCodeStateHandler;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -32,10 +31,14 @@ class LogoutStateHandler
     /**
      * 处理用户登出
      */
-    public function handle(?WechatBot $wechatBot): ?string
+    public function handle(?WechatBot $wechatBot): string
     {
         $this->processLogout($wechatBot);
-        return null;
+        if ($wechatBot) {
+            return "processed MT_USER_LOGOUT for {$wechatBot->wxid}";
+        } else {
+            return "processed MT_USER_LOGOUT (no active bot)";
+        }
     }
 
     /**
@@ -53,9 +56,18 @@ class LogoutStateHandler
                 'login_at' => null,
                 'client_id' => null
             ]);
-            Log::info('登出', [$this->currentWindows, $this->clientId, $wechatBot->toArray()]);
+            Log::info(__FUNCTION__, [
+                'windows' => $this->currentWindows,
+                'client_id' => $this->clientId,
+                'wechat_bot' => $wechatBot->toArray(),
+                'message' => '登出'
+            ]);
         } else {
-            Log::info('当前关闭的客户端，还未登录', [$this->currentWindows, $this->clientId]);
+            Log::info(__FUNCTION__, [
+                'windows' => $this->currentWindows,
+                'client_id' => $this->clientId,
+                'message' => '当前关闭的客户端，还未登录'
+            ]);
         }
     }
 }

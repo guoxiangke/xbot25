@@ -26,7 +26,8 @@ class DatabaseSeeder extends Seeder
         WechatClient::create([
             'token' => 'win11',
             'endpoint' => 'http://100.96.141.89:8001',
-            'file_url' => 'http://localhost:8004',
+            'file_url' => 'http://100.96.141.89:8004',
+            'file_path' => 'C:\Users\win11\Documents\WeChat Files',
         ]);
     }
 }

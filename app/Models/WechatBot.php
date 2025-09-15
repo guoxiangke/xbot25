@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Plank\Metable\Metable;
-use App\Services\Xbot;
+use App\Services\Clients\XbotClient;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +30,7 @@ class WechatBot extends Model
         $clientId = $this->client_id??$clientId??-1;
         $wechatClient = WechatClient::where('id', $this->wechat_client_id)->firstOrFail();
         $winClientUri = $wechatClient->endpoint;
-        return new Xbot($winClientUri, $this->wxid, $clientId, $wechatClient->file_path);
+        return new XbotClient($winClientUri, $this->wxid, $clientId, $wechatClient->file_path ?? '');
     }
 
     public function wechatClient()

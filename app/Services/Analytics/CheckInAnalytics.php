@@ -1,11 +1,15 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Analytics;
 
 use App\Models\CheckIn;
 use Carbon\Carbon;
 
-class CheckInStatsService
+/**
+ * 签到数据分析服务
+ * 提供签到统计、排行榜等分析功能
+ */
+class CheckInAnalytics
 {
     protected $wxid;
     protected $wxRoom;

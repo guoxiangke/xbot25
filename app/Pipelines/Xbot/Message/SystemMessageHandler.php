@@ -4,8 +4,8 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\Chatwoot;
-use App\Services\XbotConfigManager;
+use App\Services\Clients\ChatwootClient;
+use App\Services\Managers\ConfigManager;
 use Closure;
 
 /**
@@ -40,7 +40,7 @@ class SystemMessageHandler extends BaseXbotHandler
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $systemMessage; // 使用原始文本，不添加前缀
 
-        $this->log('System message converted to bot text message', [
+        $this->log(__FUNCTION__, ['message' => 'System message converted to bot text message',
             'raw_msg' => $rawMsg,
             'wx_type' => $wxType,
             'system_message' => $systemMessage,
@@ -67,13 +67,13 @@ class SystemMessageHandler extends BaseXbotHandler
         }
 
         // 检查 Chatwoot 是否启用
-        $configManager = new XbotConfigManager($context->wechatBot);
+        $configManager = new ConfigManager($context->wechatBot);
         $isChatwootEnabled = $configManager->isEnabled('chatwoot');
         if (!$isChatwootEnabled) {
             return;
         }
 
-        $chatwoot = new Chatwoot($context->wechatBot);
+        $chatwoot = new ChatwootClient($context->wechatBot);
         
         // 检查群联系人是否已存在
         $contact = $chatwoot->searchContact($roomWxid);
@@ -105,7 +105,7 @@ class SystemMessageHandler extends BaseXbotHandler
                 $contacts[$roomWxid] = $groupData;
                 $context->wechatBot->setMeta('contacts', $contacts);
                 
-                $this->log('Created basic group data for missing contact', [
+                $this->log(__FUNCTION__, ['message' => 'Created basic group data for missing contact',
                     'room_wxid' => $roomWxid,
                     'room_name' => $roomName
                 ]);
@@ -115,7 +115,7 @@ class SystemMessageHandler extends BaseXbotHandler
             $contact = $chatwoot->saveContact($groupData);
             $chatwoot->setLabel($contact['id'], '微信群');
             
-            $this->log('Group contact saved to Chatwoot', [
+            $this->log(__FUNCTION__, ['message' => 'Group contact saved to Chatwoot',
                 'room_wxid' => $roomWxid,
                 'contact_id' => $contact['id'] ?? null
             ]);

@@ -26,7 +26,7 @@ class VoiceTransMessageHandler extends BaseXbotHandler
 
         // 如果没有消息ID或转换文本，继续传递
         if (empty($msgid) || empty($text)) {
-            $this->log('Voice trans message missing msgid or text', [
+            $this->log(__FUNCTION__, ['message' => 'Voice trans message missing msgid or text',
                 'msgid' => $msgid,
                 'has_text' => !empty($text),
             ]);
@@ -57,7 +57,7 @@ class VoiceTransMessageHandler extends BaseXbotHandler
         
         $context->setProcessedMessage($finalMessage);
 
-        $this->log('Voice message converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Converted',
             'msgid' => $msgid,
             'text' => $text,
             'has_cached_info' => !empty($voiceInfo),

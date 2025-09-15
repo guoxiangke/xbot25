@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WechatBot;
+use App\Services\Managers\ConfigManager;
 
 /**
  * 群消息过滤器
@@ -11,20 +12,25 @@ use App\Models\WechatBot;
 class ChatroomMessageFilter
 {
     private WechatBot $wechatBot;
-    private XbotConfigManager $configManager;
+    private ConfigManager $configManager;
 
-    // 始终放行的命令列表
+    // 始终放行的命令列表（包含原始命令和简化命令）
     private const ALWAYS_ALLOWED_COMMANDS = [
-        '/set room_listen',
-        '/set check_in_room',
+        // 群级别配置命令
+        '/set room_msg',
+        '/set check_in',
         '/set youtube_room',
-        '/config room_listen',
-        '/config check_in_room', 
+        '/config room_msg',
+        '/config check_in', 
         '/config youtube_room',
+        // 简化命令
+        '/set youtube',
+        '/config youtube',
+        // 其他命令
         '/get room_id'
     ];
 
-    public function __construct(WechatBot $wechatBot, XbotConfigManager $configManager)
+    public function __construct(WechatBot $wechatBot, ConfigManager $configManager)
     {
         $this->wechatBot = $wechatBot;
         $this->configManager = $configManager;
@@ -41,7 +47,7 @@ class ChatroomMessageFilter
         }
 
         try {
-            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_specials', []);
         } catch (\Exception $e) {
             \Log::error('Failed to get room config', [
                 'room_wxid' => $roomWxid,
@@ -86,10 +92,10 @@ class ChatroomMessageFilter
     public function setRoomListenStatus(string $roomWxid, bool $status): bool
     {
         try {
-            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_specials', []);
             $roomConfig[$roomWxid] = $status;
             
-            $this->wechatBot->setMeta('room_msg_enabled_specials', $roomConfig);
+            $this->wechatBot->setMeta('room_msg_specials', $roomConfig);
             return true;
         } catch (\Exception $e) {
             \Log::error('Failed to set room listen status', [
@@ -107,7 +113,7 @@ class ChatroomMessageFilter
     public function getRoomListenStatus(string $roomWxid): ?bool
     {
         try {
-            $roomConfig = $this->wechatBot->getMeta('room_msg_enabled_specials', []);
+            $roomConfig = $this->wechatBot->getMeta('room_msg_specials', []);
             return $roomConfig[$roomWxid] ?? null;
         } catch (\Exception $e) {
             \Log::error('Failed to get room listen status', [
@@ -123,6 +129,6 @@ class ChatroomMessageFilter
      */
     public function getAllRoomConfigs(): array
     {
-        return $this->wechatBot->getMeta('room_msg_enabled_specials', []);
+        return $this->wechatBot->getMeta('room_msg_specials', []);
     }
 }

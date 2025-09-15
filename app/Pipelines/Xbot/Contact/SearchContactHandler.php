@@ -58,7 +58,8 @@ class SearchContactHandler extends BaseXbotHandler
             $xbot = $context->wechatBot->xbot();
             $result = $xbot->addFriendBySearchCallback($v1, $v2, $remark);
             
-            $this->log('Add friend by search callback executed', [
+            $this->log(__FUNCTION__, [
+                'message' => 'Add friend by search callback executed',
                 'v1' => $v1,
                 'v2' => $v2,
                 'remark' => $remark,
@@ -86,13 +87,14 @@ class SearchContactHandler extends BaseXbotHandler
             
             // 更新好友列表
             $friendsResult = $xbot->getFriendsList();
-            $this->log('Friends list updated', ['result' => $friendsResult]);
+            $this->log(__FUNCTION__, ['message' => 'Friends list updated', 'result' => $friendsResult]);
             
             // 更新群聊列表
             $roomsResult = $xbot->getChatroomsList();
-            $this->log('Chatrooms list updated', ['result' => $roomsResult]);
+            $this->log(__FUNCTION__, ['message' => 'Chatrooms list updated', 'result' => $roomsResult]);
             
-            $this->log('Contact lists synchronized', [
+            $this->log(__FUNCTION__, [
+                'message' => 'Contact lists synchronized',
                 'friends_result' => $friendsResult,
                 'rooms_result' => $roomsResult,
                 'trigger_data' => $data
@@ -133,7 +135,8 @@ class SearchContactHandler extends BaseXbotHandler
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $textMessage;
         
-        $this->log('Search contact message converted to text', [
+        $this->log(__FUNCTION__, [
+            'message' => 'Search contact message converted to text',
             'original_type' => 'MT_SEARCH_CONTACT_MSG',
             'converted_message' => $textMessage
         ]);

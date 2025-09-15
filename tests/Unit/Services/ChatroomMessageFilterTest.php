@@ -1,7 +1,7 @@
 <?php
 
 use App\Services\ChatroomMessageFilter;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use App\Models\WechatBot;
 
 describe('ChatroomMessageFilter Unit Tests', function () {
@@ -11,7 +11,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
         $this->wechatBot->shouldReceive('getAttribute')
             ->with('wxid')->andReturn('test_bot_' . uniqid());
         
-        $this->configManager = Mockery::mock(XbotConfigManager::class);
+        $this->configManager = Mockery::mock(ConfigManager::class);
         $this->messageFilter = new ChatroomMessageFilter($this->wechatBot, $this->configManager);
     });
     
@@ -23,11 +23,11 @@ describe('ChatroomMessageFilter Unit Tests', function () {
         
         test('should allow group configuration commands regardless of room_msg setting', function () {
             $alwaysAllowedCommands = [
-                '/set room_listen 1',
-                '/set check_in_room 0',
+                '/set room_msg 1',
+                '/set check_in 0',
                 '/set youtube_room 1',
-                '/config room_listen 1',
-                '/config check_in_room 0',
+                '/config room_msg 1',
+                '/config check_in 0',
                 '/config youtube_room 1',
                 '/get room_id'
             ];
@@ -38,7 +38,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
                 ->andReturn(false);
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn([]);
             
             foreach ($alwaysAllowedCommands as $command) {
@@ -53,7 +53,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
                 ->andReturn(false);
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn([]);
             
             $regularMessages = [
@@ -84,7 +84,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
             ];
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn($roomConfigs);
             
             // 允许的房间（继承全局设置）
@@ -112,7 +112,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
             ];
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn($roomConfigs);
             
             // 被阻止的房间（继承全局设置）
@@ -135,11 +135,11 @@ describe('ChatroomMessageFilter Unit Tests', function () {
             $roomWxid = 'test_room@chatroom';
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn([]);
             
             $this->wechatBot->shouldReceive('setMeta')
-                ->with('room_msg_enabled_specials', [$roomWxid => true])
+                ->with('room_msg_specials', [$roomWxid => true])
                 ->once()
                 ->andReturn(true);
             
@@ -154,7 +154,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
             ];
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn($roomConfigs);
             
             $result = $this->messageFilter->getRoomListenStatus($roomWxid);
@@ -165,7 +165,7 @@ describe('ChatroomMessageFilter Unit Tests', function () {
             $roomWxid = 'unconfigured_room@chatroom';
             
             $this->wechatBot->shouldReceive('getMeta')
-                ->with('room_msg_enabled_specials', [])
+                ->with('room_msg_specials', [])
                 ->andReturn([]);
             
             $result = $this->messageFilter->getRoomListenStatus($roomWxid);

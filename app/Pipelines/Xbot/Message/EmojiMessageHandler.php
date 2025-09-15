@@ -39,7 +39,7 @@ class EmojiMessageHandler extends BaseXbotHandler
         // 替换消息内容
         $context->requestRawData['msg'] = $formattedMessage;
 
-        $this->log('Emoji message processed and converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Converted',
             'emoji_md5' => $emojiData['md5'] ?? '',
             'emoji_size' => $emojiData['len'] ?? '',
             'emoji_dimensions' => ($emojiData['width'] ?? '') . 'x' . ($emojiData['height'] ?? ''),

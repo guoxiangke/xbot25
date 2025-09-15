@@ -31,7 +31,7 @@ class LinkMessageHandler extends BaseXbotHandler
         $linkData = $this->extractLinkDataFromXml($rawMsg);
         
         // 调试日志：记录提取到的数据
-        $this->log('Link data extracted', [
+        $this->log(__FUNCTION__, ['message' => 'Link data extracted',
             'from_wxid' => $fromWxid,
             'wx_type' => $wxType,
             'wx_sub_type' => $wxSubType,
@@ -74,7 +74,7 @@ class LinkMessageHandler extends BaseXbotHandler
             // 替换消息内容
             $context->requestRawData['msg'] = $formattedMessage;
 
-            $this->log('Link message converted to text', [
+            $this->log(__FUNCTION__, ['message' => 'Link message converted to text',
                 'from_wxid' => $fromWxid,
                 'is_gh' => $isGh,
                 'original_url' => $url,

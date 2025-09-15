@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Managers;
 
 use App\Models\WechatBot;
 use InvalidArgumentException;
 
 /**
- * Xbot配置管理器
+ * 配置管理器
  * 统一管理所有Xbot相关的配置参数
  */
-class XbotConfigManager
+class ConfigManager
 {
     /**
      * 统一配置定义

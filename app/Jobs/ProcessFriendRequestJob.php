@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WechatBot;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,13 +43,14 @@ class ProcessFriendRequestJob implements ShouldQueue
             return;
         }
 
-        $configManager = new XbotConfigManager($wechatBot);
+        $configManager = new ConfigManager($wechatBot);
         
         // 检查是否仍然启用自动同意
         if (!$configManager->isEnabled('friend_auto_accept')) {
-            Log::info('ProcessFriendRequestJob: Auto accept disabled, skipping', [
+            Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
-                'wxid' => $wechatBot->wxid
+                'wxid' => $wechatBot->wxid,
+                'message' => 'ProcessFriendRequestJob: Auto accept disabled, skipping'
             ]);
             return;
         }
@@ -68,16 +69,17 @@ class ProcessFriendRequestJob implements ShouldQueue
     /**
      * 检查每日处理限制
      */
-    private function checkDailyLimit(XbotConfigManager $configManager): bool
+    private function checkDailyLimit(ConfigManager $configManager): bool
     {
         $dailyLimit = (int) $configManager->getFriendConfig('friend_daily_limit', 50);
         $todayStats = $this->getTodayStats($configManager);
         
         if ($todayStats['count'] >= $dailyLimit) {
-            Log::info('ProcessFriendRequestJob: Daily limit exceeded', [
+            Log::info(__FUNCTION__, [
                 'daily_limit' => $dailyLimit,
                 'today_count' => $todayStats['count'],
-                'wechat_bot_id' => $this->wechatBotId
+                'wechat_bot_id' => $this->wechatBotId,
+                'message' => 'ProcessFriendRequestJob: Daily limit exceeded'
             ]);
             return false;
         }
@@ -88,7 +90,7 @@ class ProcessFriendRequestJob implements ShouldQueue
     /**
      * 获取今日统计数据
      */
-    private function getTodayStats(XbotConfigManager $configManager): array
+    private function getTodayStats(ConfigManager $configManager): array
     {
         $stats = $configManager->getFriendConfig('daily_stats', []);
         $today = now()->toDateString();
@@ -108,7 +110,7 @@ class ProcessFriendRequestJob implements ShouldQueue
     /**
      * 更新今日统计数据
      */
-    private function updateTodayStats(XbotConfigManager $configManager): void
+    private function updateTodayStats(ConfigManager $configManager): void
     {
         $stats = $this->getTodayStats($configManager);
         $stats['count'] += 1;
@@ -120,7 +122,7 @@ class ProcessFriendRequestJob implements ShouldQueue
     /**
      * 处理好友请求
      */
-    private function processFriendRequest(WechatBot $wechatBot, XbotConfigManager $configManager): void
+    private function processFriendRequest(WechatBot $wechatBot, ConfigManager $configManager): void
     {
         $scene = $this->friendRequestData['scene'] ?? '';
         $encryptusername = $this->friendRequestData['encryptusername'] ?? '';
@@ -146,13 +148,14 @@ class ProcessFriendRequestJob implements ShouldQueue
             // 更新统计
             $this->updateTodayStats($configManager);
             
-            Log::info('ProcessFriendRequestJob: Friend request processed successfully', [
+            Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
                 'wxid' => $wechatBot->wxid,
                 'from_nickname' => $fromnickname,
                 'content' => $content,
                 'scene' => $scene,
-                'result' => $result
+                'result' => $result,
+                'message' => 'ProcessFriendRequestJob: Friend request processed successfully'
             ]);
 
             // 如果启用欢迎消息，等待一段时间后发送欢迎消息
@@ -175,7 +178,7 @@ class ProcessFriendRequestJob implements ShouldQueue
     /**
      * 安排发送欢迎消息
      */
-    private function scheduleWelcomeMessage(WechatBot $wechatBot, string $wxid, XbotConfigManager $configManager): void
+    private function scheduleWelcomeMessage(WechatBot $wechatBot, string $wxid, ConfigManager $configManager): void
     {
         // 延迟5-15分钟发送欢迎消息，模拟人工操作
         $delay = rand(300, 900); // 5-15分钟（秒）
@@ -183,10 +186,11 @@ class ProcessFriendRequestJob implements ShouldQueue
         SendWelcomeMessageJob::dispatch($wechatBot->id, $wxid)
             ->delay(now()->addSeconds($delay));
             
-        Log::info('ProcessFriendRequestJob: Welcome message scheduled', [
+        Log::info(__FUNCTION__, [
             'wechat_bot_id' => $wechatBot->id,
             'target_wxid' => $wxid,
-            'delay_seconds' => $delay
+            'delay_seconds' => $delay,
+            'message' => 'ProcessFriendRequestJob: Welcome message scheduled'
         ]);
     }
 
@@ -205,10 +209,11 @@ class ProcessFriendRequestJob implements ShouldQueue
         static::dispatch($this->wechatBotId, $this->friendRequestData)
             ->delay($scheduledTime);
             
-        Log::info('ProcessFriendRequestJob: Rescheduled to tomorrow', [
+        Log::info(__FUNCTION__, [
             'wechat_bot_id' => $this->wechatBotId,
             'scheduled_time' => $scheduledTime->toDateTimeString(),
-            'friend_request' => $this->friendRequestData
+            'friend_request' => $this->friendRequestData,
+            'message' => 'ProcessFriendRequestJob: Rescheduled to tomorrow'
         ]);
     }
 
@@ -216,7 +221,7 @@ class ProcessFriendRequestJob implements ShouldQueue
      * 计算智能延迟时间
      * 根据今日已处理数量动态调整延迟
      */
-    public static function calculateSmartDelay(XbotConfigManager $configManager): int
+    public static function calculateSmartDelay(ConfigManager $configManager): int
     {
         $dailyLimit = (int) $configManager->getFriendConfig('friend_daily_limit', 50);
         $todayStats = $configManager->getFriendConfig('daily_stats', []);

@@ -5,7 +5,7 @@ namespace App\Pipelines\Xbot\Contact;
 use App\Jobs\SendWelcomeMessageJob;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Closure;
 
 /**
@@ -64,7 +64,7 @@ class NotificationHandler extends BaseXbotHandler
                 break;
                 
             default:
-                $this->log('Unknown notification type', [
+                $this->log(__FUNCTION__, ['message' => 'Unknown notification type',
                     'notification_type' => $msgType,
                     'data' => $data
                 ]);
@@ -118,7 +118,7 @@ class NotificationHandler extends BaseXbotHandler
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $notificationText;
 
-        $this->log('Member add notification converted to bot text message', [
+        $this->log(__FUNCTION__, ['message' => 'Member add notification converted to bot text message',
             'room_wxid' => $roomWxid,
             'group_name' => $groupName,
             'member_count' => $memberCount,
@@ -155,7 +155,7 @@ class NotificationHandler extends BaseXbotHandler
             $xbot = $context->wechatBot->xbot();
             $xbot->getChatroomsList();
             
-            $this->log('Group contact added to metadata', [
+            $this->log(__FUNCTION__, ['message' => 'Group contact added to metadata',
                 'room_wxid' => $roomWxid,
                 'group_name' => $groupName
             ]);
@@ -183,12 +183,12 @@ class NotificationHandler extends BaseXbotHandler
             $xbot = $context->wechatBot->xbot();
             $xbot->getFriendsList();
             
-            $this->log('Contact added successfully, friends list updated', [
+            $this->log(__FUNCTION__, ['message' => 'Contact added successfully, friends list updated',
                 'new_friend_wxid' => $newFriendWxid
             ]);
 
             // 检查是否需要发送欢迎消息
-            $configManager = new XbotConfigManager($context->wechatBot);
+            $configManager = new ConfigManager($context->wechatBot);
             
             if ($configManager->isEnabled('friend_welcome_enabled')) {
                 // 延迟5-10分钟发送欢迎消息
@@ -197,7 +197,7 @@ class NotificationHandler extends BaseXbotHandler
                 SendWelcomeMessageJob::dispatch($context->wechatBot->id, $newFriendWxid)
                     ->delay(now()->addSeconds($delay));
                 
-                $this->log('Welcome message scheduled for new friend', [
+                $this->log(__FUNCTION__, ['message' => 'Welcome message scheduled for new friend',
                     'new_friend_wxid' => $newFriendWxid,
                     'delay_seconds' => $delay
                 ]);
@@ -233,7 +233,7 @@ class NotificationHandler extends BaseXbotHandler
             // 从联系人列表中移除
             $this->removeFromContactList($context, $deletedFriendWxid);
             
-            $this->log('Contact deleted, removed from contact list', [
+            $this->log(__FUNCTION__, ['message' => 'Contact deleted, removed from contact list',
                 'deleted_friend_wxid' => $deletedFriendWxid
             ]);
 
@@ -282,7 +282,7 @@ class NotificationHandler extends BaseXbotHandler
         // 修改消息为bot发送的文本消息
         $this->convertToSystemMessage($context, $notificationText);
         
-        $this->log('Member remove notification processed', [
+        $this->log(__FUNCTION__, ['message' => 'Member remove notification processed',
             'room_wxid' => $roomWxid,
             'member_count' => $memberCount,
             'notification_text' => $notificationText
@@ -311,7 +311,7 @@ class NotificationHandler extends BaseXbotHandler
         $notificationText = "群聊 \"{$roomName}\" 已创建";
         $this->convertToSystemMessage($context, $notificationText);
         
-        $this->log('Room create notification processed', [
+        $this->log(__FUNCTION__, ['message' => 'Room create notification processed',
             'room_wxid' => $roomWxid,
             'room_name' => $roomName
         ]);
@@ -327,7 +327,7 @@ class NotificationHandler extends BaseXbotHandler
         $notificationText = "群成员信息已更新";
         $this->convertToSystemMessage($context, $notificationText);
         
-        $this->log('Member display update notification processed', [
+        $this->log(__FUNCTION__, ['message' => 'Member display update notification processed',
             'data' => $data
         ]);
     }

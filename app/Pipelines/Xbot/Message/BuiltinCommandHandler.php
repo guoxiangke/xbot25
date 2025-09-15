@@ -5,7 +5,7 @@ namespace App\Pipelines\Xbot\Message;
 use App\Models\XbotSubscription;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use App\Services\CheckInPermissionService;
 use App\Services\ChatroomMessageFilter;
 use Closure;
@@ -19,7 +19,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
     private const COMMANDS = [
         '/help' => ['method' => 'handleHelpCommand', 'description' => '显示帮助信息'],
         '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
-        '/list subscriptions' => ['method' => 'handleListSubscriptionsCommand', 'description' => '查看当前订阅列表'],
+        '/get subscriptions' => ['method' => 'handleGetSubscriptionsCommand', 'description' => '查看当前订阅列表'],
         '/get wxid' => ['method' => 'handleGetWxidCommand', 'description' => '获取wxID'],
     ];
 
@@ -49,7 +49,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
 
         if ($commandFound && $matchedCommand) {
             $method = self::COMMANDS[$matchedCommand]['method'];
-            $this->log('Executing command', ['command' => $matchedCommand, 'method' => $method, 'originalKeyword' => $keyword]);
+            $this->log(__FUNCTION__, ['message' => 'Executed','command' => $matchedCommand, 'method' => $method, 'originalKeyword' => $keyword]);
             $this->$method($context);
             
             // 继续传递到下游处理器（如ChatwootHandler），让命令也同步到Chatwoot
@@ -103,11 +103,10 @@ class BuiltinCommandHandler extends BaseXbotHandler
 
 
 
-
     /**
      * 处理查看订阅列表命令
      */
-    private function handleListSubscriptionsCommand(XbotMessageContext $context): void
+    private function handleGetSubscriptionsCommand(XbotMessageContext $context): void
     {
         $wechatBot = $context->wechatBot;
         $wxid = $context->wxid;

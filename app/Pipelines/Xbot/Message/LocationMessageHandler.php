@@ -37,7 +37,7 @@ class LocationMessageHandler extends BaseXbotHandler
         // 转换为文本消息格式
         $this->convertToTextMessage($context, $locationInfo);
 
-        $this->log('Location message processed', [
+        $this->log(__FUNCTION__, ['message' => 'Location message processed',
             'location_info' => $locationInfo,
             'from' => $context->fromWxid
         ]);

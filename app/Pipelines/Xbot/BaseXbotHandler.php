@@ -38,7 +38,10 @@ abstract class BaseXbotHandler implements XbotHandlerInterface
      */
     protected function log(string $message, array $context = []): void
     {
-        Log::debug(static::class, array_merge(['message' => $message], $context));
+        // 重新排序：msgId 放第一位，message 放最后一位
+        $reorderedContext = $this->reorderLogContext($context, $message);
+        $shortClassName = class_basename(static::class);
+        Log::debug($shortClassName, $reorderedContext);
     }
 
     /**
@@ -46,9 +49,33 @@ abstract class BaseXbotHandler implements XbotHandlerInterface
      */
     protected function logError(string $message, array $context = []): void
     {
-        Log::error(static::class, array_merge(['message' => $message], $context));
+        // 重新排序：msgId 放第一位，message 放最后一位
+        $reorderedContext = $this->reorderLogContext($context, $message);
+        $shortClassName = class_basename(static::class);
+        Log::error($shortClassName, $reorderedContext);
     }
 
+    /**
+     * 重新排序日志上下文：msgId 放第一位，message 放最后一位
+     */
+    private function reorderLogContext(array $context, string $message): array
+    {
+        $reordered = [];
+        
+        // 如果有 msgId，放在第一位
+        if (isset($context['msgId'])) {
+            $reordered['msgId'] = $context['msgId'];
+            unset($context['msgId']);
+        }
+        
+        // 添加其他字段
+        $reordered = array_merge($reordered, $context);
+        
+        // message 放在最后一位
+        $reordered['message'] = $message;
+        
+        return $reordered;
+    }
 
     /**
      * 发送文本消息的便捷方法

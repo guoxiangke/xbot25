@@ -52,7 +52,7 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
         // 验证配置状态显示包含所有关键信息
         Http::assertSent(function ($request) {
             $data = $request->data();
-            $message = $data['msg'] ?? '';
+            $message = XbotTestHelpers::extractMessageContent($data) ?? '';
             
             return str_contains($message, '📋 当前配置状态：') &&
                    str_contains($message, '🌐 全局配置：') &&
@@ -169,7 +169,7 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
         // 验证特殊消息：启用签到时自动启用群消息处理
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return $data['msg'] === '设置成功: check_in 已启用' . "\n" . 
+            return XbotTestHelpers::extractMessageContent($data) === '设置成功: check_in 已启用' . "\n" . 
                    '⚠️ 签到功能需要群消息处理，已自动开启 room_msg';
         });
         
@@ -318,8 +318,8 @@ describe('Configuration Sequence Testing', function () {
         // 验证特殊的双重消息
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains($data['msg'], '设置成功: check_in 已启用') &&
-                   str_contains($data['msg'], '已自动开启 room_msg');
+            return str_contains(XbotTestHelpers::extractMessageContent($data), '设置成功: check_in 已启用') &&
+                   str_contains(XbotTestHelpers::extractMessageContent($data), '已自动开启 room_msg');
         });
         
         // 验证两个配置都被启用
@@ -351,7 +351,7 @@ describe('Configuration Display Format Validation', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            $message = $data['msg'] ?? '';
+            $message = XbotTestHelpers::extractMessageContent($data) ?? '';
             
             // 验证格式符合真实测试的输出
             $checks = [

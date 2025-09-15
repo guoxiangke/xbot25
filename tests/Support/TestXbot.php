@@ -12,10 +12,14 @@ class TestXbot
     public function sendTextMessage(string $target, string $message): bool
     {
         // 使用HTTP客户端发送模拟请求，这样测试可以验证请求是否被发送
+        // 修复：匹配真实XbotClient的数据结构
         Http::post('http://localhost:8001/send_text', [
-            'type' => 'MT_SEND_TEXT_MSG',
-            'to_wxid' => $target,
-            'msg' => $message
+            'client_id' => 1,
+            'type' => 'MT_SEND_TEXTMSG',
+            'data' => [
+                'to_wxid' => $target,
+                'content' => $message
+            ]
         ]);
         
         return true;

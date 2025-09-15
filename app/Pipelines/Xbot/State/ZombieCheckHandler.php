@@ -41,7 +41,7 @@ class ZombieCheckHandler extends BaseXbotHandler
         $status = $data['status'] ?? -1;
         $wxid = $data['wxid'] ?? '';
 
-        $this->log('Zombie check result received', [
+        $this->log(__FUNCTION__, ['message' => 'Zombie check result received',
             'wxid' => $wxid,
             'status' => $status,
             'status_description' => $this->getStatusDescription($status)
@@ -87,7 +87,7 @@ class ZombieCheckHandler extends BaseXbotHandler
         
         $statusDesc = $this->getStatusDescription($status);
         
-        $this->log('Zombie detected and contact card sent', [
+        $this->log(__FUNCTION__, ['message' => 'Zombie detected and contact card sent',
             'wxid' => $wxid,
             'status' => $status,
             'description' => $statusDesc

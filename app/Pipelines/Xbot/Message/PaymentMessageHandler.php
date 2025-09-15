@@ -4,7 +4,7 @@ namespace App\Pipelines\Xbot\Message;
 
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use Closure;
 use Illuminate\Support\Facades\Log;
 
@@ -38,14 +38,14 @@ class PaymentMessageHandler extends BaseXbotHandler
         $context->requestRawData['origin_msg_type'] = $context->msgType;
 
         // 检查配置是否开启自动收款（默认开启）
-        $configManager = new XbotConfigManager($context->wechatBot);
+        $configManager = new ConfigManager($context->wechatBot);
         $autoPaymentEnabled = $configManager->get('payment_auto');
 
         if ($autoPaymentEnabled) {
             // 自动收款处理
             $this->handleAutoPayment($context, $paymentInfo);
         } else {
-            $this->log('Auto payment is disabled', [
+            $this->log(__FUNCTION__, ['message' => 'Auto payment is disabled',
                 'transferid' => $paymentInfo['transferid'],
                 'feedesc' => $paymentInfo['feedesc']
             ]);
@@ -150,14 +150,14 @@ class PaymentMessageHandler extends BaseXbotHandler
         // 测试退款逻辑：只退回1分钱
         if ($amount == 1) {
             $context->wechatBot->xbot()->refund($transferId);
-            $this->log('Auto refund processed', ['transferid' => $transferId, 'amount' => $amount]);
+            $this->log(__FUNCTION__, ['message' => 'Auto refund processed', 'transferid' => $transferId, 'amount' => $amount]);
             return;
         }
 
         // 自动收款
         $context->wechatBot->xbot()->autoAcceptTranster($transferId);
         
-        $this->log('Auto payment accepted', [
+        $this->log(__FUNCTION__, ['message' => 'Auto payment accepted',
             'transferid' => $transferId,
             'amount' => $amount,
             'feedesc' => $paymentInfo['feedesc']
@@ -197,7 +197,7 @@ class PaymentMessageHandler extends BaseXbotHandler
         $content .= ' ' . $feedesc; // 使用空格而不是冒号
         
         if (!empty($payMemo)) {
-            $content .= ' 附言: ' . $payMemo; // 使用空格分隔
+            $content .= "\n[附言]: " . $payMemo; // 使用空格分隔
         }
 
         // 修改为文本消息类型
@@ -205,7 +205,7 @@ class PaymentMessageHandler extends BaseXbotHandler
         $context->requestRawData['msg'] = $content;
         
         
-        $this->log('Payment message converted to text', [
+        $this->log(__FUNCTION__, ['message' => 'Payment message converted to text',
             'content' => $content,
             'is_self' => $isSelf
         ]);

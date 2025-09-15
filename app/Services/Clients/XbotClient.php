@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services;
+namespace App\Services\Clients;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * 微信机器人API服务类
+ * 微信机器人API客户端
  *
  * 提供微信自动化操作的完整API接口，包括：
  * - 用户管理（登录、退出、好友操作）
@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
  * - 群组管理（创建、邀请、删除成员）
  * - 朋友圈操作（发布、点赞、评论）
  */
-final class Xbot
+final class XbotClient
 {
     private const API_ENDPOINT = '/';
 

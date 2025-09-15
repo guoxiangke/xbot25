@@ -1,10 +1,15 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\WechatBot;
 use Illuminate\Http\Request;
 
+/**
+ * WeChat API 控制器
+ * 提供微信相关的API接口
+ */
 class WechatApiController extends Controller
 {
     public function send(Request $request)
@@ -78,27 +83,22 @@ class WechatApiController extends Controller
         if (!$wechatBot) {
             return [
                 'success' => false,
-                'message' => '未找到机器人实例'
+                'message' => '用户未绑定设备',
+                'data' => []
             ];
         }
 
         $contacts = $wechatBot->getMeta('contacts', []);
         
+        // 过滤出好友联系人（假设type=1是好友）
         $friends = array_filter($contacts, function($contact) {
-            return isset($contact['type']) && $contact['type'] == 1;
+            return ($contact['type'] ?? 0) == 1;
         });
 
-        $page = request()->get('page', 1);
-        $perPage = request()->get('per_page', 15);
-        $total = count($friends);
-        $friends = array_slice($friends, ($page - 1) * $perPage, $perPage);
-
         return [
-            'data' => array_values($friends),
-            'current_page' => $page,
-            'per_page' => $perPage,
-            'total' => $total,
-            'last_page' => ceil($total / $perPage),
+            'success' => true,
+            'message' => 'success',
+            'data' => array_values($friends) // 重新索引数组
         ];
     }
 }

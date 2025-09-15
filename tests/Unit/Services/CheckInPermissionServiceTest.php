@@ -1,7 +1,7 @@
 <?php
 
 use App\Services\CheckInPermissionService;
-use App\Services\XbotConfigManager;
+use App\Services\Managers\ConfigManager;
 use App\Services\ChatroomMessageFilter;
 use App\Models\WechatBot;
 
@@ -25,7 +25,7 @@ describe('CheckInPermissionService Unit Tests', function () {
                 ->andReturn(true);
             
             // Mock the config manager
-            $mockConfigManager = Mockery::mock(XbotConfigManager::class);
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
             $mockConfigManager->shouldReceive('isEnabled')
                 ->with('check_in')
                 ->andReturn(true);
@@ -58,7 +58,7 @@ describe('CheckInPermissionService Unit Tests', function () {
                 ->andReturn(false);
             
             // Mock the config manager
-            $mockConfigManager = Mockery::mock(XbotConfigManager::class);
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
             
             // Inject mocks
             $reflection = new ReflectionClass($this->checkInService);
@@ -83,7 +83,7 @@ describe('CheckInPermissionService Unit Tests', function () {
                 ->andReturn(true);
             
             // Mock the config manager
-            $mockConfigManager = Mockery::mock(XbotConfigManager::class);
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
             $mockConfigManager->shouldReceive('isEnabled')
                 ->with('check_in')
                 ->andReturn(false);
@@ -156,7 +156,7 @@ describe('CheckInPermissionService Unit Tests', function () {
     describe('Global Check-in Configuration', function () {
         
         test('should correctly report global check-in status', function () {
-            $mockConfigManager = Mockery::mock(XbotConfigManager::class);
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
             $mockConfigManager->shouldReceive('isEnabled')
                 ->with('check_in')
                 ->andReturn(true);
@@ -184,7 +184,7 @@ describe('CheckInPermissionService Unit Tests', function () {
             $mockRoomFilter = Mockery::mock(ChatroomMessageFilter::class);
             $mockRoomFilter->shouldReceive('shouldProcess')->andReturn(true);
             
-            $mockConfigManager = Mockery::mock(XbotConfigManager::class);
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
             $mockConfigManager->shouldReceive('isEnabled')->andReturn(true);
             
             $this->wechatBot->shouldReceive('getMeta')->andReturn([]);

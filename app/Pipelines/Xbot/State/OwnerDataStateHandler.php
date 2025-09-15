@@ -13,7 +13,7 @@ class OwnerDataStateHandler
     /**
      * 处理 MT_DATA_OWNER_MSG 消息
      */
-    public function handle(WechatBot $wechatBot, int $clientId): void
+    public function handle(\App\Models\WechatBot $wechatBot, int $clientId): void
     {
         // 保存到cache中，并更新 last_active_time
         $wechatBot->update([
