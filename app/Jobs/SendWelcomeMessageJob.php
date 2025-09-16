@@ -25,8 +25,7 @@ class SendWelcomeMessageJob implements ShouldQueue
 
     public function __construct(
         public int $wechatBotId,
-        public string $targetWxid,
-        public ?string $isRoom = null
+        public string $targetWxid
     ) {
         // 设置队列名称
         $this->onQueue('welcome_messages');
@@ -45,12 +44,12 @@ class SendWelcomeMessageJob implements ShouldQueue
 
         $configManager = new ConfigManager($wechatBot);
         
-        // 检查是否仍然启用欢迎消息
-        if (!$configManager->isEnabled('friend_welcome_enabled')) {
+        // 检查是否设置了好友欢迎消息
+        if (!$configManager->isWelcomeMessageEnabled()) {
             Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
                 'target_wxid' => $this->targetWxid,
-                'message' => 'SendWelcomeMessageJob: Welcome message disabled, skipping'
+                'message' => 'SendWelcomeMessageJob: Friend welcome message not configured, skipping'
             ]);
             return;
         }
@@ -68,10 +67,8 @@ class SendWelcomeMessageJob implements ShouldQueue
             // 获取联系人信息用于nickname替换
             $nickname = $this->getNickname($wechatBot);
             
-            // 根据是否为群聊选择消息模板
-            $messageTemplate = $this->isRoom 
-                ? $configManager->getFriendConfig('room_welcome_msg', '@nickname 欢迎入群')
-                : $configManager->getFriendConfig('welcome_msg', '@nickname 你好，欢迎你！');
+            // 获取欢迎消息模板
+            $messageTemplate = $configManager->getStringConfig('welcome_msg', '@nickname 你好，欢迎你！');
             
             // 替换@nickname变量
             $welcomeMessage = $this->replaceNickname($messageTemplate, $nickname);
@@ -86,7 +83,6 @@ class SendWelcomeMessageJob implements ShouldQueue
                 'target_wxid' => $this->targetWxid,
                 'nickname' => $nickname,
                 'welcome_message' => $welcomeMessage,
-                'is_room' => !empty($this->isRoom),
                 'result' => $result,
                 'message' => 'SendWelcomeMessageJob: Welcome message sent successfully'
             ]);
@@ -137,7 +133,6 @@ class SendWelcomeMessageJob implements ShouldQueue
         Log::error('SendWelcomeMessageJob: Job failed permanently', [
             'wechat_bot_id' => $this->wechatBotId,
             'target_wxid' => $this->targetWxid,
-            'is_room' => !empty($this->isRoom),
             'exception' => $exception->getMessage(),
             'attempts' => $this->attempts()
         ]);

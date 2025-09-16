@@ -27,6 +27,11 @@ class SystemMessageHandler extends BaseXbotHandler
         // 处理 wx_type: 10000 的群邀请系统消息
         if ($wxType == 10000) {
             $this->handleGroupInviteSystemMessage($context);
+            
+            // 检查是否为退群相关的系统消息
+            if ($this->isQuitMessage($rawMsg)) {
+                $this->handleQuitMessage($context, $rawMsg);
+            }
         }
         
         // 格式化系统消息为文本格式
@@ -149,6 +154,141 @@ class SystemMessageHandler extends BaseXbotHandler
                 'raw_msg' => $rawMsg
             ]);
             return '系统消息';
+        }
+    }
+
+    /**
+     * 检查是否为退群相关的系统消息
+     */
+    private function isQuitMessage(string $rawMsg): bool
+    {
+        // 检查各种退群消息模式
+        $quitPatterns = [
+            '/你将"(.+?)"移出了群聊/',         // 踢人
+            '/^"(.+?)"退出了群聊$/',          // 带引号的退群
+            '/(.+?)被"(.+?)"移出群聊/',       // 被其他人踢
+            '/(.+?)被移出了群聊/',            // 被移出
+            '/(.+?)已退出群聊/',              // 已退出
+            '/^(.+?)(?:主动)?退出了群聊$/',   // 主动退群 (精确匹配)
+        ];
+        
+        foreach ($quitPatterns as $pattern) {
+            if (preg_match($pattern, $rawMsg)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * 处理退群消息
+     */
+    private function handleQuitMessage(XbotMessageContext $context, string $rawMsg): void
+    {
+        $roomWxid = $context->requestRawData['room_wxid'] ?? null;
+        
+        if (!$roomWxid) {
+            $this->logError('Quit message without room_wxid', [
+                'raw_msg' => $rawMsg
+            ]);
+            return;
+        }
+
+        // 检查退群监控配置
+        $configManager = new ConfigManager($context->wechatBot);
+        
+        // 检查全局和群级别的 room_quit 配置
+        $globalRoomQuitEnabled = $configManager->isEnabled('room_quit');
+        $groupRoomQuitEnabled = $this->getGroupLevelConfig($context->wechatBot, $roomWxid, 'room_quit');
+        
+        // 如果群设置了 room_quit，按群设置；否则按全局设置
+        $shouldMonitorQuit = $groupRoomQuitEnabled !== null ? $groupRoomQuitEnabled : $globalRoomQuitEnabled;
+        
+        if (!$shouldMonitorQuit) {
+            $this->log(__FUNCTION__, ['message' => 'Room quit monitoring disabled for this group',
+                'room_wxid' => $roomWxid,
+                'raw_msg' => $rawMsg,
+                'global_room_quit' => $globalRoomQuitEnabled,
+                'group_room_quit' => $groupRoomQuitEnabled
+            ]);
+            return;
+        }
+
+        // 解析退群消息，提取用户名
+        $quitUserName = $this->extractQuitUserName($rawMsg);
+        
+        if ($quitUserName) {
+            // 发送退群通知到群内
+            $notificationText = "{$quitUserName} 退出了群聊";
+            $this->sendTextMessage($context, $notificationText, $roomWxid);
+            
+            $this->log(__FUNCTION__, ['message' => 'Quit notification sent to group',
+                'room_wxid' => $roomWxid,
+                'quit_user' => $quitUserName,
+                'notification_text' => $notificationText,
+                'raw_msg' => $rawMsg,
+                'global_room_quit' => $globalRoomQuitEnabled,
+                'group_room_quit' => $groupRoomQuitEnabled
+            ]);
+        } else {
+            $this->logError('Failed to extract quit user name from message', [
+                'raw_msg' => $rawMsg,
+                'room_wxid' => $roomWxid
+            ]);
+        }
+    }
+
+    /**
+     * 从退群消息中提取用户名
+     */
+    private function extractQuitUserName(string $rawMsg): ?string
+    {
+        // 尝试各种模式提取用户名
+        $patterns = [
+            '/你将"(.+?)"移出了群聊/' => 1,      // 踢人: 提取被踢用户名
+            '/^"(.+?)"退出了群聊$/' => 1,        // 带引号的退群: 提取用户名
+            '/(.+?)被"(.+?)"移出群聊/' => 1,     // 被踢: 提取被踢用户名
+            '/(.+?)被移出了群聊/' => 1,          // 被移出: 提取被移出用户名
+            '/(.+?)已退出群聊/' => 1,            // 已退出: 提取退出用户名
+            '/^(.+?)(?:主动)?退出了群聊$/' => 1,  // 主动退群: 提取退群用户名 (精确匹配)
+        ];
+        
+        foreach ($patterns as $pattern => $groupIndex) {
+            if (preg_match($pattern, $rawMsg, $matches)) {
+                return $matches[$groupIndex] ?? null;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 获取群级别配置项的值
+     * 
+     * @param WechatBot $wechatBot
+     * @param string $roomWxid  
+     * @param string $configKey 配置键名
+     * @return bool|null null表示没有群级别配置，使用全局配置
+     */
+    private function getGroupLevelConfig($wechatBot, string $roomWxid, string $configKey): ?bool
+    {
+        switch ($configKey) {
+            case 'room_msg':
+                $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new \App\Services\Managers\ConfigManager($wechatBot));
+                return $filter->getRoomListenStatus($roomWxid);
+                
+            case 'check_in':
+                $service = new \App\Services\CheckInPermissionService($wechatBot);
+                return $service->getRoomCheckInStatus($roomWxid);
+                
+            case 'room_quit':
+                // room_quit 配置存储在 room_quit_specials metadata 中
+                $quitConfigs = $wechatBot->getMeta('room_quit_specials', []);
+                return $quitConfigs[$roomWxid] ?? null;
+                
+            default:
+                return null;
         }
     }
 }

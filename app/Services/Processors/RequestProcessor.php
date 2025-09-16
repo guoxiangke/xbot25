@@ -150,12 +150,7 @@ class RequestProcessor
             'MT_DECRYPT_IMG_MSG_TIMEOUT' => '图片解密超时',
             'MT_TALKER_CHANGE_MSG' => '切换了当前聊天对象',
 
-            // 暂时忽略的消息类型，这些通过Pipeline处理
-            'MT_ROOM_ADD_MEMBER_NOTIFY_MSG' => '群成员加入通知',
-            'MT_ROOM_CREATE_NOTIFY_MSG' => '群创建通知',
-            'MT_ROOM_DEL_MEMBER_NOTIFY_MSG' => '群成员移除通知',
-            'MT_CONTACT_ADD_NOITFY_MSG' => '好友添加通知',
-            'MT_CONTACT_DEL_NOTIFY_MSG' => '好友删除通知',
+            // 暂时忽略的消息类型
             'MT_ZOMBIE_CHECK_MSG' => '僵尸粉检测',
             'MT_SEARCH_CONTACT_MSG' => '搜索联系人',
         ];

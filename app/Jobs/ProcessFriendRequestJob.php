@@ -71,7 +71,7 @@ class ProcessFriendRequestJob implements ShouldQueue
      */
     private function checkDailyLimit(ConfigManager $configManager): bool
     {
-        $dailyLimit = (int) $configManager->getFriendConfig('friend_daily_limit', 50);
+        $dailyLimit = (int) $configManager->getStringConfig('friend_daily_limit', 50);
         $todayStats = $this->getTodayStats($configManager);
         
         if ($todayStats['count'] >= $dailyLimit) {
@@ -92,7 +92,7 @@ class ProcessFriendRequestJob implements ShouldQueue
      */
     private function getTodayStats(ConfigManager $configManager): array
     {
-        $stats = $configManager->getFriendConfig('daily_stats', []);
+        $stats = $configManager->getStringConfig('daily_stats', []);
         $today = now()->toDateString();
         
         // 如果不是今天的数据，重置统计
@@ -116,7 +116,7 @@ class ProcessFriendRequestJob implements ShouldQueue
         $stats['count'] += 1;
         $stats['last_processed'] = now()->toDateTimeString();
         
-        $configManager->setFriendConfig('daily_stats', $stats);
+        $configManager->setStringConfig('daily_stats', $stats);
     }
 
     /**
@@ -159,7 +159,7 @@ class ProcessFriendRequestJob implements ShouldQueue
             ]);
 
             // 如果启用欢迎消息，等待一段时间后发送欢迎消息
-            if ($configManager->isEnabled('friend_welcome_enabled')) {
+            if ($configManager->isWelcomeMessageEnabled()) {
                 $this->scheduleWelcomeMessage($wechatBot, $encryptusername, $configManager);
             }
 
@@ -223,8 +223,8 @@ class ProcessFriendRequestJob implements ShouldQueue
      */
     public static function calculateSmartDelay(ConfigManager $configManager): int
     {
-        $dailyLimit = (int) $configManager->getFriendConfig('friend_daily_limit', 50);
-        $todayStats = $configManager->getFriendConfig('daily_stats', []);
+        $dailyLimit = (int) $configManager->getStringConfig('friend_daily_limit', 50);
+        $todayStats = $configManager->getStringConfig('daily_stats', []);
         $todayCount = $todayStats['count'] ?? 0;
         
         // 剩余可处理数量

@@ -185,10 +185,26 @@ class KeywordResponseHandler extends BaseXbotHandler
         // 使用WechatBot的send方法发送资源
         $context->wechatBot->send([$context->wxid], $resource);
 
-        // 发送附加内容
+        // 递归发送所有附加内容
+        $this->sendAdditions($context, $resource);
+    }
+
+    /**
+     * 递归发送附加内容
+     */
+    private function sendAdditions(XbotMessageContext $context, array $resource): void
+    {
         if (isset($resource['addition'])) {
-            $resource['addition']['is_keyword_response'] = true;
-            $context->wechatBot->send([$context->wxid], $resource['addition']);
+            $addition = $resource['addition'];
+            
+            // 标记为关键词响应消息
+            $addition['is_keyword_response'] = true;
+            
+            // 发送当前附加内容
+            $context->wechatBot->send([$context->wxid], $addition);
+            
+            // 递归处理嵌套的附加内容
+            $this->sendAdditions($context, $addition);
         }
     }
 }

@@ -22,7 +22,8 @@ class SelfMessageHandler extends BaseXbotHandler
     private const GROUP_LEVEL_CONFIGS = [
         'room_msg' => '群消息处理',
         'check_in' => '群签到系统',
-        'youtube_room' => 'YouTube链接响应'
+        'youtube_room' => 'YouTube链接响应',
+        'room_quit' => '退群监控',
     ];
 
     /**
@@ -36,9 +37,18 @@ class SelfMessageHandler extends BaseXbotHandler
 
     public function handle(XbotMessageContext $context, Closure $next)
     {
-        // 只处理机器人自己发送的消息（私聊给自己 或 在群里发送）
-        if (!$this->shouldProcess($context) || !$context->isFromBot) {
+        // 处理机器人发送的消息 或 管理员发送的配置命令
+        if (!$this->shouldProcess($context)) {
             return $next($context);
+        }
+        
+        // 如果不是机器人发送的消息，检查是否为配置命令
+        if (!$context->isFromBot) {
+            $msg = $context->requestRawData['msg'] ?? '';
+            // 只处理配置相关的命令
+            if (!$this->isConfigCommand($msg)) {
+                return $next($context);
+            }
         }
 
         if ($this->isMessageType($context, 'MT_RECV_TEXT_MSG')) {
@@ -98,8 +108,8 @@ class SelfMessageHandler extends BaseXbotHandler
      */
     private function handleSetCommand(XbotMessageContext $context, string $message): void
     {
-        // 使用 preg_split 处理多个连续空格，并过滤空元素，重新索引
-        $parts = array_values(array_filter(preg_split('/\s+/', trim($message)), 'strlen'));
+        // 改进的命令解析，支持引号内的空格
+        $parts = $this->parseCommandArguments($message);
 
         if (count($parts) < 3) {
             $commandFormat = Str::startsWith($message, '/config') ? '/config' : '/set';
@@ -108,7 +118,12 @@ class SelfMessageHandler extends BaseXbotHandler
         }
 
         $originalKey = $parts[1];
-        $value = $parts[2];
+        // 对于 welcome_msg，将所有剩余部分作为 value（支持空格）
+        if ($originalKey === 'welcome_msg' && count($parts) > 3) {
+            $value = implode(' ', array_slice($parts, 2));
+        } else {
+            $value = $parts[2];
+        }
         
         // 处理群级别配置命令别名（只在群聊中生效）
         $key = $this->resolveGroupConfigAlias($originalKey, $context->isRoom);
@@ -136,9 +151,15 @@ class SelfMessageHandler extends BaseXbotHandler
             return;
         }
 
-        // 检查是否为好友配置项
-        if ($configManager->isFriendConfig($key)) {
-            $this->handleFriendConfigCommand($context, $key, $value);
+        // 检查是否为字符串配置项
+        if ($configManager->isStringConfig($key)) {
+            $this->handleStringConfigCommand($context, $key, $value);
+            return;
+        }
+
+        // 检查是否为其他群级配置项（只在群聊中可设置群级配置）
+        if ($configManager->isGroupConfig($key) && $context->isRoom) {
+            $this->handleGroupConfigCommand($context, $key, $value);
             return;
         }
 
@@ -155,7 +176,7 @@ class SelfMessageHandler extends BaseXbotHandler
             $missingConfigs = $configManager->isChatwootConfigComplete();
             
             if (!empty($missingConfigs)) {
-                $configInstructions = "❌ 无法启用 Chatwoot，缺少必要配置：\n" . implode("\n", $missingConfigs);
+                $configInstructions = "❎ 无法启用 Chatwoot，缺少必要配置：\n" . implode("\n", $missingConfigs);
                 $configInstructions .= "\n\n📝 请使用以下命令设置配置项：";
                 
                 foreach ($missingConfigs as $configKey) {
@@ -215,7 +236,7 @@ class SelfMessageHandler extends BaseXbotHandler
         // 验证值不为空
         if (empty(trim($value))) {
             $configName = $configManager->getConfigName($key);
-            $this->sendTextMessage($context, "❌ {$configName} 的值不能为空");
+            $this->sendTextMessage($context, "❎ {$configName} 的值不能为空");
             $this->markAsReplied($context);
             return;
         }
@@ -224,7 +245,7 @@ class SelfMessageHandler extends BaseXbotHandler
         if (in_array($key, ['chatwoot_account_id', 'chatwoot_inbox_id'])) {
             if (!is_numeric($value) || (int)$value <= 0) {
                 $configName = $configManager->getConfigName($key);
-                $this->sendTextMessage($context, "❌ {$configName} 必须是大于0的数字");
+                $this->sendTextMessage($context, "❎ {$configName} 必须是大于0的数字");
                 $this->markAsReplied($context);
                 return;
             }
@@ -248,7 +269,7 @@ class SelfMessageHandler extends BaseXbotHandler
                 $this->sendTextMessage($context, "💡 还需设置：" . implode(', ', $missingConfigs));
             }
         } else {
-            $this->sendTextMessage($context, "❌ 设置失败");
+            $this->sendTextMessage($context, "❎ 设置失败");
         }
         
         $this->markAsReplied($context);
@@ -266,7 +287,7 @@ class SelfMessageHandler extends BaseXbotHandler
         
         foreach ($chatwootConfigs as $configKey => $value) {
             $configName = $configManager->getConfigName($configKey);
-            $displayValue = !empty($value) ? $value : '❌未设置';
+            $displayValue = !empty($value) ? $value : '❎未设置';
             
             // 对于 token 只显示前几位和后几位，中间用星号代替
             if ($configKey === 'chatwoot_token' && !empty($value)) {
@@ -356,6 +377,11 @@ class SelfMessageHandler extends BaseXbotHandler
                 $this->handleYouTubeRoomConfig($context, $roomWxid, $boolValue);
                 $this->sendTextMessage($context, "群设置成功: {$configName} {$status}");
                 break;
+
+            case 'room_quit':
+                $this->handleRoomQuitConfig($context, $roomWxid, $boolValue);
+                $this->sendTextMessage($context, "群设置成功: {$configName} {$status}");
+                break;
         }
 
         $this->markAsReplied($context);
@@ -427,6 +453,25 @@ class SelfMessageHandler extends BaseXbotHandler
     }
 
     /**
+     * 处理退群监控群配置
+     */
+    private function handleRoomQuitConfig(XbotMessageContext $context, string $roomWxid, bool $enabled): void
+    {
+        $wechatBot = $context->wechatBot;
+        $roomQuitConfigs = $wechatBot->getMeta('room_quit_specials', []);
+        
+        if ($enabled) {
+            // 设置为特例开启
+            $roomQuitConfigs[$roomWxid] = true;
+        } else {
+            // 设置为特例关闭
+            $roomQuitConfigs[$roomWxid] = false;
+        }
+        
+        $wechatBot->setMeta('room_quit_specials', $roomQuitConfigs);
+    }
+
+    /**
      * 处理 /sync contacts 命令
      * 同步联系人列表
      */
@@ -476,7 +521,7 @@ class SelfMessageHandler extends BaseXbotHandler
         // 显示全局配置
         $globalConfigs = $configManager->getAll();
         foreach ($globalConfigs as $command => $value) {
-            $status = $value ? '✅开启' : '❌关闭';
+            $status = $value ? '✅开启' : '❎关闭';
             $configName = $configManager->getConfigName($command);
             $message .= "• {$command}: {$status} {$configName}\n";
         }
@@ -485,22 +530,21 @@ class SelfMessageHandler extends BaseXbotHandler
         $message .= "\n🏘️ 群级别配置：\n";
         $message .= $this->getGroupLevelConfigs($context);
 
-        // 添加配置命令帮助
-        $message .= "\n🔧 配置管理命令：\n";
-        $message .= "/set <key> <value> - 设置配置项\n";
-        $message .= "/get chatwoot - 查看Chatwoot配置详情\n";
-        $message .= "/sync contacts - 同步联系人列表\n";
-        $message .= "/check online - 检查微信在线状态\n\n";
-
         $message .= "\n💡 其他配置项：\n";
         $chatwootConfigs = array_keys(ConfigManager::CHATWOOT_CONFIGS);
         $message .= "• " . implode("\n• ", $chatwootConfigs);
+        
+        $message .= "\n";
+        $stringConfigs = array_keys(ConfigManager::STRING_CONFIGS);
+        $message .= "• " . implode("\n• ", $stringConfigs);
 
-        // 添加简化的群命令提示
-        $message .= "\n\n🏘️ 群级别配置 (简化命令)：\n";
-        $message .= "• /set check_in 1 - 群签到系统\n";
-        $message .= "• /set youtube 1 - YouTube链接响应\n";
-        $message .= "• /set room_msg 1 - 群消息处理\n";
+        // 添加配置命令帮助
+        $message .= "\n\n🔧 配置管理命令：\n";
+        $message .= "/set <key> <value> - 设置配置项\n";
+        $message .= "/config <key> <value> - 设置配置项\n";
+        $message .= "/get chatwoot - 查看Chatwoot配置详情\n";
+        $message .= "/sync contacts - 同步联系人列表\n";
+        $message .= "/check online - 检查微信在线状态\n\n";
 
         $this->sendTextMessage($context, $message);
         $this->markAsReplied($context);
@@ -536,9 +580,9 @@ class SelfMessageHandler extends BaseXbotHandler
         $globalRoomMsg = $configManager->isEnabled('room_msg');
         
         if ($roomListenStatus === null) {
-            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❌继承(关闭)";
+            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❎继承(关闭)";
         } else {
-            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❌特例关闭";
+            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❎特例关闭";
         }
         $groupConfigs .= "• room_msg: {$roomListenDisplay}\n";
 
@@ -548,16 +592,27 @@ class SelfMessageHandler extends BaseXbotHandler
         $globalCheckIn = $configManager->isEnabled('check_in');
         
         if ($checkInStatus === null) {
-            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❌继承(关闭)";
+            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❎继承(关闭)";
         } else {
-            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❌特例关闭";
+            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❎特例关闭";
         }
         $groupConfigs .= "• check_in (/set check_in): {$checkInDisplay}\n";
 
-        // 3. YouTube 响应配置
+        // 3. 退群监控配置
+        $roomQuitStatus = $this->getGroupLevelConfig($wechatBot, $roomWxid, 'room_quit');
+        $globalRoomQuit = $configManager->isEnabled('room_quit');
+        
+        if ($roomQuitStatus === null) {
+            $roomQuitDisplay = $globalRoomQuit ? "✅继承(开启)" : "❎继承(关闭)";
+        } else {
+            $roomQuitDisplay = $roomQuitStatus ? "✅特例开启" : "❎特例关闭";
+        }
+        $groupConfigs .= "• room_quit (/set room_quit): {$roomQuitDisplay}\n";
+
+        // 4. YouTube 响应配置
         $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
         $youtubeAllowed = isset($youtubeRooms[$roomWxid]) && $youtubeRooms[$roomWxid];
-        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❌关闭";
+        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❎关闭";
         $groupConfigs .= "• youtube (/set youtube): {$youtubeDisplay}\n";
 
         return $groupConfigs;
@@ -568,7 +623,7 @@ class SelfMessageHandler extends BaseXbotHandler
      */
     private function getAllRoomsConfigSummary($wechatBot, $configManager): string
     {
-        $groupConfigs = "📊 群级别配置统计：\n";
+        $groupConfigs = "";
 
         // 1. 群消息处理配置
         $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
@@ -590,7 +645,16 @@ class SelfMessageHandler extends BaseXbotHandler
             $groupConfigs .= "• check_in: 无特例配置\n";
         }
 
-        // 3. YouTube 响应配置
+        // 3. 退群监控配置
+        $roomQuitConfigs = $this->getRoomQuitConfigs($wechatBot);
+        $roomQuitCount = count($roomQuitConfigs);
+        if ($roomQuitCount > 0) {
+            $groupConfigs .= "• room_quit: {$roomQuitCount}个群特例配置\n";
+        } else {
+            $groupConfigs .= "• room_quit: 无特例配置\n";
+        }
+
+        // 4. YouTube 响应配置
         $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
         $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
         $youtubeCount = count($youtubeRooms) + count($youtubeUsers);
@@ -604,16 +668,25 @@ class SelfMessageHandler extends BaseXbotHandler
     }
 
     /**
-     * 处理好友配置命令
+     * 获取退群监控的群级别配置
      */
-    private function handleFriendConfigCommand(XbotMessageContext $context, string $key, string $value): void
+    private function getRoomQuitConfigs($wechatBot): array
+    {
+        // room_quit 配置存储在 room_quit_specials 中
+        return $wechatBot->getMeta('room_quit_specials', []);
+    }
+
+    /**
+     * 处理字符串配置命令
+     */
+    private function handleStringConfigCommand(XbotMessageContext $context, string $key, string $value): void
     {
         $configManager = new ConfigManager($context->wechatBot);
         
         // 验证值不为空
         if (empty(trim($value))) {
             $configName = $configManager->getConfigName($key);
-            $this->sendTextMessage($context, "❌ {$configName} 的值不能为空");
+            $this->sendTextMessage($context, "❎ {$configName} 的值不能为空");
             $this->markAsReplied($context);
             return;
         }
@@ -621,20 +694,20 @@ class SelfMessageHandler extends BaseXbotHandler
         // 特殊处理数字类型配置（friend_daily_limit）
         if ($key === 'friend_daily_limit') {
             if (!is_numeric($value) || (int)$value <= 0) {
-                $this->sendTextMessage($context, "❌ 每日好友请求处理上限必须是大于0的数字");
+                $this->sendTextMessage($context, "❎ 每日好友请求处理上限必须是大于0的数字");
                 $this->markAsReplied($context);
                 return;
             }
             
-            $configManager->setFriendConfig($key, (int)$value);
-            $this->sendTextMessage($context, "✅ 好友配置更新成功\n每日处理上限: {$value}");
+            $configManager->setStringConfig($key, (int)$value);
+            $this->sendTextMessage($context, "✅ 配置更新成功\n每日处理上限: {$value}");
             $this->markAsReplied($context);
             return;
         }
 
         // 处理欢迎消息模板（支持@nickname变量）
-        if (in_array($key, ['welcome_msg', 'room_welcome_msg'])) {
-            $configManager->setFriendConfig($key, $value);
+        if ($key === 'welcome_msg') {
+            $configManager->setStringConfig($key, $value);
             $configName = $configManager->getConfigName($key);
             
             // 提示变量使用说明
@@ -652,9 +725,151 @@ class SelfMessageHandler extends BaseXbotHandler
             return;
         }
 
-        // 其他未知的好友配置项
-        $this->sendTextMessage($context, "❌ 未知的好友配置项: {$key}");
+        // 其他未知的字符串配置项
+        $this->sendTextMessage($context, "❎ 未知的字符串配置项: {$key}");
         $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理群级配置命令
+     */
+    private function handleGroupConfigCommand(XbotMessageContext $context, string $key, string $value): void
+    {
+        // 群级配置只能在群聊中设置
+        if (!$context->isRoom) {
+            $this->sendTextMessage($context, "❎ 群级配置只能在群聊中设置");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $configManager = new ConfigManager($context->wechatBot);
+        $roomWxid = $context->roomWxid;
+        
+        // 验证值不为空
+        if (empty(trim($value))) {
+            $configName = $configManager->getConfigName($key);
+            $this->sendTextMessage($context, "❎ {$configName} 的值不能为空");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 其他未知的群级配置项
+        $this->sendTextMessage($context, "❎ 未知的群级配置项: {$key}");
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 获取群级别配置项的值
+     * 
+     * @param WechatBot $wechatBot
+     * @param string $roomWxid  
+     * @param string $configKey 配置键名
+     * @return bool|null null表示没有群级别配置，使用全局配置
+     */
+    private function getGroupLevelConfig($wechatBot, string $roomWxid, string $configKey): ?bool
+    {
+        switch ($configKey) {
+            case 'room_msg':
+                $filter = new ChatroomMessageFilter($wechatBot, new ConfigManager($wechatBot));
+                return $filter->getRoomListenStatus($roomWxid);
+                
+            case 'check_in':
+                $service = new CheckInPermissionService($wechatBot);
+                return $service->getRoomCheckInStatus($roomWxid);
+                
+            case 'room_quit':
+                // room_quit 配置存储在 room_quit_specials metadata 中
+                $quitConfigs = $wechatBot->getMeta('room_quit_specials', []);
+                return $quitConfigs[$roomWxid] ?? null;
+                
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * 检查是否为配置命令
+     */
+    private function isConfigCommand(string $message): bool
+    {
+        $normalizedMessage = strtolower(trim($message));
+        
+        // 解析命令参数
+        $parts = array_values(array_filter(preg_split('/\s+/', trim($message)), 'strlen'));
+        
+        // 检查 /set 命令（必须有key和value）
+        if (Str::startsWith($normalizedMessage, '/set ') && count($parts) >= 3) {
+            return true;
+        }
+        
+        // 检查 /config 命令
+        if (Str::startsWith($normalizedMessage, '/config')) {
+            return true;
+        }
+        
+        // 检查其他配置相关命令
+        if (in_array($normalizedMessage, ['/get chatwoot', '/sync contacts', '/check online'])) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * 解析命令参数，支持引号内的空格
+     */
+    private function parseCommandArguments(string $message): array
+    {
+        $parts = [];
+        $current = '';
+        $inQuotes = false;
+        $quoteChar = null;
+        $escaped = false;
+        
+        $chars = mb_str_split(trim($message));
+        
+        for ($i = 0; $i < count($chars); $i++) {
+            $char = $chars[$i];
+            
+            if ($escaped) {
+                $current .= $char;
+                $escaped = false;
+                continue;
+            }
+            
+            if ($char === '\\') {
+                $escaped = true;
+                continue;
+            }
+            
+            if (!$inQuotes && ($char === '"' || $char === "'")) {
+                $inQuotes = true;
+                $quoteChar = $char;
+                continue;
+            }
+            
+            if ($inQuotes && $char === $quoteChar) {
+                $inQuotes = false;
+                $quoteChar = null;
+                continue;
+            }
+            
+            if (!$inQuotes && preg_match('/\s/', $char)) {
+                if ($current !== '') {
+                    $parts[] = $current;
+                    $current = '';
+                }
+                continue;
+            }
+            
+            $current .= $char;
+        }
+        
+        if ($current !== '') {
+            $parts[] = $current;
+        }
+        
+        return $parts;
     }
 
 }

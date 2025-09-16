@@ -125,6 +125,9 @@ class NotificationHandler extends BaseXbotHandler
             'notification_text' => $notificationText,
             'sent_as_bot' => true
         ]);
+
+        // 群级欢迎消息功能已移除
+        // 只有好友添加时才会发送欢迎消息
     }
 
     /**
@@ -190,7 +193,7 @@ class NotificationHandler extends BaseXbotHandler
             // 检查是否需要发送欢迎消息
             $configManager = new ConfigManager($context->wechatBot);
             
-            if ($configManager->isEnabled('friend_welcome_enabled')) {
+            if ($configManager->isWelcomeMessageEnabled()) {
                 // 延迟5-10分钟发送欢迎消息
                 $delay = rand(300, 600);
                 
@@ -265,6 +268,28 @@ class NotificationHandler extends BaseXbotHandler
             return;
         }
 
+        // 检查退群监控配置
+        $configManager = new ConfigManager($context->wechatBot);
+        
+        // 检查全局和群级别的 room_quit 配置
+        $globalRoomQuitEnabled = $configManager->isEnabled('room_quit');
+        $groupRoomQuitEnabled = $this->getGroupLevelConfig($context->wechatBot, $roomWxid, 'room_quit');
+        
+        // 如果群设置了 room_quit，按群设置；否则按全局设置
+        $shouldMonitorQuit = $groupRoomQuitEnabled !== null ? $groupRoomQuitEnabled : $globalRoomQuitEnabled;
+        
+        if (!$shouldMonitorQuit) {
+            $this->log(__FUNCTION__, ['message' => 'Room quit monitoring disabled for this group',
+                'room_wxid' => $roomWxid,
+                'global_room_quit' => $globalRoomQuitEnabled,
+                'group_room_quit' => $groupRoomQuitEnabled
+            ]);
+            
+            // 不处理，直接标记为已处理，避免继续传递
+            $context->markAsProcessed(static::class);
+            return;
+        }
+
         // 生成移除成员通知文本
         $memberNames = [];
         foreach ($memberList as $member) {
@@ -273,19 +298,21 @@ class NotificationHandler extends BaseXbotHandler
         
         $memberCount = count($memberNames);
         if ($memberCount === 1) {
-            $notificationText = "{$memberNames[0]} 离开了群聊";
+            $notificationText = "{$memberNames[0]} 退出了群聊";
         } else {
             $memberListText = implode('、', $memberNames);
-            $notificationText = "{$memberListText} 离开了群聊";
+            $notificationText = "{$memberListText} 退出了群聊";
         }
 
-        // 修改消息为bot发送的文本消息
-        $this->convertToSystemMessage($context, $notificationText);
+        // 发送退群通知到群内
+        $this->sendTextMessage($context, $notificationText, $roomWxid);
         
-        $this->log(__FUNCTION__, ['message' => 'Member remove notification processed',
+        $this->log(__FUNCTION__, ['message' => 'Member quit notification sent to group',
             'room_wxid' => $roomWxid,
             'member_count' => $memberCount,
-            'notification_text' => $notificationText
+            'notification_text' => $notificationText,
+            'global_room_quit' => $globalRoomQuitEnabled,
+            'group_room_quit' => $groupRoomQuitEnabled
         ]);
     }
 
@@ -376,4 +403,34 @@ class NotificationHandler extends BaseXbotHandler
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $message;
     }
+
+    /**
+     * 获取群级别配置项的值
+     * 
+     * @param WechatBot $wechatBot
+     * @param string $roomWxid  
+     * @param string $configKey 配置键名
+     * @return bool|null null表示没有群级别配置，使用全局配置
+     */
+    private function getGroupLevelConfig($wechatBot, string $roomWxid, string $configKey): ?bool
+    {
+        switch ($configKey) {
+            case 'room_msg':
+                $filter = new \App\Services\ChatroomMessageFilter($wechatBot, new ConfigManager($wechatBot));
+                return $filter->getRoomListenStatus($roomWxid);
+                
+            case 'check_in':
+                $service = new \App\Services\CheckInPermissionService($wechatBot);
+                return $service->getRoomCheckInStatus($roomWxid);
+                
+            case 'room_quit':
+                // room_quit 配置存储在 room_quit_specials metadata 中
+                $quitConfigs = $wechatBot->getMeta('room_quit_specials', []);
+                return $quitConfigs[$roomWxid] ?? null;
+                
+            default:
+                return null;
+        }
+    }
+
 }

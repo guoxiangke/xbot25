@@ -604,7 +604,7 @@ public function handle(XbotMessageContext $context, Closure $next) {
 'payment_auto' => '自动收款',
 'check_in' => '签到系统',
 'friend_auto_accept' => '自动同意好友请求',
-'friend_welcome_enabled' => '新好友欢迎消息',
+'friend_welcome' => '新好友欢迎消息',
 ```
 
 **Chatwoot专用配置项（XbotConfigManager::CHATWOOT_CONFIGS）：**
@@ -716,12 +716,16 @@ SelfMessageHandler 使用 `XbotConfigManager::getAvailableCommands()` 动态获�
 ```bash
 # 基础开关
 /set friend_auto_accept 1           # 开启自动同意好友请求
-/set friend_welcome_enabled 1       # 开启新好友欢迎消息
+
+# 欢迎消息配置
+/set welcome_msg "@nickname 你好，欢迎你！"      # 好友欢迎消息模板（私聊中设置）
+
+# 群欢迎消息配置（在对应群聊中设置）
+/set room_msg 1                              # 先开启群消息处理
+/set welcome_msg "@nickname 欢迎加入我们的大家庭！"  # 设置该群的欢迎消息
 
 # 高级参数
 /set friend_daily_limit 30          # 设置每日处理上限
-/set welcome_msg "@nickname 你好，欢迎你！"      # 好友欢迎消息模板
-/set room_welcome_msg "@nickname 欢迎入群"      # 群聊欢迎消息模板
 ```
 
 ## 好友来源识别系统 (2025-09-13 完成)

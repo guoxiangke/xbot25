@@ -24,7 +24,8 @@ class TextMessageHandler extends BaseXbotHandler
         $message = trim($context->requestRawData['msg'] ?? '');
         
         // 检查是否为配置命令，如果是且用户无权限，则给出提示
-        if ($this->isConfigCommand($message) && !$context->isFromBot) {
+        $isConfigCmd = $this->isConfigCommand($message);
+        if ($isConfigCmd && !$context->isFromBot) {
             $this->sendTextMessage($context, "⚠️ 无权限执行配置命令，仅机器人管理员可用");
             $context->markAsProcessed(static::class);
             return $context;

@@ -21,7 +21,8 @@ class ConfigManager
         'payment_auto' => '自动收款',
         'check_in' => '签到系统',
         'friend_auto_accept' => '自动同意好友请求',
-        'friend_welcome_enabled' => '新好友欢迎消息',
+        'friend_welcome' => '新好友欢迎消息',
+        'room_quit' => '退群监控',
     ];
 
     /**
@@ -34,12 +35,17 @@ class ConfigManager
     ];
 
     /**
-     * 好友请求相关配置项（非布尔值）
+     * 字符串类型配置项（非布尔值）
      */
-    const FRIEND_CONFIGS = [
+    const STRING_CONFIGS = [
         'friend_daily_limit' => '每日好友请求处理上限',
         'welcome_msg' => '好友欢迎消息模板',
-        'room_welcome_msg' => '群聊欢迎消息模板',
+    ];
+
+    /**
+     * 群级别配置项（非布尔值）
+     */
+    const GROUP_CONFIGS = [
     ];
 
     /**
@@ -49,16 +55,20 @@ class ConfigManager
     const DEFAULT_VALUES = [
         'payment_auto' => true, // 自动收款默认开启
         'friend_auto_accept' => false, // 自动同意好友请求默认关闭
-        'friend_welcome_enabled' => false, // 新好友欢迎消息默认关闭
     ];
 
     /**
-     * 好友配置默认值
+     * 字符串配置默认值
      */
-    const FRIEND_DEFAULT_VALUES = [
+    const STRING_DEFAULT_VALUES = [
         'friend_daily_limit' => 50,
         'welcome_msg' => '@nickname 你好，欢迎你！',
-        'room_welcome_msg' => '@nickname 欢迎入群',
+    ];
+
+    /**
+     * 群级别配置默认值
+     */
+    const GROUP_DEFAULT_VALUES = [
     ];
 
     private WechatBot $wechatBot;
@@ -147,7 +157,7 @@ class ConfigManager
      */
     public function getConfigName(string $command): string
     {
-        return self::CONFIGS[$command] ?? self::CHATWOOT_CONFIGS[$command] ?? self::FRIEND_CONFIGS[$command] ?? $command;
+        return self::CONFIGS[$command] ?? self::CHATWOOT_CONFIGS[$command] ?? self::STRING_CONFIGS[$command] ?? self::GROUP_CONFIGS[$command] ?? $command;
     }
 
     /**
@@ -155,7 +165,7 @@ class ConfigManager
      */
     public static function getAvailableCommands(): array
     {
-        return array_merge(array_keys(self::CONFIGS), array_keys(self::CHATWOOT_CONFIGS), array_keys(self::FRIEND_CONFIGS));
+        return array_unique(array_merge(array_keys(self::CONFIGS), array_keys(self::CHATWOOT_CONFIGS), array_keys(self::STRING_CONFIGS), array_keys(self::GROUP_CONFIGS)));
     }
 
     /**
@@ -171,7 +181,7 @@ class ConfigManager
      */
     public function isValidCommand(string $command): bool
     {
-        return isset(self::CONFIGS[$command]) || isset(self::CHATWOOT_CONFIGS[$command]) || isset(self::FRIEND_CONFIGS[$command]);
+        return isset(self::CONFIGS[$command]) || isset(self::CHATWOOT_CONFIGS[$command]) || isset(self::STRING_CONFIGS[$command]) || isset(self::GROUP_CONFIGS[$command]);
     }
 
     /**
@@ -244,52 +254,48 @@ class ConfigManager
     }
 
     /**
-     * 检查是否为好友配置项
+     * 检查是否为字符串配置项
      */
-    public function isFriendConfig(string $command): bool
+    public function isStringConfig(string $command): bool
     {
-        return isset(self::FRIEND_CONFIGS[$command]);
+        return isset(self::STRING_CONFIGS[$command]);
     }
 
     /**
-     * 获取好友配置值
+     * 获取字符串配置值
      */
-    public function getFriendConfig(string $command, $default = null)
+    public function getStringConfig(string $command, $default = null)
     {
-        if (!$this->isFriendConfig($command)) {
+        if (!$this->isStringConfig($command)) {
             return $default;
         }
 
-        $friendMeta = $this->wechatBot->getMeta('friend', []);
-        return $friendMeta[$command] ?? (self::FRIEND_DEFAULT_VALUES[$command] ?? $default);
+        return $this->wechatBot->getMeta($command, self::STRING_DEFAULT_VALUES[$command] ?? $default);
     }
 
     /**
-     * 设置好友配置值
+     * 设置字符串配置值
      */
-    public function setFriendConfig(string $command, $value): bool
+    public function setStringConfig(string $command, $value): bool
     {
-        if (!$this->isFriendConfig($command)) {
+        if (!$this->isStringConfig($command)) {
             return false;
         }
 
-        $friendMeta = $this->wechatBot->getMeta('friend', []);
-        $friendMeta[$command] = $value;
-        $this->wechatBot->setMeta('friend', $friendMeta);
+        $this->wechatBot->setMeta($command, $value);
         
         return true;
     }
 
     /**
-     * 获取所有好友配置
+     * 获取所有字符串配置
      */
-    public function getAllFriendConfigs(): array
+    public function getAllStringConfigs(): array
     {
-        $friendMeta = $this->wechatBot->getMeta('friend', []);
         $configs = [];
         
-        foreach (self::FRIEND_CONFIGS as $command => $description) {
-            $configs[$command] = $friendMeta[$command] ?? (self::FRIEND_DEFAULT_VALUES[$command] ?? null);
+        foreach (self::STRING_CONFIGS as $command => $description) {
+            $configs[$command] = $this->wechatBot->getMeta($command, self::STRING_DEFAULT_VALUES[$command] ?? null);
         }
         
         return $configs;
@@ -330,5 +336,80 @@ class ConfigManager
     {
         $cacheKey = $this->getCacheKey($command, $roomWxid);
         unset($this->cache[$cacheKey]);
+    }
+
+    /**
+     * 检查是否为群级配置项
+     */
+    public function isGroupConfig(string $command): bool
+    {
+        return isset(self::GROUP_CONFIGS[$command]);
+    }
+
+    /**
+     * 获取群级配置值
+     */
+    public function getGroupConfig(string $command, ?string $roomWxid = null, $default = null)
+    {
+        if (!$this->isGroupConfig($command)) {
+            return $default;
+        }
+
+        if (!$roomWxid) {
+            return self::GROUP_DEFAULT_VALUES[$command] ?? $default;
+        }
+
+        $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
+        return $groupMeta[$command] ?? (self::GROUP_DEFAULT_VALUES[$command] ?? $default);
+    }
+
+    /**
+     * 设置群级配置值
+     */
+    public function setGroupConfig(string $command, $value, string $roomWxid): bool
+    {
+        if (!$this->isGroupConfig($command)) {
+            return false;
+        }
+
+        $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
+        $groupMeta[$command] = $value;
+        $this->wechatBot->setMeta("group.{$roomWxid}", $groupMeta);
+        
+        return true;
+    }
+
+    /**
+     * 获取所有群级配置
+     */
+    public function getAllGroupConfigs(?string $roomWxid = null): array
+    {
+        if (!$roomWxid) {
+            return self::GROUP_DEFAULT_VALUES;
+        }
+
+        $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
+        $configs = [];
+        
+        foreach (self::GROUP_CONFIGS as $command => $description) {
+            $configs[$command] = $groupMeta[$command] ?? (self::GROUP_DEFAULT_VALUES[$command] ?? null);
+        }
+        
+        return $configs;
+    }
+
+    /**
+     * 检查欢迎消息是否启用（同时检查开关和消息模板）
+     */
+    public function isWelcomeMessageEnabled(): bool
+    {
+        // 检查欢迎消息开关是否启用
+        if (!$this->isEnabled('friend_welcome')) {
+            return false;
+        }
+        
+        // 检查是否设置了欢迎消息模板
+        $welcomeMsg = $this->getStringConfig('welcome_msg');
+        return !empty(trim($welcomeMsg));
     }
 }

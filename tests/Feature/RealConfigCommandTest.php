@@ -39,7 +39,7 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
             'payment_auto' => true,
             'check_in' => false,
             'friend_auto_accept' => true,
-            'friend_welcome_enabled' => true
+            'friend_welcome' => true
         ]);
         
         $context = XbotTestHelpers::createBotMessageContext(
@@ -242,24 +242,24 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
         // 测试好友欢迎消息配置
         $context = XbotTestHelpers::createBotMessageContext(
             $this->wechatBot,
-            '/set friend_welcome_enabled 0'
+            '/set friend_welcome 0'
         );
         
         $this->selfHandler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('设置成功: friend_welcome_enabled 已禁用');
-        expect($this->wechatBot->getMeta('friend_welcome_enabled_enabled'))->toBeFalse();
+        XbotTestHelpers::assertMessageSent('设置成功: friend_welcome 已禁用');
+        expect($this->wechatBot->getMeta('friend_welcome_enabled'))->toBeFalse();
         
         
         $context = XbotTestHelpers::createBotMessageContext(
             $this->wechatBot,
-            '/set friend_welcome_enabled 1'
+            '/set friend_welcome 1'
         );
         
         $this->selfHandler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('设置成功: friend_welcome_enabled 已启用');
-        expect($this->wechatBot->getMeta('friend_welcome_enabled_enabled'))->toBeTrue();
+        XbotTestHelpers::assertMessageSent('设置成功: friend_welcome 已启用');
+        expect($this->wechatBot->getMeta('friend_welcome_enabled'))->toBeTrue();
     });
 });
 
@@ -339,7 +339,7 @@ describe('Configuration Display Format Validation', function () {
             'payment_auto' => true,
             'check_in' => false,
             'friend_auto_accept' => true,
-            'friend_welcome_enabled' => true
+            'friend_welcome' => true
         ]);
         
         $context = XbotTestHelpers::createBotMessageContext(
