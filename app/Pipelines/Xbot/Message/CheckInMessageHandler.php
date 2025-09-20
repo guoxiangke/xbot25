@@ -152,15 +152,15 @@ class CheckInMessageHandler extends BaseXbotHandler
         if ($wasRecentlyCreated) {
             // 首次签到 - 先发群消息
             $groupContent = "{$first}\n🥇今天您是第 {$stats['rank']} 位挑战者";
-            $this->sendMessage($context, $roomWxid, $groupContent);
+            $this->sendTextMessage($context, $groupContent, $roomWxid);
 
             // 再发个人消息
             $personalContent = "{$first}\n✊您已连续坚持了 {$stats['current_streak']} 天\n🏅您总共攒了 {$stats['total_days']} 枚🌟\n您是今天第 {$stats['rank']} 个签到的🥇\n给你一个大大的赞👍\n{$randomEncourage}";
-            $this->sendMessage($context, $fromWxid, $personalContent);
+            // $this->sendMessage($context, $personalContent, $fromWxid);
         } else {
             // 重复签到
             $content = "✅再次祝贺你！今日您已经挑战过了！";
-            $this->sendMessage($context, $roomWxid, $content);
+            $this->sendTextMessage($context, $content, $roomWxid);
         }
 
         $this->log(__FUNCTION__, ['message' => 'CheckIn processed',
@@ -220,7 +220,7 @@ class CheckInMessageHandler extends BaseXbotHandler
         $finalText = $textTotalRanking . $textStreakRanking;
         $finalText .= "\n💡 发送「我的打卡」查看个人统计";
 
-        $this->sendMessage($context, $roomWxid, $finalText);
+        $this->sendTextMessage($context, $finalText, $roomWxid);
     }
 
     protected function processPersonalStats(XbotMessageContext $context, string $roomWxid, string $fromWxid, string $fromRemark)
@@ -272,14 +272,10 @@ class CheckInMessageHandler extends BaseXbotHandler
         }
 
         // 群里回复已发送
-        $this->sendMessage($context, $roomWxid, '📅 统计已单独发您微信。');
+        $this->sendTextMessage($context, '📅 统计已单独发您微信。', $roomWxid);
 
         // 私发详细统计
-        $this->sendMessage($context, $fromWxid, $text);
+        $this->sendTextMessage($context, $text, $fromWxid);
     }
 
-    protected function sendMessage(XbotMessageContext $context, string $toWxid, string $content)
-    {
-        $this->sendTextMessage($context, $content, $toWxid);
-    }
 }

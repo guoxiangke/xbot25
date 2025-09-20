@@ -2,6 +2,7 @@
 
 namespace App\Pipelines\Xbot\Message;
 
+use App\Models\WechatBot;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Managers\ConfigManager;
@@ -24,6 +25,7 @@ class SelfMessageHandler extends BaseXbotHandler
         'check_in' => '群签到系统',
         'youtube_room' => 'YouTube链接响应',
         'room_quit' => '退群监控',
+        'room_alias' => '群邀请别名',
     ];
 
     /**
@@ -64,6 +66,13 @@ class SelfMessageHandler extends BaseXbotHandler
             // 处理 /get chatwoot 命令
             if ($msg === '/get chatwoot') {
                 $this->handleGetChatwootCommand($context);
+                $context->markAsProcessed(static::class);
+                return $context;
+            }
+
+            // 处理 /get room_alias 命令
+            if ($msg === '/get room_alias') {
+                $this->handleGetRoomAliasCommand($context);
                 $context->markAsProcessed(static::class);
                 return $context;
             }
@@ -118,8 +127,8 @@ class SelfMessageHandler extends BaseXbotHandler
         }
 
         $originalKey = $parts[1];
-        // 对于 welcome_msg，将所有剩余部分作为 value（支持空格）
-        if ($originalKey === 'welcome_msg' && count($parts) > 3) {
+        // 对于支持空格的配置项，将所有剩余部分作为 value
+        if (in_array($originalKey, ['welcome_msg', 'room_alias']) && count($parts) > 3) {
             $value = implode(' ', array_slice($parts, 2));
         } else {
             $value = $parts[2];
@@ -128,9 +137,20 @@ class SelfMessageHandler extends BaseXbotHandler
         // 处理群级别配置命令别名（只在群聊中生效）
         $key = $this->resolveGroupConfigAlias($originalKey, $context->isRoom);
 
-        // 检查是否为群级别配置（只在群聊中作为群级别配置处理）
-        if (array_key_exists($key, self::GROUP_LEVEL_CONFIGS) && $context->isRoom) {
-            $this->handleGroupLevelConfig($context, $key, $value);
+        // 检查是否为群级别配置
+        if (array_key_exists($key, self::GROUP_LEVEL_CONFIGS)) {
+            // room_alias 是字符串配置，不是布尔配置
+            if ($key === 'room_alias') {
+                $this->handleRoomAliasConfig($context, $key, $value);
+            } else {
+                // 其他群级别配置只在群聊中作为群级别配置处理
+                if ($context->isRoom) {
+                    $this->handleGroupLevelConfig($context, $key, $value);
+                } else {
+                    $this->sendTextMessage($context, "群级别配置只能在群聊中设置");
+                    $this->markAsReplied($context);
+                }
+            }
             return;
         }
 
@@ -388,6 +408,98 @@ class SelfMessageHandler extends BaseXbotHandler
     }
 
     /**
+     * 处理群邀请别名配置
+     */
+    private function handleRoomAliasConfig(XbotMessageContext $context, string $key, string $value): void
+    {
+        // 群级别配置必须在群聊中执行
+        if (!$context->isRoom) {
+            $this->sendTextMessage($context, "群邀请别名只能在群聊中设置");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $configManager = new ConfigManager($context->wechatBot);
+        $roomWxid = $context->roomWxid;
+        
+        // 验证值不为空且为数字或字母
+        $alias = trim($value);
+        if (empty($alias)) {
+            $this->sendTextMessage($context, "❎ 群邀请别名不能为空");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 检查别名格式（只允许数字和字母）
+        if (!preg_match('/^[a-zA-Z0-9]+$/', $alias)) {
+            $this->sendTextMessage($context, "❎ 群邀请别名只能包含数字和字母");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 检查别名是否已被其他群使用
+        if ($configManager->isAliasUsed($alias, $roomWxid)) {
+            $this->sendTextMessage($context, "❎ 别名 '{$alias}' 已被其他群使用，请选择其他别名");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 设置群邀请别名
+        $configManager->setGroupConfig($key, $alias, $roomWxid);
+        
+        $this->sendTextMessage($context, "✅ 群邀请别名设置成功\n别名: {$alias}\n用户私聊回复此别名即可收到群邀请");
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理欢迎消息配置（根据发送场景自动选择存储位置）
+     */
+    private function handleWelcomeMessageConfig(XbotMessageContext $context, string $key, string $value): void
+    {
+        $configManager = new ConfigManager($context->wechatBot);
+        
+        // 验证值不为空
+        $welcomeMsg = trim($value);
+        if (empty($welcomeMsg)) {
+            $this->sendTextMessage($context, "❎ 欢迎消息不能为空");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        if ($context->isRoom) {
+            // 群聊中：设置该群的新成员欢迎消息
+            $roomWxid = $context->roomWxid;
+            
+            // 获取现有的群欢迎消息数组
+            $roomWelcomeMsgs = $configManager->getGroupConfig('room_welcome_msgs', null, []);
+            
+            // 更新该群的欢迎消息
+            $roomWelcomeMsgs[$roomWxid] = $welcomeMsg;
+            
+            // 保存到 room_welcome_msgs 配置
+            $configManager->setGroupConfig('room_welcome_msgs', $roomWelcomeMsgs, $roomWxid);
+            
+            $this->sendTextMessage($context, "✅ 群新成员欢迎消息设置成功\n模板: {$welcomeMsg}\n\n💡 支持变量：\n@nickname - 新成员昵称\n【xx】 - 群名称\n📧 新成员加入时将同时发送私聊和群内消息");
+        } else {
+            // 私聊中：设置系统级好友欢迎消息
+            $configManager->setStringConfig($key, $welcomeMsg);
+            
+            $tips = "✅ 好友欢迎消息设置成功\n";
+            $tips .= "消息模板: {$welcomeMsg}\n";
+            
+            if (strpos($welcomeMsg, '@nickname') !== false) {
+                $tips .= "\n💡 @nickname 会自动替换为好友的昵称或备注";
+            } else {
+                $tips .= "\n💡 提示: 可以使用 @nickname 变量自动替换为好友昵称";
+            }
+            
+            $this->sendTextMessage($context, $tips);
+        }
+        
+        $this->markAsReplied($context);
+    }
+
+    /**
      * 处理群消息监听配置
      */
     private function handleRoomMsgConfig(XbotMessageContext $context, string $roomWxid, bool $enabled): void
@@ -472,6 +584,51 @@ class SelfMessageHandler extends BaseXbotHandler
     }
 
     /**
+     * 处理获取群邀请别名命令
+     */
+    private function handleGetRoomAliasCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new ConfigManager($wechatBot);
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        $aliasConfigs = [];
+        $totalAliases = 0;
+        
+        // 获取所有房间别名映射
+        $aliasMap = $configManager->getAllRoomAliases();
+        
+        foreach ($aliasMap as $roomWxid => $alias) {
+            $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+            $aliasConfigs[] = [
+                'wxid' => $roomWxid,
+                'name' => $roomName,
+                'alias' => $alias
+            ];
+            $totalAliases++;
+        }
+        
+        // 构建响应消息
+        if (empty($aliasConfigs)) {
+            $message = "📋 群邀请别名配置状态\n\n❎ 暂无已配置的群邀请别名\n\n💡 使用方法：\n在群聊中发送：/set room_alias 1234\n用户私聊发送：1234 即可收到群邀请";
+        } else {
+            $message = "📋 群邀请别名配置状态\n\n";
+            $message .= "✅ 已配置 {$totalAliases} 个群邀请别名：\n\n";
+            
+            foreach ($aliasConfigs as $config) {
+                $message .= "🏷️ 别名: {$config['alias']}\n";
+                $message .= "   群名: {$config['name']}\n";
+                $message .= "   群ID: {$config['wxid']}\n\n";
+            }
+            
+            $message .= "💡 用户私聊发送别名即可收到对应群邀请";
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
      * 处理 /sync contacts 命令
      * 同步联系人列表
      */
@@ -543,6 +700,7 @@ class SelfMessageHandler extends BaseXbotHandler
         $message .= "/set <key> <value> - 设置配置项\n";
         $message .= "/config <key> <value> - 设置配置项\n";
         $message .= "/get chatwoot - 查看Chatwoot配置详情\n";
+        $message .= "/get room_alias - 查看群邀请别名配置\n";
         $message .= "/sync contacts - 同步联系人列表\n";
         $message .= "/check online - 检查微信在线状态\n\n";
 
@@ -705,23 +863,9 @@ class SelfMessageHandler extends BaseXbotHandler
             return;
         }
 
-        // 处理欢迎消息模板（支持@nickname变量）
+        // 处理欢迎消息模板（根据发送场景自动选择存储位置）
         if ($key === 'welcome_msg') {
-            $configManager->setStringConfig($key, $value);
-            $configName = $configManager->getConfigName($key);
-            
-            // 提示变量使用说明
-            $tips = "✅ {$configName}更新成功\n";
-            $tips .= "消息模板: {$value}\n";
-            
-            if (strpos($value, '@nickname') !== false) {
-                $tips .= "\n💡 @nickname 会自动替换为好友的昵称或备注";
-            } else {
-                $tips .= "\n💡 提示: 可以使用 @nickname 变量自动替换为好友昵称";
-            }
-            
-            $this->sendTextMessage($context, $tips);
-            $this->markAsReplied($context);
+            $this->handleWelcomeMessageConfig($context, $key, $value);
             return;
         }
 
@@ -808,7 +952,7 @@ class SelfMessageHandler extends BaseXbotHandler
         }
         
         // 检查其他配置相关命令
-        if (in_array($normalizedMessage, ['/get chatwoot', '/sync contacts', '/check online'])) {
+        if (in_array($normalizedMessage, ['/get chatwoot', '/get room_alias', '/sync contacts', '/check online'])) {
             return true;
         }
         

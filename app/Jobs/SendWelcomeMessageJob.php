@@ -45,7 +45,7 @@ class SendWelcomeMessageJob implements ShouldQueue
         $configManager = new ConfigManager($wechatBot);
         
         // 检查是否设置了好友欢迎消息
-        if (!$configManager->isWelcomeMessageEnabled()) {
+        if (!$configManager->hasWelcomeMessage()) {
             Log::info(__FUNCTION__, [
                 'wechat_bot_id' => $this->wechatBotId,
                 'target_wxid' => $this->targetWxid,

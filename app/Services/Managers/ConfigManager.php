@@ -21,7 +21,6 @@ class ConfigManager
         'payment_auto' => '自动收款',
         'check_in' => '签到系统',
         'friend_auto_accept' => '自动同意好友请求',
-        'friend_welcome' => '新好友欢迎消息',
         'room_quit' => '退群监控',
     ];
 
@@ -46,6 +45,8 @@ class ConfigManager
      * 群级别配置项（非布尔值）
      */
     const GROUP_CONFIGS = [
+        'room_alias' => '群邀请别名',
+        'room_welcome_msgs' => '群新成员欢迎消息模板',
     ];
 
     /**
@@ -69,6 +70,7 @@ class ConfigManager
      * 群级别配置默认值
      */
     const GROUP_DEFAULT_VALUES = [
+        'room_alias' => null,
     ];
 
     private WechatBot $wechatBot;
@@ -359,6 +361,25 @@ class ConfigManager
             return self::GROUP_DEFAULT_VALUES[$command] ?? $default;
         }
 
+        // room_alias 使用集中化存储
+        if ($command === 'room_alias') {
+            $aliasMap = $this->wechatBot->getMeta('room_alias', []);
+            return $aliasMap[$roomWxid] ?? $default;
+        }
+
+        // room_welcome_msgs 使用集中化存储（数组格式）
+        if ($command === 'room_welcome_msgs') {
+            if ($roomWxid) {
+                // 获取特定群的欢迎消息
+                $welcomeMsgs = $this->wechatBot->getMeta('room_welcome_msgs', []);
+                return $welcomeMsgs[$roomWxid] ?? $default;
+            } else {
+                // 获取所有群的欢迎消息数组
+                return $this->wechatBot->getMeta('room_welcome_msgs', $default);
+            }
+        }
+
+        // 其他群配置使用原有存储方式
         $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
         return $groupMeta[$command] ?? (self::GROUP_DEFAULT_VALUES[$command] ?? $default);
     }
@@ -372,6 +393,30 @@ class ConfigManager
             return false;
         }
 
+        // room_alias 使用集中化存储
+        if ($command === 'room_alias') {
+            $aliasMap = $this->wechatBot->getMeta('room_alias', []);
+            
+            if (empty($value)) {
+                // 删除别名
+                unset($aliasMap[$roomWxid]);
+            } else {
+                // 设置别名
+                $aliasMap[$roomWxid] = $value;
+            }
+            
+            $this->wechatBot->setMeta('room_alias', $aliasMap);
+            return true;
+        }
+
+        // room_welcome_msgs 使用集中化存储（数组格式）
+        if ($command === 'room_welcome_msgs') {
+            // 直接设置整个数组（value 应该是完整的数组）
+            $this->wechatBot->setMeta('room_welcome_msgs', $value);
+            return true;
+        }
+
+        // 其他群配置使用原有存储方式
         $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
         $groupMeta[$command] = $value;
         $this->wechatBot->setMeta("group.{$roomWxid}", $groupMeta);
@@ -388,27 +433,61 @@ class ConfigManager
             return self::GROUP_DEFAULT_VALUES;
         }
 
-        $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
         $configs = [];
         
         foreach (self::GROUP_CONFIGS as $command => $description) {
-            $configs[$command] = $groupMeta[$command] ?? (self::GROUP_DEFAULT_VALUES[$command] ?? null);
+            // 使用 getGroupConfig 方法，它会自动处理不同的存储格式
+            $configs[$command] = $this->getGroupConfig($command, $roomWxid, self::GROUP_DEFAULT_VALUES[$command] ?? null);
         }
         
         return $configs;
     }
 
     /**
-     * 检查欢迎消息是否启用（同时检查开关和消息模板）
+     * 获取所有房间别名映射
      */
-    public function isWelcomeMessageEnabled(): bool
+    public function getAllRoomAliases(): array
     {
-        // 检查欢迎消息开关是否启用
-        if (!$this->isEnabled('friend_welcome')) {
-            return false;
+        return $this->wechatBot->getMeta('room_alias', []);
+    }
+
+    /**
+     * 检查别名是否已被使用
+     */
+    public function isAliasUsed(string $alias, ?string $excludeRoomWxid = null): bool
+    {
+        $aliasMap = $this->getAllRoomAliases();
+        
+        foreach ($aliasMap as $roomWxid => $roomAlias) {
+            if ($roomAlias === $alias && $roomWxid !== $excludeRoomWxid) {
+                return true;
+            }
         }
         
-        // 检查是否设置了欢迎消息模板
+        return false;
+    }
+
+    /**
+     * 通过别名查找房间
+     */
+    public function findRoomByAlias(string $alias): ?string
+    {
+        $aliasMap = $this->getAllRoomAliases();
+        
+        foreach ($aliasMap as $roomWxid => $roomAlias) {
+            if ($roomAlias === $alias) {
+                return $roomWxid;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 检查好友欢迎消息是否设置（仅检查消息模板是否存在）
+     */
+    public function hasWelcomeMessage(): bool
+    {
         $welcomeMsg = $this->getStringConfig('welcome_msg');
         return !empty(trim($welcomeMsg));
     }

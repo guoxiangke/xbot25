@@ -175,7 +175,9 @@ class WechatBot extends Model
      */
     public function getResouce($keyword){
         $cacheKey = "resources.{$keyword}";
-        return Cache::remember($cacheKey, strtotime('tomorrow') - time(), function() use ($keyword) {
+        // 使用UTC+8时区计算到明天的秒数
+        $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
+        return Cache::remember($cacheKey, $secondsUntilTomorrow, function() use ($keyword) {
             $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
             if($response->ok() && $data = $response->json()){
                 if(isset($data['statistics'])){

@@ -32,6 +32,11 @@ class SystemMessageHandler extends BaseXbotHandler
             if ($this->isQuitMessage($rawMsg)) {
                 $this->handleQuitMessage($context, $rawMsg);
             }
+            
+            // 检查是否为群新成员加入消息
+            if ($this->isJoinMessage($rawMsg)) {
+                $this->handleJoinMessage($context, $rawMsg);
+            }
         }
         
         // 格式化系统消息为文本格式
@@ -290,5 +295,132 @@ class SystemMessageHandler extends BaseXbotHandler
             default:
                 return null;
         }
+    }
+
+    /**
+     * 检查是否为群新成员加入的系统消息
+     */
+    private function isJoinMessage(string $rawMsg): bool
+    {
+        // 检查各种群新成员加入消息模式
+        $joinPatterns = [
+            '/你邀请"(.+?)"加入了群聊/',          // 邀请加入
+            '/"(.+?)"加入了群聊/',               // 直接加入
+            '/(.+?)加入了群聊/',                 // 一般加入格式
+            '/"(.+?)"通过扫描你分享的二维码加入群聊/', // 二维码加入
+            '/(.+?)通过(.+?)邀请加入了群聊/',      // 通过他人邀请加入
+        ];
+        
+        foreach ($joinPatterns as $pattern) {
+            if (preg_match($pattern, $rawMsg)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * 处理群新成员加入消息，发送欢迎消息
+     */
+    private function handleJoinMessage(XbotMessageContext $context, string $rawMsg): void
+    {
+        $roomWxid = $context->requestRawData['room_wxid'] ?? null;
+        $roomName = $context->requestRawData['room_name'] ?? '群聊';
+        
+        if (!$roomWxid) {
+            $this->logError('Join message without room_wxid', [
+                'raw_msg' => $rawMsg
+            ]);
+            return;
+        }
+
+        // 检查是否设置了群新成员欢迎消息
+        $configManager = new ConfigManager($context->wechatBot);
+        $welcomeTemplate = $configManager->getGroupConfig('room_welcome_msgs', $roomWxid);
+        
+        if (empty($welcomeTemplate)) {
+            $this->log(__FUNCTION__, ['message' => 'No group welcome message template configured',
+                'room_wxid' => $roomWxid,
+                'raw_msg' => $rawMsg
+            ]);
+            return;
+        }
+
+        // 从系统消息中提取新成员昵称
+        $newMemberName = $this->extractJoinUserName($rawMsg);
+        
+        if (!$newMemberName) {
+            $this->logError('Failed to extract new member name from join message', [
+                'raw_msg' => $rawMsg,
+                'room_wxid' => $roomWxid
+            ]);
+            return;
+        }
+
+        // 替换变量生成欢迎消息
+        $welcomeMessage = $this->replaceWelcomeVariables($welcomeTemplate, $newMemberName, $roomName);
+        
+        try {
+            $xbot = $context->wechatBot->xbot();
+            
+            // 发送群内欢迎消息
+            $groupResult = $xbot->sendTextMessage($roomWxid, $welcomeMessage);
+            
+            $this->log(__FUNCTION__, ['message' => 'Group welcome message sent to group',
+                'room_wxid' => $roomWxid,
+                'room_name' => $roomName,
+                'new_member_name' => $newMemberName,
+                'welcome_message' => $welcomeMessage,
+                'group_result' => $groupResult,
+                'raw_msg' => $rawMsg
+            ]);
+            
+            // 注意：由于系统消息没有新成员的wxid，只能发送群内消息，无法发送私聊消息
+            
+        } catch (\Exception $e) {
+            $this->logError('Failed to send group welcome message', [
+                'room_wxid' => $roomWxid,
+                'new_member_name' => $newMemberName,
+                'error' => $e->getMessage(),
+                'raw_msg' => $rawMsg
+            ]);
+        }
+    }
+
+    /**
+     * 从群新成员加入消息中提取用户名
+     */
+    private function extractJoinUserName(string $rawMsg): ?string
+    {
+        // 尝试各种模式提取新成员用户名
+        $patterns = [
+            '/你邀请"(.+?)"加入了群聊/' => 1,           // 邀请加入：提取被邀请用户名
+            '/"(.+?)"加入了群聊/' => 1,                // 直接加入：提取用户名
+            '/(.+?)加入了群聊/' => 1,                  // 一般加入格式：提取用户名
+            '/"(.+?)"通过扫描你分享的二维码加入群聊/' => 1, // 二维码加入：提取用户名
+            '/(.+?)通过(.+?)邀请加入了群聊/' => 1,       // 通过他人邀请：提取被邀请用户名
+        ];
+        
+        foreach ($patterns as $pattern => $groupIndex) {
+            if (preg_match($pattern, $rawMsg, $matches)) {
+                return $matches[$groupIndex] ?? null;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 替换欢迎消息中的变量
+     */
+    private function replaceWelcomeVariables(string $template, string $nickname, string $groupName): string
+    {
+        $replacements = [
+            '@nickname' => "@{$nickname}",
+            '【xx】' => "【{$groupName}】",
+        ];
+        
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
 }

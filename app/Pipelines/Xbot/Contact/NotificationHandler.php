@@ -126,8 +126,8 @@ class NotificationHandler extends BaseXbotHandler
             'sent_as_bot' => true
         ]);
 
-        // 群级欢迎消息功能已移除
-        // 只有好友添加时才会发送欢迎消息
+        // 检查是否需要发送群新成员欢迎消息
+        $this->sendGroupWelcomeMessages($context, $roomWxid, $groupName, $memberList);
     }
 
     /**
@@ -193,7 +193,7 @@ class NotificationHandler extends BaseXbotHandler
             // 检查是否需要发送欢迎消息
             $configManager = new ConfigManager($context->wechatBot);
             
-            if ($configManager->isWelcomeMessageEnabled()) {
+            if ($configManager->hasWelcomeMessage()) {
                 // 延迟5-10分钟发送欢迎消息
                 $delay = rand(300, 600);
                 
@@ -431,6 +431,83 @@ class NotificationHandler extends BaseXbotHandler
             default:
                 return null;
         }
+    }
+
+    /**
+     * 发送群新成员欢迎消息（双重发送：私聊+群内）
+     */
+    private function sendGroupWelcomeMessages(XbotMessageContext $context, string $roomWxid, string $groupName, array $memberList): void
+    {
+        $configManager = new ConfigManager($context->wechatBot);
+        
+        // 获取群级别的新成员欢迎消息模板
+        $welcomeTemplate = $configManager->getGroupConfig('room_welcome_msgs', $roomWxid);
+        
+        if (empty($welcomeTemplate)) {
+            $this->log(__FUNCTION__, ['message' => 'No group welcome message template configured',
+                'room_wxid' => $roomWxid
+            ]);
+            return;
+        }
+
+        // 获取联系人信息用于昵称替换
+        $contacts = $context->wechatBot->getMeta('contacts', []);
+        
+        // 为每个新成员发送欢迎消息
+        foreach ($memberList as $member) {
+            $memberWxid = $member['wxid'] ?? null;
+            if (!$memberWxid) {
+                continue;
+            }
+            
+            // 获取成员昵称
+            $memberNickname = $contacts[$memberWxid]['nickname'] ?? 
+                             $contacts[$memberWxid]['remark'] ?? 
+                             $member['nickname'] ?? 
+                             $memberWxid;
+            
+            // 替换变量
+            $welcomeMessage = $this->replaceWelcomeVariables($welcomeTemplate, $memberNickname, $groupName);
+            
+            try {
+                $xbot = $context->wechatBot->xbot();
+                
+                // 1. 发送私聊欢迎消息给新成员
+                $privateResult = $xbot->sendTextMessage($memberWxid, $welcomeMessage);
+                
+                // 2. 发送群内欢迎消息
+                $groupResult = $xbot->sendTextMessage($roomWxid, $welcomeMessage);
+                
+                $this->log(__FUNCTION__, ['message' => 'Group welcome messages sent (private + group)',
+                    'room_wxid' => $roomWxid,
+                    'member_wxid' => $memberWxid,
+                    'member_nickname' => $memberNickname,
+                    'welcome_message' => $welcomeMessage,
+                    'private_result' => $privateResult,
+                    'group_result' => $groupResult
+                ]);
+                
+            } catch (\Exception $e) {
+                $this->logError('Failed to send group welcome messages', [
+                    'room_wxid' => $roomWxid,
+                    'member_wxid' => $memberWxid,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+    }
+
+    /**
+     * 替换欢迎消息中的变量
+     */
+    private function replaceWelcomeVariables(string $template, string $nickname, string $groupName): string
+    {
+        $replacements = [
+            '@nickname' => "@{$nickname}",
+            '【xx】' => "【{$groupName}】",
+        ];
+        
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
     }
 
 }
