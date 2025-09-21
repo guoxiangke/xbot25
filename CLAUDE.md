@@ -127,8 +127,8 @@ Key environment variables in `.env`:
 # Xbot License（必需）
 XBOT_LICENSE=your_license_key_here
 
-# Chatwoot集成配置
-CHATWOOT_BASE_URL=https://your-chatwoot-instance.com
+# Chatwoot集成配置（已改为通过配置命令设置）
+# 使用 /set chatwoot_endpoint_url https://your-chatwoot-instance.com 命令设置
 
 # 微信支付识别文本
 WECHAT_PAY_TXT="#付款:AI天空蔚蓝(bluesky_still)/支持我们/001"

@@ -25,7 +25,7 @@ class ChatwootClient
         $this->accountId = $configManager->getChatwootConfig('chatwoot_account_id');
         $this->inboxId = $configManager->getChatwootConfig('chatwoot_inbox_id');
         $this->token = $configManager->getChatwootConfig('chatwoot_token');
-        $this->baseUrl = config('services.chatwoot.base_url');
+        $this->baseUrl = $configManager->getChatwootConfig('chatwoot_endpoint_url');
 
         $headers = [
             'Content-Type' => 'application/json',

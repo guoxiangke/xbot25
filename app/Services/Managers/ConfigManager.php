@@ -32,6 +32,7 @@ class ConfigManager
         'chatwoot_account_id' => 'Chatwoot账户ID',
         'chatwoot_inbox_id' => 'Chatwoot收件箱ID',
         'chatwoot_token' => 'ChatwootAPI令牌',
+        'chatwoot_endpoint_url' => 'Chatwoot服务器地址',
     ];
 
     /**
@@ -205,6 +206,12 @@ class ConfigManager
         }
 
         $chatwootMeta = $this->wechatBot->getMeta('chatwoot', []);
+        
+        // 为 chatwoot_endpoint_url 提供默认值
+        if ($command === 'chatwoot_endpoint_url' && empty($chatwootMeta[$command])) {
+            return 'https://app.chatwoot.com';
+        }
+        
         return $chatwootMeta[$command] ?? $default;
     }
 

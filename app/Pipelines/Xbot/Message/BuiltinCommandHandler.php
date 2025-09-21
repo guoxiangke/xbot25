@@ -85,7 +85,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleHelpCommand(XbotMessageContext $context): void
     {
-        $helpText = "Hi，我是一个AI机器人，暂支持以下指令：\n";
+        $helpText = "Hi，我是AI，暂支持以下指令：\n";
 
         foreach (self::COMMANDS as $command => $config) {
             // 跳过隐藏的命令或空描述的命令

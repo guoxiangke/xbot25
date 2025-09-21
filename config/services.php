@@ -44,9 +44,6 @@ return [
         // 'test_endpoint' => env('XBOT_TEST_ENDPOINT', 'http://localhost/api/wechat/send'),
         'donate' => env('WECHAT_PAY_TXT', ''),
     ],
-    'chatwoot' => [
-        'base_url' => env('CHATWOOT_BASE_URL', 'https://demo.chatwoot.com'),
-    ],
     'bark' => [
         'url' => env('BARK_NOTIFY', ''), // bark 推送 token
     ],
