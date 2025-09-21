@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Cache;
  * Chatwoot Webhook 控制器
  * 处理来自Chatwoot的webhook请求
  */
-class ChatwootWebhookController extends Controller
+class ChatwootController extends Controller
 {
     /**
      * 处理来自 Chatwoot 的 webhook 请求
@@ -85,7 +85,7 @@ class ChatwootWebhookController extends Controller
             'to_wxid' => $toWxid,
             'content_length' => strlen($content),
             'attachments_count' => count($attachments),
-            'message' => 'ChatwootWebhookController'
+            'message' => 'ChatwootController'
         ]);
         
         return response()->json(['status' => 'ok']);

@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Services\Dispatchers;
+namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\XbotWebhookRequest;
 use App\Models\WechatBot;
 use App\Models\WechatClient;
 use App\Services\Clients\XbotClient;
@@ -36,12 +38,13 @@ use App\Pipelines\Xbot\Message\WebhookHandler;
 use App\Pipelines\Xbot\Message\ChatwootHandler;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Response;
 
 /**
- * 消息调度器
- * 负责调度消息到不同的Pipeline进行处理
+ * Xbot Webhook 控制器
+ * 处理HTTP请求和消息调度业务逻辑
  */
-class MessageDispatcher
+class XbotController extends Controller
 {
     private ContactSyncProcessor $contactSyncProcessor;
 
@@ -51,9 +54,39 @@ class MessageDispatcher
     }
 
     /**
+     * 处理Xbot webhook请求
+     */
+    public function __invoke(XbotWebhookRequest $request, string $winToken)
+    {
+        try {
+            $validatedData = $request->getValidatedData($winToken);
+            $result = $this->dispatch($validatedData);
+
+            return $this->createTextResponse($result);
+            
+        } catch (\Exception $e) {
+            return $this->createTextResponse($e->getMessage());
+        }
+    }
+
+    /**
+     * 创建纯文本响应
+     */
+    private function createTextResponse($data): Response
+    {
+        $content = $data ?? 'ok';
+        
+        return new Response(
+            $content,
+            200,
+            ['Content-Type' => 'text/plain; charset=utf-8']
+        );
+    }
+
+    /**
      * 调度消息处理
      */
-    public function dispatch(array $validatedData): mixed
+    private function dispatch(array $validatedData): mixed
     {
         extract($validatedData);
         $requestRawData = $requestAllData['data'] ?? [];
@@ -153,117 +186,117 @@ class MessageDispatcher
     }
 
     /**
- * 处理机器人自身信息消息
- */
-private function handleOwnerDataMessage(?WechatBot $wechatBot, int $clientId): string
-{
-    if (!$wechatBot) {
-        Log::warning('Owner data message received but no WechatBot found', ['client_id' => $clientId]);
-        return 'processed MT_DATA_OWNER_MSG without WechatBot';
-    }
+     * 处理机器人自身信息消息
+     */
+    private function handleOwnerDataMessage(?WechatBot $wechatBot, int $clientId): string
+    {
+        if (!$wechatBot) {
+            Log::warning('Owner data message received but no WechatBot found', ['client_id' => $clientId]);
+            return 'processed MT_DATA_OWNER_MSG without WechatBot';
+        }
 
-    // 直接调用OwnerDataStateHandler处理
-    $handler = new OwnerDataStateHandler();
-    $handler->handle($wechatBot, $clientId);
-    
-    return 'processed MT_DATA_OWNER_MSG';
-}
+        // 直接调用OwnerDataStateHandler处理
+        $handler = new OwnerDataStateHandler();
+        $handler->handle($wechatBot, $clientId);
+        
+        return 'processed MT_DATA_OWNER_MSG';
+    }
 
     /**
- * 通过Pipeline处理消息
- */
-private function processMessageThroughPipeline(
-    WechatBot $wechatBot,
-    array $requestRawData,
-    array $requestAllData,
-    string $msgType,
-    int $clientId,
-    bool $isRoom,
-    ?string $roomWxid
-): mixed {
-    // 创建消息上下文
-    $context = new XbotMessageContext($wechatBot, $requestRawData, $msgType, $clientId);
+     * 通过Pipeline处理消息
+     */
+    private function processMessageThroughPipeline(
+        WechatBot $wechatBot,
+        array $requestRawData,
+        array $requestAllData,
+        string $msgType,
+        int $clientId,
+        bool $isRoom,
+        ?string $roomWxid
+    ): mixed {
+        // 创建消息上下文
+        $context = new XbotMessageContext($wechatBot, $requestRawData, $msgType, $clientId);
 
-    // 群消息过滤检查
-    if ($context->isRoom) {
-        $configManager = new \App\Services\Managers\ConfigManager($wechatBot);
-        $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
-        $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
+        // 群消息过滤检查
+        if ($context->isRoom) {
+            $configManager = new \App\Services\Managers\ConfigManager($wechatBot);
+            $filter = new \App\Services\ChatroomMessageFilter($wechatBot, $configManager);
+            $messageContent = $requestRawData['msg'] ?? $requestRawData['data']['msg'] ?? '';
 
-        // 先检查基本的群消息过滤
-        $basicFilterPassed = $filter->shouldProcess($context->roomWxid, $messageContent);
+            // 先检查基本的群消息过滤
+            $basicFilterPassed = $filter->shouldProcess($context->roomWxid, $messageContent);
 
-        // 如果基本过滤不通过，检查是否为特殊消息需要放行
-        if (!$basicFilterPassed) {
-            // 检查是否为群级别配置命令（这些命令需要始终放行）
-            $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
+            // 如果基本过滤不通过，检查是否为特殊消息需要放行
+            if (!$basicFilterPassed) {
+                // 检查是否为群级别配置命令（这些命令需要始终放行）
+                $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
 
-            // 检查是否为签到消息且该群开启了签到
-            $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
-            $isCheckInMessage = $this->isCheckInMessage($messageContent);
-            $canCheckIn = $checkInService->canCheckIn($context->roomWxid);
+                // 检查是否为签到消息且该群开启了签到
+                $checkInService = new \App\Services\CheckInPermissionService($wechatBot);
+                $isCheckInMessage = $this->isCheckInMessage($messageContent);
+                $canCheckIn = $checkInService->canCheckIn($context->roomWxid);
 
-            // 如果是群配置命令或者是签到消息且该群可以签到，则放行
-            if ($isGroupConfigCommand || ($isCheckInMessage && $canCheckIn)) {
-                // 允许处理
-            } else {
-                return 'ignored: group message filtered out';
+                // 如果是群配置命令或者是签到消息且该群可以签到，则放行
+                if ($isGroupConfigCommand || ($isCheckInMessage && $canCheckIn)) {
+                    // 允许处理
+                } else {
+                    return 'ignored: group message filtered out';
+                }
             }
         }
+
+        // 第一阶段：状态管理 Pipeline
+        app(Pipeline::class)
+            ->send($context)
+            ->through([ZombieCheckHandler::class])
+            ->thenReturn();
+
+        if ($context->isProcessed()) {
+            return 'processed by state pipeline';
+        }
+
+        // 第二阶段：联系人管理 Pipeline
+        app(Pipeline::class)
+            ->send($context)
+            ->through([
+                NotificationHandler::class,
+                FriendRequestHandler::class,
+                SearchContactHandler::class,
+            ])
+            ->thenReturn();
+
+        if ($context->isProcessed()) {
+            return 'processed by contact pipeline';
+        }
+
+        // 第三阶段：消息内容处理 Pipeline
+        app(Pipeline::class)
+            ->send($context)
+            ->through([
+                BuiltinCommandHandler::class,
+                SelfMessageHandler::class,
+                PaymentMessageHandler::class,
+                SystemMessageHandler::class,
+                LocationMessageHandler::class,
+                ImageMessageHandler::class,
+                FileVideoMessageHandler::class,
+                VoiceMessageHandler::class,
+                VoiceTransMessageHandler::class,
+                EmojiMessageHandler::class,
+                LinkMessageHandler::class,
+                OtherAppMessageHandler::class,
+                SubscriptionHandler::class,
+                CheckInMessageHandler::class,
+                RoomAliasHandler::class,
+                TextMessageHandler::class,
+                KeywordResponseHandler::class,
+                WebhookHandler::class,
+                ChatwootHandler::class,
+            ])
+            ->thenReturn();
+
+        return 'processed through message pipeline';
     }
-
-    // 第一阶段：状态管理 Pipeline
-    app(Pipeline::class)
-        ->send($context)
-        ->through([ZombieCheckHandler::class])
-        ->thenReturn();
-
-    if ($context->isProcessed()) {
-        return 'processed by state pipeline';
-    }
-
-    // 第二阶段：联系人管理 Pipeline
-    app(Pipeline::class)
-        ->send($context)
-        ->through([
-            NotificationHandler::class,
-            FriendRequestHandler::class,
-            SearchContactHandler::class,
-        ])
-        ->thenReturn();
-
-    if ($context->isProcessed()) {
-        return 'processed by contact pipeline';
-    }
-
-    // 第三阶段：消息内容处理 Pipeline
-    app(Pipeline::class)
-        ->send($context)
-        ->through([
-            BuiltinCommandHandler::class,
-            SelfMessageHandler::class,
-            PaymentMessageHandler::class,
-            SystemMessageHandler::class,
-            LocationMessageHandler::class,
-            ImageMessageHandler::class,
-            FileVideoMessageHandler::class,
-            VoiceMessageHandler::class,
-            VoiceTransMessageHandler::class,
-            EmojiMessageHandler::class,
-            LinkMessageHandler::class,
-            OtherAppMessageHandler::class,
-            SubscriptionHandler::class,
-            CheckInMessageHandler::class,
-            RoomAliasHandler::class,
-            TextMessageHandler::class,
-            KeywordResponseHandler::class,
-            WebhookHandler::class,
-            ChatwootHandler::class,
-        ])
-        ->thenReturn();
-
-    return 'processed through message pipeline';
-}
 
     /**
      * 检查消息是否为群级别配置命令

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\WechatBot;
@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
  * WeChat API 控制器
  * 提供微信相关的API接口
  */
-class WechatApiController extends Controller
+class WechatController extends Controller
 {
     public function send(Request $request)
     {

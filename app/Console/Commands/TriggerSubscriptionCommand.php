@@ -62,9 +62,9 @@ class TriggerSubscriptionCommand extends Command
                 $this->warn("关键词 '{$keyword}' 没有找到对应资源，将发送关键词本身");
             }
 
-            // 发送资源
-            $wechatBot->send([$to], $resource);
-            $this->info("已发送资源到 {$to}");
+            // 发送资源及其所有附加内容
+            $wechatBot->sendResourceWithAdditions([$to], $resource);
+            $this->info("已发送资源（含附加内容）到 {$to}");
 
             // 避免发送过于频繁
             sleep(1);

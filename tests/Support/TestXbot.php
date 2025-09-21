@@ -6,11 +6,18 @@ use Illuminate\Support\Facades\Http;
 
 class TestXbot
 {
+    private array $calls = [];
+
     /**
      * 模拟发送文本消息的方法
      */
     public function sendTextMessage(string $target, string $message): bool
     {
+        $this->calls[] = [
+            'method' => 'sendTextMessage',
+            'args' => [$target, $message]
+        ];
+        
         // 使用HTTP客户端发送模拟请求，这样测试可以验证请求是否被发送
         // 修复：匹配真实XbotClient的数据结构
         Http::post('http://localhost:8001/send_text', [
@@ -23,6 +30,61 @@ class TestXbot
         ]);
         
         return true;
+    }
+
+    /**
+     * 模拟发送音乐的方法
+     */
+    public function sendMusic(string $target, string $url, string $title = '', string $description = '', ?string $image = null, ?string $lrc = null): bool
+    {
+        $this->calls[] = [
+            'method' => 'sendMusic',
+            'args' => [$target, $url, $title, $description, $image, $lrc]
+        ];
+        
+        return true;
+    }
+
+    /**
+     * 模拟发送链接的方法
+     */
+    public function sendLink(string $target, string $url, string $image = '', string $title = '', string $description = ''): bool
+    {
+        $this->calls[] = [
+            'method' => 'sendLink',
+            'args' => [$target, $url, $image, $title, $description]
+        ];
+        
+        return true;
+    }
+
+    /**
+     * 模拟发送图片的方法
+     */
+    public function sendImageByUrl(string $target, string $url): bool
+    {
+        $this->calls[] = [
+            'method' => 'sendImageByUrl',
+            'args' => [$target, $url]
+        ];
+        
+        return true;
+    }
+
+    /**
+     * 获取所有调用记录
+     */
+    public function getCalls(): array
+    {
+        return $this->calls;
+    }
+
+    /**
+     * 清除调用记录
+     */
+    public function clearCalls(): void
+    {
+        $this->calls = [];
     }
     
     /**

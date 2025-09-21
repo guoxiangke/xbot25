@@ -21,9 +21,9 @@ The system consists of:
 
 ### Core Architecture (2025 Restructured)
 - **XbotClient** (`app/Services/Clients/XbotClient.php`): Core API client for WeChat automation
-- **Webhook Controller** (`app/Http/Controllers/Api/XbotWebhookController.php`): Slim HTTP controller for webhook requests
-- **Message Dispatcher** (`app/Services/Dispatchers/MessageDispatcher.php`): Central message routing and pipeline coordination
-- **Request Processor** (`app/Services/Processors/RequestProcessor.php`): Complex request validation and data preparation
+- **Xbot Controller** (`app/Http/Controllers/XbotController.php`): Main webhook controller with integrated message dispatch logic
+- **Chatwoot Controller** (`app/Http/Controllers/ChatwootController.php`): Chatwoot webhook handler
+- **Request Validation** (`app/Http/Requests/XbotWebhookRequest.php`): Integrated request validation and data preparation
 - **Configuration Manager** (`app/Services/Managers/ConfigManager.php`): 统一配置管理系统
 
 ### Data Models
@@ -107,7 +107,7 @@ php artisan queue:listen
 ## API Endpoints
 
 ### Core Endpoints
-- `POST /xbot/{winToken}` - Main webhook endpoint for WeChat client communication (handled by `XbotWebhookController`)
+- `POST /xbot/{winToken}` - Main webhook endpoint for WeChat client communication (handled by `XbotController`)
 - `POST /xbot/login` - License validation endpoint  
 - `POST /xbot/heartbeat` - License heartbeat endpoint
 - `POST /xbot/license/info` - License information endpoint
@@ -799,18 +799,18 @@ $sourceAnalysis = FriendSourceAnalyzer::analyze($data);
 完成了完整的Services目录结构重构，按职责分离：
 - **Clients/** - API客户端 (`XbotClient`, `ChatwootClient`)
 - **Managers/** - 协调管理 (`ConfigManager`) 
-- **Processors/** - 业务逻辑处理 (`RequestProcessor`)
+- **Processors/** - 业务逻辑处理 (`ContactSyncProcessor`)
 - **Analytics/** - 数据分析 (`FriendSourceAnalyzer`)
 - **Guards/** - 权限控制 (`PermissionGuard`)
 - **StateHandlers/** - 状态管理 (`BotStateHandler`)
-- **Dispatchers/** - 分发协调 (`MessageDispatcher`)
+- **Controllers/** - HTTP控制器 (`XbotController`, `ChatwootController`)
 
 ### HTTP 层重构  
-完成了HTTP层的"瘦控制器"重构：
-- 将479行的"上帝类"XbotController拆分为30行的XbotWebhookController
-- 业务逻辑提取到MessageDispatcher (400+行)
+完成了HTTP层的架构简化：
+- 将MessageDispatcher业务逻辑合并到XbotController中，简化调用链
+- 移除Api命名空间层级，统一控制器位置
 - 创建专门的中间件 (`XbotAuthentication`, `RateLimitWebhook`)
-- 实现资源类 (`XbotResponseResource`, `ErrorResponseResource`)
+- 简化响应处理（直接在Controller中处理）
 - 职责分离：RequestProcessor处理复杂的验证和数据准备
 
 ### 类名变更记录

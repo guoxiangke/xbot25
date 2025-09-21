@@ -40,19 +40,19 @@ Route::post('/xbot/license/info', function (Request $request) {
     ];
 });
 
-use App\Http\Controllers\Api\XbotWebhookController;
-use App\Http\Controllers\Api\WechatApiController;
-use App\Http\Controllers\Api\ChatwootWebhookController;
+use App\Http\Controllers\XbotController;
+use App\Http\Controllers\WechatController;
+use App\Http\Controllers\ChatwootController;
 
-Route::any('/xbot/{winToken}', XbotWebhookController::class);
+Route::any('/xbot/{winToken}', XbotController::class);
 
 // {"type":"text", "to":"bluesky_still", "data": {"content": "API主动发送 文本/链接/名片/图片/视频 消息到好友/群"}}
 // {"type":"at", "to" :"23896218687@chatroom", "data": {"at":["wxid_xxxxxx","wxid_xxxxxxx"],"content": "{$@}消息到好友/群{$@}"}}
 Route::group(['middleware' => ['auth:sanctum']], function () {
-    Route::post('/wechat/send', [WechatApiController::class, 'send']);
-    Route::post('/wechat/add', [WechatApiController::class, 'add']);
-    Route::get('/wechat/friends', [WechatApiController::class, 'getFriends']);
+    Route::post('/wechat/send', [WechatController::class, 'send']);
+    Route::post('/wechat/add', [WechatController::class, 'add']);
+    Route::get('/wechat/friends', [WechatController::class, 'getFriends']);
 });
 
 // Chatwoot webhook endpoint
-Route::post('/chatwoot/{wechatBot}', [ChatwootWebhookController::class, 'handle']);
+Route::post('/chatwoot/{wechatBot}', [ChatwootController::class, 'handle']);

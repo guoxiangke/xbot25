@@ -170,6 +170,42 @@ class WechatBot extends Model
     }
 
     /**
+     * 发送资源及其所有附加内容到指定wxid列表
+     * 统一处理主要内容和递归附加内容，确保KeywordResponseHandler和TriggerSubscriptionCommand行为一致
+     */
+    public function sendResourceWithAdditions(array $tos, array $resource): void
+    {
+        // 标记为关键词响应消息
+        $resource['is_keyword_response'] = true;
+        
+        // 发送主要内容
+        $this->send($tos, $resource);
+        
+        // 递归发送所有附加内容
+        $this->sendAdditions($tos, $resource);
+    }
+
+    /**
+     * 递归发送附加内容
+     * 从KeywordResponseHandler移动到此处，统一管理
+     */
+    private function sendAdditions(array $tos, array $resource): void
+    {
+        if (isset($resource['addition'])) {
+            $addition = $resource['addition'];
+            
+            // 标记为关键词响应消息
+            $addition['is_keyword_response'] = true;
+            
+            // 发送当前附加内容
+            $this->send($tos, $addition);
+            
+            // 递归处理嵌套的附加内容
+            $this->sendAdditions($tos, $addition);
+        }
+    }
+
+    /**
      * 获取关键词对应的资源
      * 从KeywordResponseHandler移动到此处，以便订阅系统复用
      */
