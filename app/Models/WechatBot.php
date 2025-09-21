@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 class WechatBot extends Model
 {
     use HasFactory, Metable;
-    
+
     protected $guarded = ['id', 'created_at', 'updated_at', 'deleted_at'];
     protected $dates = ['created_at', 'updated_at', 'deleted_at', 'login_at', 'is_live_at', 'expires_at'];
     protected $casts = [
@@ -129,7 +129,7 @@ class WechatBot extends Model
 
         $data = $resource['data'];
         $type = $resource['type'] ?? 'text';
-        
+
         // 如果是关键词响应消息，添加标记
         if (isset($resource['is_keyword_response'])) {
             $data['_keyword_response'] = true;
@@ -147,18 +147,18 @@ class WechatBot extends Model
                     break;
                 case 'link':
                     $url = $data['url'] ?? '';
-                    if (isset($data['statistics'])) {
-                        $data['statistics']['bot'] = $this->id;
-                        $tags = http_build_query($data['statistics'], '', '%26');
+                    if (isset($resource['statistics'])) {
+                        $resource['statistics']['bot'] = $this->id;
+                        $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
                     $xbot->sendLink($to, $url, $data['image'] ?? '', $data['title'] ?? '', $data['description'] ?? '');
                     break;
                 case 'music':
                     $url = $data['url'] ?? '';
-                    if (isset($data['statistics'])) {
-                        $data['statistics']['bot'] = $this->id;
-                        $tags = http_build_query($data['statistics'], '', '%26');
+                    if (isset($resource['statistics'])) {
+                        $resource['statistics']['bot'] = $this->id;
+                        $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
                     $xbot->sendMusic($to, $url, $data['title'] ?? '', $data['description'] ?? '', $data['image'] ?? null, $data['lrc'] ?? null);
@@ -177,10 +177,10 @@ class WechatBot extends Model
     {
         // 标记为关键词响应消息
         $resource['is_keyword_response'] = true;
-        
+
         // 发送主要内容
         $this->send($tos, $resource);
-        
+
         // 递归发送所有附加内容
         $this->sendAdditions($tos, $resource);
     }
@@ -193,13 +193,13 @@ class WechatBot extends Model
     {
         if (isset($resource['addition'])) {
             $addition = $resource['addition'];
-            
+
             // 标记为关键词响应消息
             $addition['is_keyword_response'] = true;
-            
+
             // 发送当前附加内容
             $this->send($tos, $addition);
-            
+
             // 递归处理嵌套的附加内容
             $this->sendAdditions($tos, $addition);
         }
@@ -216,10 +216,6 @@ class WechatBot extends Model
         return Cache::remember($cacheKey, $secondsUntilTomorrow, function() use ($keyword) {
             $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
             if($response->ok() && $data = $response->json()){
-                if(isset($data['statistics'])){
-                    $data['data']['statistics'] = $data['statistics'];
-                    unset($data['statistics']);
-                }
                 return $data;
             }
             return false;
@@ -242,24 +238,24 @@ class WechatBot extends Model
         $this->xbot()->getSelfInfo();
         sleep(5);
         $this->refresh();
-        
+
         if ($this->is_live_at && $this->is_live_at->diffInMinutes() > 1) {
             Log::error(__CLASS__, [
-                'function' => __FUNCTION__, 
-                'message' => 'XbotIsLive 程序崩溃时,已下线！', 
-                'wxid' => $this->wxid, 
-                'client_id' => $this->client_id, 
+                'function' => __FUNCTION__,
+                'message' => 'XbotIsLive 程序崩溃时,已下线！',
+                'wxid' => $this->wxid,
+                'client_id' => $this->client_id,
                 'name' => $this->name
             ]);
-            
+
             $this->login_at = null;
             $this->is_live_at = null;
             $this->client_id = null;
             $this->save();
-            
+
             return false;
         }
-        
+
         return true;
     }
 
