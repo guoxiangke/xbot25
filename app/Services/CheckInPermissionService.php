@@ -27,13 +27,22 @@ class CheckInPermissionService
      */
     public function canCheckIn(string $roomWxid): bool
     {
-        // 第一步：检查 room_msg 前置条件
+        // 首先检查该群是否有 check_in_specials 特殊配置
+        $roomCheckInConfig = $this->getRoomCheckInConfig();
+        $hasSpecialCheckInConfig = array_key_exists($roomWxid, $roomCheckInConfig);
+        
+        // 如果有特殊配置，直接检查签到权限，无需检查 room_msg
+        if ($hasSpecialCheckInConfig) {
+            return $this->checkCheckInPermission($roomWxid);
+        }
+
+        // 没有特殊配置的群，按原逻辑检查：先检查 room_msg 前置条件
         $roomMsgPermission = $this->checkRoomMessagePermission($roomWxid);
         if (!$roomMsgPermission) {
             return false;
         }
 
-        // 第二步：检查签到系统权限
+        // 然后检查签到系统权限
         $checkInPermission = $this->checkCheckInPermission($roomWxid);
         return $checkInPermission;
     }

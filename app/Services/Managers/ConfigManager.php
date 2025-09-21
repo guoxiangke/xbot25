@@ -21,6 +21,7 @@ class ConfigManager
         'payment_auto' => '自动收款',
         'check_in' => '签到系统',
         'friend_auto_accept' => '自动同意好友请求',
+        'friend_welcome' => '新好友欢迎消息',
         'room_quit' => '退群监控',
     ];
 
@@ -490,5 +491,13 @@ class ConfigManager
     {
         $welcomeMsg = $this->getStringConfig('welcome_msg');
         return !empty(trim($welcomeMsg));
+    }
+
+    /**
+     * 检查欢迎消息功能是否启用
+     */
+    public function isWelcomeMessageEnabled(): bool
+    {
+        return $this->isEnabled('friend_welcome');
     }
 }

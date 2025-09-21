@@ -37,75 +37,83 @@ class SelfMessageHandler extends BaseXbotHandler
         'youtube' => 'youtube_room'
     ];
 
+    /**
+     * 检查是否应该处理此消息
+     */
+    protected function shouldProcess(XbotMessageContext $context): bool
+    {
+        // 基础检查：消息未被处理
+        if ($context->isProcessed()) {
+            return false;
+        }
+
+        // 只处理文本消息
+        if (!$this->isMessageType($context, 'MT_RECV_TEXT_MSG')) {
+            return false;
+        }
+
+        // 只处理机器人发送的消息
+        return $context->isFromBot;
+    }
+
     public function handle(XbotMessageContext $context, Closure $next)
     {
         // 处理机器人发送的消息 或 管理员发送的配置命令
         if (!$this->shouldProcess($context)) {
             return $next($context);
         }
-        
-        // 如果不是机器人发送的消息，检查是否为配置命令
-        if (!$context->isFromBot) {
-            $msg = $context->requestRawData['msg'] ?? '';
-            // 只处理配置相关的命令
-            if (!$this->isConfigCommand($msg)) {
-                return $next($context);
-            }
+
+        $msg = $context->requestRawData['msg'] ?? '';
+
+        if (Str::startsWith($msg, '/set ')) {
+            $this->handleSetCommand($context, $msg);
+            // 配置命令处理完成，标记为已处理，避免 TextMessageHandler 重复处理
+            $context->markAsProcessed(static::class);
+            return $context;
         }
 
-        if ($this->isMessageType($context, 'MT_RECV_TEXT_MSG')) {
-            $msg = $context->requestRawData['msg'] ?? '';
+        // 处理 /get chatwoot 命令
+        if ($msg === '/get chatwoot') {
+            $this->handleGetChatwootCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
 
-            if (Str::startsWith($msg, '/set ')) {
+        // 处理 /get room_alias 命令
+        if ($msg === '/get room_alias') {
+            $this->handleGetRoomAliasCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /sync contacts 命令
+        if ($msg === '/sync contacts') {
+            $this->handleSyncContactsCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /check online 命令
+        if ($msg === '/check online') {
+            $this->handleCheckOnlineCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /config 命令（带参数设置配置，不带参数显示帮助）
+        if (Str::startsWith($msg, '/config')) {
+            // 使用更可靠的方法检查参数个数：按空格分割并过滤空字符串
+            $parts = array_values(array_filter(preg_split('/\s+/', trim($msg)), 'strlen'));
+            
+            if (count($parts) === 1) { // 只有 /config
+                $this->handleConfigHelpCommand($context);
+                $context->markAsProcessed(static::class);
+                return $context;
+            } elseif (count($parts) >= 3) { // 至少需要 /config、key、value 三个部分
                 $this->handleSetCommand($context, $msg);
                 // 配置命令处理完成，标记为已处理，避免 TextMessageHandler 重复处理
                 $context->markAsProcessed(static::class);
                 return $context;
-            }
-
-            // 处理 /get chatwoot 命令
-            if ($msg === '/get chatwoot') {
-                $this->handleGetChatwootCommand($context);
-                $context->markAsProcessed(static::class);
-                return $context;
-            }
-
-            // 处理 /get room_alias 命令
-            if ($msg === '/get room_alias') {
-                $this->handleGetRoomAliasCommand($context);
-                $context->markAsProcessed(static::class);
-                return $context;
-            }
-
-            // 处理 /sync contacts 命令
-            if ($msg === '/sync contacts') {
-                $this->handleSyncContactsCommand($context);
-                $context->markAsProcessed(static::class);
-                return $context;
-            }
-
-            // 处理 /check online 命令
-            if ($msg === '/check online') {
-                $this->handleCheckOnlineCommand($context);
-                $context->markAsProcessed(static::class);
-                return $context;
-            }
-
-            // 处理 /config 命令（带参数设置配置，不带参数显示帮助）
-            if (Str::startsWith($msg, '/config')) {
-                // 使用更可靠的方法检查参数个数：按空格分割并过滤空字符串
-                $parts = array_values(array_filter(preg_split('/\s+/', trim($msg)), 'strlen'));
-                
-                if (count($parts) === 1) { // 只有 /config
-                    $this->handleConfigHelpCommand($context);
-                    $context->markAsProcessed(static::class);
-                    return $context;
-                } elseif (count($parts) >= 3) { // 至少需要 /config、key、value 三个部分
-                    $this->handleSetCommand($context, $msg);
-                    // 配置命令处理完成，标记为已处理，避免 TextMessageHandler 重复处理
-                    $context->markAsProcessed(static::class);
-                    return $context;
-                }
             }
         }
 
@@ -142,6 +150,19 @@ class SelfMessageHandler extends BaseXbotHandler
             // room_alias 是字符串配置，不是布尔配置
             if ($key === 'room_alias') {
                 $this->handleRoomAliasConfig($context, $key, $value);
+                return;
+            }
+            
+            // room_msg 等配置既可以作为系统级配置，也可以作为群级别配置
+            $systemLevelKeys = ['room_msg', 'check_in', 'room_quit'];
+            
+            if (in_array($key, $systemLevelKeys)) {
+                if ($context->isRoom) {
+                    // 在群聊中设置群级别配置
+                    $this->handleGroupLevelConfig($context, $key, $value);
+                    return;
+                }
+                // 在私聊中不返回，继续执行系统级配置处理逻辑
             } else {
                 // 其他群级别配置只在群聊中作为群级别配置处理
                 if ($context->isRoom) {
@@ -150,8 +171,8 @@ class SelfMessageHandler extends BaseXbotHandler
                     $this->sendTextMessage($context, "群级别配置只能在群聊中设置");
                     $this->markAsReplied($context);
                 }
+                return;
             }
-            return;
         }
 
         // 允许处理的全局设置项（从 ConfigManager 获取所有可用配置）

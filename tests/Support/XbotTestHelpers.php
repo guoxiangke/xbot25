@@ -227,8 +227,8 @@ class XbotTestHelpers
                 return false;
             }
 
-            // 检查消息内容 - 修复：XbotClient发送的数据结构是data.content而不是msg
-            $messageContent = $data['data']['content'] ?? $data['msg'] ?? null;
+            // 检查消息内容 - XbotClient发送的数据结构是data.content
+            $messageContent = $data['data']['content'] ?? null;
             if ($messageContent) {
                 if ($exact) {
                     if ($messageContent !== $expectedMessage) {
@@ -243,8 +243,8 @@ class XbotTestHelpers
                 return false;
             }
 
-            // 检查目标（如果指定）- 修复：XbotClient发送的数据结构是data.to_wxid
-            $targetWxid = $data['data']['to_wxid'] ?? $data['to_wxid'] ?? null;
+            // 检查目标（如果指定）- XbotClient发送的数据结构是data.to_wxid
+            $targetWxid = $data['data']['to_wxid'] ?? null;
             if ($expectedTarget && $targetWxid !== $expectedTarget) {
                 return false;
             }

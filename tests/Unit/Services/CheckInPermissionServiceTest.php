@@ -60,6 +60,11 @@ describe('CheckInPermissionService Unit Tests', function () {
             // Mock the config manager
             $mockConfigManager = Mockery::mock(ConfigManager::class);
             
+            // Mock 没有特殊配置的群（空数组）
+            $this->wechatBot->shouldReceive('getMeta')
+                ->with('check_in_specials', [])
+                ->andReturn([]);
+            
             // Inject mocks
             $reflection = new ReflectionClass($this->checkInService);
             
@@ -75,6 +80,31 @@ describe('CheckInPermissionService Unit Tests', function () {
             expect($result)->toBeFalse('Check-in should be denied when room message processing is disabled');
         });
         
+        test('should allow check-in for rooms with special config even when room_msg is disabled', function () {
+            // Mock the config manager for check_in enabled
+            $mockConfigManager = Mockery::mock(ConfigManager::class);
+            $mockConfigManager->shouldReceive('isEnabled')
+                ->with('check_in')
+                ->andReturn(true);
+            
+            // Mock 有特殊配置的群（该群启用签到）
+            $this->wechatBot->shouldReceive('getMeta')
+                ->with('check_in_specials', [])
+                ->andReturn(['test_room@chatroom' => true]);
+            
+            // Inject mocks
+            $reflection = new ReflectionClass($this->checkInService);
+            
+            $configManagerProperty = $reflection->getProperty('configManager');
+            $configManagerProperty->setAccessible(true);
+            $configManagerProperty->setValue($this->checkInService, $mockConfigManager);
+            
+            // 注意：这里不需要 room_msg 检查，所以不设置 roomFilter mock
+            
+            $result = $this->checkInService->canCheckIn('test_room@chatroom');
+            expect($result)->toBeTrue('Check-in should be allowed for rooms with special config even when room_msg is disabled');
+        });
+
         test('should deny check-in when check_in is disabled globally', function () {
             // Mock the room message filter to return true
             $mockRoomFilter = Mockery::mock(ChatroomMessageFilter::class);
