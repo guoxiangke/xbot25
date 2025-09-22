@@ -147,7 +147,10 @@ class WechatBot extends Model
                     break;
                 case 'link':
                     $url = $data['url'] ?? '';
-                    if (isset($resource['statistics'])) {
+                    // 只对特定的r2share视频链接添加重定向
+                    if (isset($resource['statistics']) && 
+                        str_starts_with($url, 'https://r2share') && 
+                        str_ends_with($url, '.mp4')) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
