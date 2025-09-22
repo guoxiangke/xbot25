@@ -214,15 +214,24 @@ class WechatBot extends Model
      */
     public function getResouce($keyword){
         $cacheKey = "resources.{$keyword}";
-        // 使用UTC+8时区计算到明天的秒数
-        $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
-        return Cache::remember($cacheKey, $secondsUntilTomorrow, function() use ($keyword) {
-            $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
-            if($response->ok() && $data = $response->json()){
-                return $data;
-            }
-            return false;
-        });
+        
+        // 先检查缓存是否存在
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+        
+        // 发起API请求
+        $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
+        
+        if($response->ok() && $data = $response->json()){
+            // 只有成功获取到资源时才缓存
+            $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
+            Cache::put($cacheKey, $data, $secondsUntilTomorrow);
+            return $data;
+        }
+        
+        // 无效结果不进行缓存，直接返回false
+        return false;
     }
 
     /**
