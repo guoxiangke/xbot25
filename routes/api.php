@@ -46,8 +46,30 @@ use App\Http\Controllers\ChatwootController;
 
 Route::any('/xbot/{winToken}', XbotController::class);
 
-// {"type":"text", "to":"bluesky_still", "data": {"content": "API主动发送 文本/链接/名片/图片/视频 消息到好友/群"}}
-// {"type":"at", "to" :"23896218687@chatroom", "data": {"at":["wxid_xxxxxx","wxid_xxxxxxx"],"content": "{$@}消息到好友/群{$@}"}}
+/**
+ * WeChat API 端点
+ * 需要 auth:sanctum 身份验证
+ * 
+ * 支持的消息类型示例：
+ * 
+ * 1. 文本消息:
+ * {"type":"text", "to":"friend_wxid", "data": {"content": "Hello World"}}
+ * 
+ * 2. @消息 (群聊):
+ * {"type":"at", "to":"group_id@chatroom", "data": {"at":["wxid1","wxid2"], "content": "{$@}大家好{$@}"}}
+ * 
+ * 3. 链接消息:
+ * {"type":"link", "to":"friend_wxid", "data": {"url":"https://example.com", "title":"标题", "description":"描述", "image":"https://example.com/image.jpg"}}
+ * 
+ * 4. 名片消息:
+ * {"type":"card", "to":"friend_wxid", "data": {"wxid":"shared_contact_wxid"}}
+ * 
+ * 5. 图片消息:
+ * {"type":"image", "to":"friend_wxid", "data": {"url":"https://example.com/image.jpg"}}
+ * 
+ * 6. 附加消息 (可选):
+ * {"type":"text", "to":"friend_wxid", "data": {"content": "主消息"}, "addition": {"type":"link", "data": {"url":"https://example.com", "title":"附加链接"}}}
+ */
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('/wechat/send', [WechatController::class, 'send']);
     Route::post('/wechat/add', [WechatController::class, 'add']);
