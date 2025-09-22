@@ -159,7 +159,7 @@ class CheckInMessageHandler extends BaseXbotHandler
             // $this->sendMessage($context, $personalContent, $fromWxid);
         } else {
             // 重复签到
-            $content = "✅再次祝贺你！今日您已经挑战过了！";
+            $content = "✅再次祝贺！挑战成功！";
             $this->sendTextMessage($context, $content, $roomWxid);
         }
 

@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
  * - 消息发送（文本、图片、文件、链接等）
  * - 群组管理（创建、邀请、删除成员）
  * - 朋友圈操作（发布、点赞、评论）
+ * 文档：https://s.apifox.cn/71b9855b-693c-48fc-858b-cde2c5afe5a8/api-27765597
  */
 final class XbotClient
 {
