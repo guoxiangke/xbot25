@@ -180,6 +180,28 @@ describe('WechatController Send Message', function () {
         Http::assertSentCount(1);
     });
     
+    test('send music message successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'music',
+            'to' => 'friend_wxid_1',
+            'data' => [
+                'url' => 'http://dailyaudio-1253798207.file.myqcloud.com/tljd220514.mp3',
+                'title' => 'API主动发送 音乐消息',
+                'description' => 'data必须包含3个参数',
+                'coverUrl' => 'https://example.com/cover.jpg',
+                'lyrics' => '这是歌词内容'
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
     test('send message with addition successfully', function () {
         $response = $this->postJson('/api/wechat/send', [
             'type' => 'text',
@@ -399,6 +421,21 @@ describe('WechatController Validation', function () {
         
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['data.at']);
+    });
+    
+    test('validates music message fields', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'music',
+            'to' => 'friend_wxid_1',
+            'data' => [
+                'url' => 'invalid-url',
+                // 缺少必需的 title 字段
+                'description' => str_repeat('a', 600) // 超过长度限制
+            ]
+        ]);
+        
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['data.url', 'data.title', 'data.description']);
     });
     
     test('validates add friend request', function () {

@@ -80,18 +80,23 @@ class SubscriptionHandler extends BaseXbotHandler
             $resource = $autoReply->content;
         }
 
-        // 检查个人订阅限制
+        $donateText = config('services.xbot.donate', '');
+        // 检查个人订阅限制，暂时不允许个人订阅
         $isRoom = !empty($context->roomWxid);
         if (!$isRoom) {
-            $donateText = config('services.xbot.donate', '');
             $this->sendTextMessage($context, "资源有限，鼓励共享\n请建群订阅或回复编号获取！\n{$donateText}");
-            // return;
+             return;
+        }
+
+        // 检查群内订阅权限，只允许 bluesky_still 在群里订阅
+        if ($isRoom && $context->wxid !== 'bluesky_still') {
+            $this->sendTextMessage($context, "群内订阅功能仅限管理员使用\n{$donateText}");
+            return;
         }
 
         // 设置发送时间
         $chinaHour = 5;
         $cron =  "0 {$chinaHour} * * *";
-        //$this->getCronTime($context->wechatBot, $isRoom);
 
         // 创建或恢复订阅
         $subscription = XbotSubscription::createOrRestore(

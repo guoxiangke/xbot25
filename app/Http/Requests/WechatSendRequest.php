@@ -20,7 +20,7 @@ class WechatSendRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'type' => 'required|string|in:text,at,link,card,image',
+            'type' => 'required|string|in:text,at,link,card,image,music',
             'to' => 'required|string',
         ];
 
@@ -50,11 +50,19 @@ class WechatSendRequest extends FormRequest
             case 'image':
                 $rules['data.url'] = 'required|url|max:2000';
                 break;
+                
+            case 'music':
+                $rules['data.url'] = 'required|url|max:2000';
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.description'] = 'nullable|string|max:500';
+                $rules['data.coverUrl'] = 'nullable|url|max:2000';
+                $rules['data.lyrics'] = 'nullable|string|max:1000';
+                break;
         }
 
         // 如果有附加消息，验证附加消息
         if ($this->has('addition')) {
-            $rules['addition.type'] = 'required|string|in:text,link,card,image';
+            $rules['addition.type'] = 'required|string|in:text,link,card,image,music';
             
             switch ($this->input('addition.type')) {
                 case 'text':
@@ -74,6 +82,14 @@ class WechatSendRequest extends FormRequest
                     
                 case 'image':
                     $rules['addition.data.url'] = 'required|url|max:2000';
+                    break;
+                    
+                case 'music':
+                    $rules['addition.data.url'] = 'required|url|max:2000';
+                    $rules['addition.data.title'] = 'required|string|max:200';
+                    $rules['addition.data.description'] = 'nullable|string|max:500';
+                    $rules['addition.data.coverUrl'] = 'nullable|url|max:2000';
+                    $rules['addition.data.lyrics'] = 'nullable|string|max:1000';
                     break;
             }
         }

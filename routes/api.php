@@ -67,7 +67,10 @@ Route::any('/xbot/{winToken}', XbotController::class);
  * 5. 图片消息:
  * {"type":"image", "to":"friend_wxid", "data": {"url":"https://example.com/image.jpg"}}
  * 
- * 6. 附加消息 (可选):
+ * 6. 音乐消息:
+ * {"type":"music", "to":"friend_wxid", "data": {"url":"https://example.com/music.mp3", "title":"歌曲名", "description":"描述"}}
+ * 
+ * 7. 附加消息 (可选):
  * {"type":"text", "to":"friend_wxid", "data": {"content": "主消息"}, "addition": {"type":"link", "data": {"url":"https://example.com", "title":"附加链接"}}}
  */
 Route::group(['middleware' => ['auth:sanctum']], function () {

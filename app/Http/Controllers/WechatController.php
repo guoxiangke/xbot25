@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  * WeChat API 控制器
  * 
  * 提供微信自动化相关的API接口，支持：
- * - 发送多种类型消息（文本、@消息、链接、名片、图片）
+ * - 发送多种类型消息（文本、@消息、链接、名片、图片、音乐）
  * - 添加好友
  * - 获取好友列表
  * 
@@ -99,6 +99,17 @@ class WechatController extends Controller
                 $xbot->sendImageByUrl($to, $data['url']);
                 break;
                 
+            case 'music':
+                $xbot->sendMusic(
+                    $to,
+                    $data['url'],
+                    $data['title'] ?? '',
+                    $data['description'] ?? '',
+                    $data['coverUrl'] ?? null,
+                    $data['lyrics'] ?? null
+                );
+                break;
+                
             default:
                 throw new \InvalidArgumentException("不支持的消息类型: {$type}");
         }
@@ -113,6 +124,7 @@ class WechatController extends Controller
      * - link: 链接消息
      * - card: 名片消息
      * - image: 图片消息
+     * - music: 音乐消息
      * 
      * 可选的 addition 字段支持发送附加消息
      * 
