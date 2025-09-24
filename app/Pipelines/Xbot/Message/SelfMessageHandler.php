@@ -114,8 +114,8 @@ class SelfMessageHandler extends BaseXbotHandler
             return $context;
         }
 
-        // 处理 /get 黑名单 命令
-        if ($msg === '/get 黑名单') {
+        // 处理 /get blacklist 命令
+        if ($msg === '/get blacklist') {
             $this->handleGetBlacklistCommand($context);
             $context->markAsProcessed(static::class);
             return $context;
@@ -178,7 +178,7 @@ class SelfMessageHandler extends BaseXbotHandler
         }
 
         // 处理黑名单命令
-        if ($originalKey === '黑名单') {
+        if ($originalKey === 'blacklist') {
             $this->handleBlacklistCommand($context, $value);
             return;
         }
@@ -809,7 +809,7 @@ class SelfMessageHandler extends BaseXbotHandler
         
         // 构建响应消息
         if ($totalCount === 0) {
-            $message = "📋 黑名单配置状态\n\n❌ 黑名单为空\n\n💡 使用方法：\n/set 黑名单 wxid123 - 添加用户到黑名单\n黑名单中的用户发送的消息将被完全忽略";
+            $message = "📋 黑名单配置状态\n\n❌ 黑名单为空\n\n💡 使用方法：\n/set blacklist wxid123 - 添加用户到黑名单\n黑名单中的用户发送的消息将被完全忽略";
         } else {
             $message = "📋 黑名单配置状态\n\n";
             $message .= "⚠️ 已拉黑 $totalCount 个用户：\n\n";
@@ -820,7 +820,7 @@ class SelfMessageHandler extends BaseXbotHandler
                 $message .= "   wxid: $wxid\n\n";
             }
             
-            $message .= "💡 移除黑名单：/set 黑名单 -wxid123";
+            $message .= "💡 移除黑名单：/set blacklist -wxid123";
         }
         
         $this->sendTextMessage($context, $message);
@@ -841,7 +841,7 @@ class SelfMessageHandler extends BaseXbotHandler
         if (str_starts_with($wxid, '-')) {
             $targetWxid = substr($wxid, 1);
             if (empty($targetWxid)) {
-                $this->sendTextMessage($context, "❌ 请提供要移除的wxid\n例如：/set 黑名单 -wxid123");
+                $this->sendTextMessage($context, "❌ 请提供要移除的wxid\n例如：/set blacklist -wxid123");
                 $this->markAsReplied($context);
                 return;
             }
@@ -860,7 +860,7 @@ class SelfMessageHandler extends BaseXbotHandler
         
         // 验证wxid格式
         if (empty($wxid)) {
-            $this->sendTextMessage($context, "❌ 请提供要拉黑的wxid\n例如：/set 黑名单 wxid123");
+            $this->sendTextMessage($context, "❌ 请提供要拉黑的wxid\n例如：/set blacklist wxid123");
             $this->markAsReplied($context);
             return;
         }
@@ -1040,9 +1040,9 @@ class SelfMessageHandler extends BaseXbotHandler
         $globalRoomMsg = $configManager->isEnabled('room_msg');
         
         if ($roomListenStatus === null) {
-            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❎继承(关闭)";
+            $roomListenDisplay = $globalRoomMsg ? "✅继承(开启)" : "❌继承(关闭)";
         } else {
-            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❎特例关闭";
+            $roomListenDisplay = $roomListenStatus ? "✅特例开启" : "❌特例关闭";
         }
         $groupConfigs .= "• room_msg: {$roomListenDisplay}\n";
 
@@ -1052,9 +1052,9 @@ class SelfMessageHandler extends BaseXbotHandler
         $globalCheckIn = $configManager->isEnabled('check_in');
         
         if ($checkInStatus === null) {
-            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❎继承(关闭)";
+            $checkInDisplay = $globalCheckIn ? "✅继承(开启)" : "❌继承(关闭)";
         } else {
-            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❎特例关闭";
+            $checkInDisplay = $checkInStatus ? "✅特例开启" : "❌特例关闭";
         }
         $groupConfigs .= "• check_in (/set check_in): {$checkInDisplay}\n";
 
@@ -1063,17 +1063,26 @@ class SelfMessageHandler extends BaseXbotHandler
         $globalRoomQuit = $configManager->isEnabled('room_quit');
         
         if ($roomQuitStatus === null) {
-            $roomQuitDisplay = $globalRoomQuit ? "✅继承(开启)" : "❎继承(关闭)";
+            $roomQuitDisplay = $globalRoomQuit ? "✅继承(开启)" : "❌继承(关闭)";
         } else {
-            $roomQuitDisplay = $roomQuitStatus ? "✅特例开启" : "❎特例关闭";
+            $roomQuitDisplay = $roomQuitStatus ? "✅特例开启" : "❌特例关闭";
         }
         $groupConfigs .= "• room_quit (/set room_quit): {$roomQuitDisplay}\n";
 
         // 4. YouTube 响应配置
         $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
-        $youtubeAllowed = isset($youtubeRooms[$roomWxid]) && $youtubeRooms[$roomWxid];
-        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❎关闭";
+        $youtubeAllowed = in_array($roomWxid, $youtubeRooms);
+        $youtubeDisplay = $youtubeAllowed ? "✅开启" : "❌关闭";
         $groupConfigs .= "• youtube (/set youtube): {$youtubeDisplay}\n";
+
+        // 5. 群邀请别名配置
+        $roomAlias = $configManager->getGroupConfig('room_alias', $roomWxid);
+        if ($roomAlias) {
+            $aliasDisplay = "✅已设置: $roomAlias";
+        } else {
+            $aliasDisplay = "❌未设置";
+        }
+        $groupConfigs .= "• room_alias (/set room_alias): {$aliasDisplay}\n";
 
         return $groupConfigs;
     }

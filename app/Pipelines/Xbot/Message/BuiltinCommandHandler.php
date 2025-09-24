@@ -27,7 +27,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/get check_in' => ['method' => 'redirectToSelfHandler', 'description' => '查看群签到配置', 'hidden' => true],
         '/get room_quit' => ['method' => 'redirectToSelfHandler', 'description' => '查看群退出监控配置', 'hidden' => true],
         '/get youtube' => ['method' => 'redirectToSelfHandler', 'description' => '查看YouTube响应配置', 'hidden' => true],
-        '/get 黑名单' => ['method' => 'redirectToSelfHandler', 'description' => '查看黑名单配置', 'hidden' => true],
+        '/get blacklist' => ['method' => 'redirectToSelfHandler', 'description' => '查看黑名单配置', 'hidden' => true],
         '/sync contacts' => ['method' => 'redirectToSelfHandler', 'description' => '同步联系人列表', 'hidden' => true],
         '/check online' => ['method' => 'redirectToSelfHandler', 'description' => '检查微信在线状态', 'hidden' => true],
     ];
@@ -120,12 +120,12 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $helpText .= "/get check_in - 查看群签到配置\n";
         $helpText .= "/get room_quit - 查看群退出监控配置\n";
         $helpText .= "/get youtube - 查看YouTube响应配置\n";
-        $helpText .= "/get 黑名单 - 查看黑名单配置\n";
+        $helpText .= "/get blacklist - 查看黑名单配置\n";
         
         // 显示黑名单管理命令
         $helpText .= "\n🚫 黑名单管理命令：\n";
-        $helpText .= "/set 黑名单 <wxid> - 添加用户到黑名单\n";
-        $helpText .= "/set 黑名单 -<wxid> - 从黑名单移除用户\n";
+        $helpText .= "/set blacklist <wxid> - 添加用户到黑名单\n";
+        $helpText .= "/set blacklist -<wxid> - 从黑名单移除用户\n";
         
         // 显示系统管理命令
         $helpText .= "\n⚙️ 系统管理命令：\n";
