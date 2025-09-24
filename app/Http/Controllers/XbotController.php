@@ -135,6 +135,20 @@ class XbotController extends Controller
             }
         }
 
+        // 黑名单检查 - 在找到WechatBot后进行检查
+        if ($wechatBot && $this->shouldCheckBlacklist($msgType)) {
+            $fromWxid = $requestRawData['from_wxid'] ?? null;
+            
+            if ($fromWxid && $this->isInBlacklist($wechatBot, $fromWxid)) {
+                Log::info(__FUNCTION__, [
+                    'msg_type' => $msgType,
+                    'from_wxid' => $fromWxid,
+                    'message' => '黑名单用户消息被拦截'
+                ]);
+                return "ignored: blacklisted user message";
+            }
+        }
+
         // 联系人同步相关消息
         $contactTypes = [
             'MT_DATA_FRIENDS_MSG',
@@ -352,5 +366,36 @@ class XbotController extends Controller
         }
         
         return false;
+    }
+
+    /**
+     * 检查是否应该进行黑名单检查
+     */
+    private function shouldCheckBlacklist(string $msgType): bool
+    {
+        // 对所有用户消息进行黑名单检查
+        $userMessageTypes = [
+            'MT_RECV_TEXT_MSG',
+            'MT_RECV_PICTURE_MSG', 
+            'MT_RECV_VOICE_MSG',
+            'MT_RECV_VIDEO_MSG',
+            'MT_RECV_FILE_MSG',
+            'MT_RECV_LINK_MSG',
+            'MT_RECV_EMOJI_MSG',
+            'MT_RECV_LOCATION_MSG',
+            'MT_RECV_OTHER_APP_MSG',
+            'MT_TRANS_VOICE_MSG'
+        ];
+        
+        return in_array($msgType, $userMessageTypes);
+    }
+
+    /**
+     * 检查用户是否在黑名单中
+     */
+    private function isInBlacklist(\App\Models\WechatBot $wechatBot, string $wxid): bool
+    {
+        $configManager = new \App\Services\Managers\ConfigManager($wechatBot);
+        return $configManager->isInBlacklist($wxid);
     }
 }

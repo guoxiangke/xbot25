@@ -41,6 +41,7 @@ class ConfigManager
     const STRING_CONFIGS = [
         'friend_daily_limit' => '每日好友请求处理上限',
         'welcome_msg' => '好友欢迎消息模板',
+        'blacklist' => '用户黑名单',
     ];
 
     /**
@@ -506,5 +507,98 @@ class ConfigManager
     public function isWelcomeMessageEnabled(): bool
     {
         return $this->isEnabled('friend_welcome');
+    }
+
+    /**
+     * 获取黑名单列表
+     */
+    public function getBlacklist(): array
+    {
+        $blacklistData = $this->wechatBot->getMeta('blacklist', []);
+        
+        // 确保返回数组格式
+        if (is_array($blacklistData)) {
+            return $blacklistData;
+        }
+        
+        return [];
+    }
+
+    /**
+     * 添加用户到黑名单
+     */
+    public function addToBlacklist(string $wxid): bool
+    {
+        if (empty(trim($wxid))) {
+            return false;
+        }
+
+        $blacklist = $this->getBlacklist();
+        
+        // 避免重复添加
+        if (in_array($wxid, $blacklist)) {
+            return false; // 已存在
+        }
+        
+        $blacklist[] = $wxid;
+        $this->wechatBot->setMeta('blacklist', $blacklist);
+        
+        return true;
+    }
+
+    /**
+     * 从黑名单移除用户
+     */
+    public function removeFromBlacklist(string $wxid): bool
+    {
+        $blacklist = $this->getBlacklist();
+        
+        $index = array_search($wxid, $blacklist);
+        if ($index === false) {
+            return false; // 不在黑名单中
+        }
+        
+        unset($blacklist[$index]);
+        // 重新索引数组
+        $blacklist = array_values($blacklist);
+        
+        $this->wechatBot->setMeta('blacklist', $blacklist);
+        
+        return true;
+    }
+
+    /**
+     * 检查用户是否在黑名单中
+     */
+    public function isInBlacklist(string $wxid): bool
+    {
+        if (empty(trim($wxid))) {
+            return false;
+        }
+        
+        $blacklist = $this->getBlacklist();
+        return in_array($wxid, $blacklist);
+    }
+
+    /**
+     * 清空黑名单
+     */
+    public function clearBlacklist(): bool
+    {
+        $this->wechatBot->setMeta('blacklist', []);
+        return true;
+    }
+
+    /**
+     * 获取黑名单统计信息
+     */
+    public function getBlacklistStats(): array
+    {
+        $blacklist = $this->getBlacklist();
+        
+        return [
+            'total' => count($blacklist),
+            'list' => $blacklist
+        ];
     }
 }

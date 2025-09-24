@@ -114,6 +114,13 @@ class SelfMessageHandler extends BaseXbotHandler
             return $context;
         }
 
+        // 处理 /get 黑名单 命令
+        if ($msg === '/get 黑名单') {
+            $this->handleGetBlacklistCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
         // 处理 /sync contacts 命令
         if ($msg === '/sync contacts') {
             $this->handleSyncContactsCommand($context);
@@ -168,6 +175,12 @@ class SelfMessageHandler extends BaseXbotHandler
             $value = implode(' ', array_slice($parts, 2));
         } else {
             $value = $parts[2];
+        }
+
+        // 处理黑名单命令
+        if ($originalKey === '黑名单') {
+            $this->handleBlacklistCommand($context, $value);
+            return;
         }
         
         // 处理群级别配置命令别名（只在群聊中生效）
@@ -779,6 +792,96 @@ class SelfMessageHandler extends BaseXbotHandler
         }
         
         $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理获取黑名单命令
+     */
+    private function handleGetBlacklistCommand(XbotMessageContext $context): void
+    {
+        $configManager = new ConfigManager($context->wechatBot);
+        $contacts = $context->wechatBot->getMeta('contacts', []);
+        
+        $blacklistStats = $configManager->getBlacklistStats();
+        $blacklist = $blacklistStats['list'];
+        $totalCount = $blacklistStats['total'];
+        
+        // 构建响应消息
+        if ($totalCount === 0) {
+            $message = "📋 黑名单配置状态\n\n❌ 黑名单为空\n\n💡 使用方法：\n/set 黑名单 wxid123 - 添加用户到黑名单\n黑名单中的用户发送的消息将被完全忽略";
+        } else {
+            $message = "📋 黑名单配置状态\n\n";
+            $message .= "⚠️ 已拉黑 $totalCount 个用户：\n\n";
+            
+            foreach ($blacklist as $index => $wxid) {
+                $userName = $contacts[$wxid]['nickname'] ?? $contacts[$wxid]['remark'] ?? $wxid;
+                $message .= "🚫 " . ($index + 1) . ". $userName\n";
+                $message .= "   wxid: $wxid\n\n";
+            }
+            
+            $message .= "💡 移除黑名单：/set 黑名单 -wxid123";
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理黑名单设置命令
+     */
+    private function handleBlacklistCommand(XbotMessageContext $context, string $wxid): void
+    {
+        $configManager = new ConfigManager($context->wechatBot);
+        $contacts = $context->wechatBot->getMeta('contacts', []);
+        
+        $wxid = trim($wxid);
+        
+        // 检查是否为移除操作（以 - 开头）
+        if (str_starts_with($wxid, '-')) {
+            $targetWxid = substr($wxid, 1);
+            if (empty($targetWxid)) {
+                $this->sendTextMessage($context, "❌ 请提供要移除的wxid\n例如：/set 黑名单 -wxid123");
+                $this->markAsReplied($context);
+                return;
+            }
+            
+            $success = $configManager->removeFromBlacklist($targetWxid);
+            if ($success) {
+                $userName = $contacts[$targetWxid]['nickname'] ?? $contacts[$targetWxid]['remark'] ?? $targetWxid;
+                $this->sendTextMessage($context, "✅ 已将 $userName 从黑名单中移除\nwxid: $targetWxid");
+            } else {
+                $this->sendTextMessage($context, "❌ 该用户不在黑名单中\nwxid: $targetWxid");
+            }
+            
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 验证wxid格式
+        if (empty($wxid)) {
+            $this->sendTextMessage($context, "❌ 请提供要拉黑的wxid\n例如：/set 黑名单 wxid123");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 防止拉黑自己
+        if ($wxid === $context->wechatBot->wxid) {
+            $this->sendTextMessage($context, "❌ 不能将自己加入黑名单");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 添加到黑名单
+        $success = $configManager->addToBlacklist($wxid);
+        if ($success) {
+            $userName = $contacts[$wxid]['nickname'] ?? $contacts[$wxid]['remark'] ?? $wxid;
+            $this->sendTextMessage($context, "✅ 已将 $userName 加入黑名单\nwxid: $wxid\n\n⚠️ 该用户的所有消息将被忽略，不会触发任何响应");
+        } else {
+            $userName = $contacts[$wxid]['nickname'] ?? $contacts[$wxid]['remark'] ?? $wxid;
+            $this->sendTextMessage($context, "⚠️ $userName 已经在黑名单中\nwxid: $wxid");
+        }
+        
         $this->markAsReplied($context);
     }
 
