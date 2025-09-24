@@ -1133,6 +1133,15 @@ class SelfMessageHandler extends BaseXbotHandler
             $groupConfigs .= "• youtube: 无配置\n";
         }
 
+        // 5. 群邀请别名配置
+        $roomAliases = $configManager->getAllRoomAliases();
+        $aliasCount = count($roomAliases);
+        if ($aliasCount > 0) {
+            $groupConfigs .= "• room_alias: {$aliasCount}个群别名配置\n";
+        } else {
+            $groupConfigs .= "• room_alias: 无别名配置\n";
+        }
+
         return $groupConfigs;
     }
 
