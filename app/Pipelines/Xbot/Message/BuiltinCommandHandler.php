@@ -21,6 +21,14 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/whoami' => ['method' => 'handleWhoamiCommand', 'description' => '显示当前登录信息'],
         '/get subscriptions' => ['method' => 'handleGetSubscriptionsCommand', 'description' => '查看当前订阅列表'],
         '/get wxid' => ['method' => 'handleGetWxidCommand', 'description' => '获取wxID'],
+        '/get chatwoot' => ['method' => 'redirectToSelfHandler', 'description' => '查看Chatwoot配置详情', 'hidden' => true],
+        '/get room_alias' => ['method' => 'redirectToSelfHandler', 'description' => '查看群邀请别名配置', 'hidden' => true],
+        '/get room_msg' => ['method' => 'redirectToSelfHandler', 'description' => '查看群消息处理配置', 'hidden' => true],
+        '/get check_in' => ['method' => 'redirectToSelfHandler', 'description' => '查看群签到配置', 'hidden' => true],
+        '/get room_quit' => ['method' => 'redirectToSelfHandler', 'description' => '查看群退出监控配置', 'hidden' => true],
+        '/get youtube' => ['method' => 'redirectToSelfHandler', 'description' => '查看YouTube响应配置', 'hidden' => true],
+        '/sync contacts' => ['method' => 'redirectToSelfHandler', 'description' => '同步联系人列表', 'hidden' => true],
+        '/check online' => ['method' => 'redirectToSelfHandler', 'description' => '检查微信在线状态', 'hidden' => true],
     ];
 
     public function handle(XbotMessageContext $context, Closure $next)
@@ -85,16 +93,37 @@ class BuiltinCommandHandler extends BaseXbotHandler
      */
     private function handleHelpCommand(XbotMessageContext $context): void
     {
-        $helpText = "Hi，我是AI，暂支持以下指令：\n";
+        $helpText = "Hi，我是AI，支持以下指令：\n";
 
+        // 显示基础命令
+        $helpText .= "\n🔍 基础查询命令：\n";
         foreach (self::COMMANDS as $command => $config) {
             // 跳过隐藏的命令或空描述的命令
             if (!empty($config['hidden']) || empty($config['description'])) {
                 continue;
             }
-            $helpText .= "\n{$command} - {$config['description']}";
+            $helpText .= "{$command} - {$config['description']}\n";
         }
 
+        // 显示配置管理命令
+        $helpText .= "\n🔧 配置管理命令：\n";
+        $helpText .= "/config - 查看所有配置状态\n";
+        $helpText .= "/set <key> <value> - 设置配置项\n";
+        $helpText .= "/config <key> <value> - 设置配置项(等效)\n";
+        
+        // 显示特殊查询命令
+        $helpText .= "\n📊 配置查询命令：\n";
+        $helpText .= "/get chatwoot - 查看Chatwoot配置详情\n";
+        $helpText .= "/get room_alias - 查看群邀请别名配置\n";
+        $helpText .= "/get room_msg - 查看群消息处理配置\n";
+        $helpText .= "/get check_in - 查看群签到配置\n";
+        $helpText .= "/get room_quit - 查看群退出监控配置\n";
+        $helpText .= "/get youtube - 查看YouTube响应配置\n";
+        
+        // 显示系统管理命令
+        $helpText .= "\n⚙️ 系统管理命令：\n";
+        $helpText .= "/sync contacts - 同步联系人列表\n";
+        $helpText .= "/check online - 检查微信在线状态\n";
 
         $this->sendTextMessage($context, $helpText);
         $this->markAsReplied($context);
@@ -159,6 +188,18 @@ class BuiltinCommandHandler extends BaseXbotHandler
         }
         
         $this->markAsReplied($context);
+    }
+
+    /**
+     * 重定向到 SelfMessageHandler
+     * 某些命令在 BuiltinCommandHandler 中注册用于帮助显示，
+     * 但实际处理逻辑在 SelfMessageHandler 中
+     */
+    private function redirectToSelfHandler(XbotMessageContext $context): void
+    {
+        // 这些命令的实际处理在 SelfMessageHandler 中进行
+        // 这里只是为了在帮助中显示，不做实际处理
+        // 让消息继续传递到下游的 SelfMessageHandler
     }
 
 

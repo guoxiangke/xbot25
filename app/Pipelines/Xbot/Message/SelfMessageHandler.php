@@ -86,6 +86,34 @@ class SelfMessageHandler extends BaseXbotHandler
             return $context;
         }
 
+        // 处理 /get room_msg 命令
+        if ($msg === '/get room_msg') {
+            $this->handleGetRoomMsgCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /get check_in 命令
+        if ($msg === '/get check_in') {
+            $this->handleGetCheckInCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /get room_quit 命令
+        if ($msg === '/get room_quit') {
+            $this->handleGetRoomQuitCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
+        // 处理 /get youtube 命令
+        if ($msg === '/get youtube') {
+            $this->handleGetYoutubeCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
         // 处理 /sync contacts 命令
         if ($msg === '/sync contacts') {
             $this->handleSyncContactsCommand($context);
@@ -602,6 +630,156 @@ class SelfMessageHandler extends BaseXbotHandler
         }
         
         $wechatBot->setMeta('room_quit_specials', $roomQuitConfigs);
+    }
+
+    /**
+     * 处理获取群消息处理配置命令
+     */
+    private function handleGetRoomMsgCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new ConfigManager($wechatBot);
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        $chatroomFilter = new ChatroomMessageFilter($wechatBot, $configManager);
+        $roomConfigs = $chatroomFilter->getAllRoomConfigs();
+        
+        // 构建响应消息
+        if (empty($roomConfigs)) {
+            $globalStatus = $configManager->isEnabled('room_msg') ? '全局开启' : '全局关闭';
+            $message = "📋 群消息处理配置状态\n\n❌ 暂无群级别特例配置\n\n🌐 全局配置: $globalStatus\n\n💡 使用方法：\n在群聊中发送：/set room_msg 1 开启该群消息处理\n在群聊中发送：/set room_msg 0 关闭该群消息处理";
+        } else {
+            $globalStatus = $configManager->isEnabled('room_msg') ? '全局开启' : '全局关闭';
+            $message = "📋 群消息处理配置状态\n\n🌐 全局配置: $globalStatus\n\n";
+            $message .= "✅ 已配置 " . count($roomConfigs) . " 个群级别特例：\n\n";
+            
+            foreach ($roomConfigs as $roomWxid => $enabled) {
+                $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+                $status = $enabled ? '特例开启' : '特例关闭';
+                $statusEmoji = $enabled ? '✅' : '❌';
+                $message .= "$statusEmoji $status\n";
+                $message .= "   群名: $roomName\n";
+                $message .= "   群ID: $roomWxid\n\n";
+            }
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理获取群签到配置命令
+     */
+    private function handleGetCheckInCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new ConfigManager($wechatBot);
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        $checkInService = new CheckInPermissionService($wechatBot);
+        $checkInConfigs = $checkInService->getAllRoomCheckInConfigs();
+        
+        // 构建响应消息
+        if (empty($checkInConfigs)) {
+            $globalStatus = $configManager->isEnabled('check_in') ? '全局开启' : '全局关闭';
+            $message = "📋 群签到配置状态\n\n❌ 暂无群级别特例配置\n\n🌐 全局配置: $globalStatus\n\n💡 使用方法：\n在群聊中发送：/set check_in 1 开启该群签到\n在群聊中发送：/set check_in 0 关闭该群签到";
+        } else {
+            $globalStatus = $configManager->isEnabled('check_in') ? '全局开启' : '全局关闭';
+            $message = "📋 群签到配置状态\n\n🌐 全局配置: $globalStatus\n\n";
+            $message .= "✅ 已配置 " . count($checkInConfigs) . " 个群级别特例：\n\n";
+            
+            foreach ($checkInConfigs as $roomWxid => $enabled) {
+                $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+                $status = $enabled ? '特例开启' : '特例关闭';
+                $statusEmoji = $enabled ? '✅' : '❌';
+                $message .= "$statusEmoji $status\n";
+                $message .= "   群名: $roomName\n";
+                $message .= "   群ID: $roomWxid\n\n";
+            }
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理获取群退出监控配置命令
+     */
+    private function handleGetRoomQuitCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new ConfigManager($wechatBot);
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        $roomQuitConfigs = $wechatBot->getMeta('room_quit_specials', []);
+        
+        // 构建响应消息
+        if (empty($roomQuitConfigs)) {
+            $globalStatus = $configManager->isEnabled('room_quit') ? '全局开启' : '全局关闭';
+            $message = "📋 群退出监控配置状态\n\n❌ 暂无群级别特例配置\n\n🌐 全局配置: $globalStatus\n\n💡 使用方法：\n在群聊中发送：/set room_quit 1 开启该群退出监控\n在群聊中发送：/set room_quit 0 关闭该群退出监控";
+        } else {
+            $globalStatus = $configManager->isEnabled('room_quit') ? '全局开启' : '全局关闭';
+            $message = "📋 群退出监控配置状态\n\n🌐 全局配置: $globalStatus\n\n";
+            $message .= "✅ 已配置 " . count($roomQuitConfigs) . " 个群级别特例：\n\n";
+            
+            foreach ($roomQuitConfigs as $roomWxid => $enabled) {
+                $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+                $status = $enabled ? '特例开启' : '特例关闭';
+                $statusEmoji = $enabled ? '✅' : '❌';
+                $message .= "$statusEmoji $status\n";
+                $message .= "   群名: $roomName\n";
+                $message .= "   群ID: $roomWxid\n\n";
+            }
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理获取YouTube响应配置命令
+     */
+    private function handleGetYoutubeCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $contacts = $wechatBot->getMeta('contacts', []);
+        
+        $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
+        $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
+        
+        $totalConfigs = count($youtubeRooms) + count($youtubeUsers);
+        
+        // 构建响应消息
+        if ($totalConfigs === 0) {
+            $message = "📋 YouTube响应配置状态\n\n❌ 暂无已配置的YouTube响应\n\n💡 使用方法：\n在群聊中发送：/set youtube 1 开启该群YouTube响应\n在私聊中发送：/set youtube 1 开启该用户YouTube响应";
+        } else {
+            $message = "📋 YouTube响应配置状态\n\n";
+            $message .= "✅ 已配置 $totalConfigs 个YouTube响应：\n\n";
+            
+            // 显示群级别配置
+            if (!empty($youtubeRooms)) {
+                $message .= "🏘️ 群级别配置 (" . count($youtubeRooms) . "个)：\n";
+                foreach ($youtubeRooms as $roomWxid) {
+                    $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+                    $message .= "  ✅ $roomName\n";
+                    $message .= "     群ID: $roomWxid\n";
+                }
+                $message .= "\n";
+            }
+            
+            // 显示用户级别配置
+            if (!empty($youtubeUsers)) {
+                $message .= "👤 用户级别配置 (" . count($youtubeUsers) . "个)：\n";
+                foreach ($youtubeUsers as $userWxid) {
+                    $userName = $contacts[$userWxid]['nickname'] ?? $contacts[$userWxid]['remark'] ?? $userWxid;
+                    $message .= "  ✅ $userName\n";
+                    $message .= "     用户ID: $userWxid\n";
+                }
+            }
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
     }
 
     /**
