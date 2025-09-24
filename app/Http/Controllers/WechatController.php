@@ -109,6 +109,49 @@ class WechatController extends Controller
                     $data['lyrics'] ?? null
                 );
                 break;
+
+            // 朋友圈发布操作
+            case 'postLink':
+                $xbot->publishLinkToMoments(
+                    $data['title'],
+                    $data['url'],
+                    $data['comment'] ?? ''
+                );
+                break;
+
+            case 'postImages':
+                $xbot->publishImagesToMoments(
+                    $data['title'],
+                    $data['urls']
+                );
+                break;
+
+            case 'postVideo':
+                $xbot->publishVideoToMoments(
+                    $data['title'],
+                    $data['url'],
+                    $data['thumbnailUrl'] ?? null
+                );
+                break;
+
+            case 'postMusic':
+                $xbot->publishMusicToMoments(
+                    $data['title'],
+                    $data['url'],
+                    $data['description'],
+                    $data['comment'] ?? '',
+                    $data['thumbImgUrl'] ?? null
+                );
+                break;
+
+            case 'postQQMusic':
+                $xbot->publishQQMusicToMoments(
+                    $data['title'],
+                    $data['url'],
+                    $data['musicUrl'],
+                    $data['appInfo'] ?? null
+                );
+                break;
                 
             default:
                 throw new \InvalidArgumentException("不支持的消息类型: {$type}");
@@ -125,6 +168,11 @@ class WechatController extends Controller
      * - card: 名片消息
      * - image: 图片消息
      * - music: 音乐消息
+     * - postLink: 发布链接到朋友圈
+     * - postImages: 发布图片到朋友圈（支持九宫格）
+     * - postVideo: 发布视频到朋友圈
+     * - postMusic: 发布音乐到朋友圈
+     * - postQQMusic: 发布QQ音乐到朋友圈
      * 
      * 可选的 addition 字段支持发送附加消息
      * 

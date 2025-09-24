@@ -20,7 +20,7 @@ class WechatSendRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'type' => 'required|string|in:text,at,link,card,image,music',
+            'type' => 'required|string|in:text,at,link,card,image,music,postLink,postImages,postVideo,postQQMusic,postMusic',
             'to' => 'required|string',
         ];
 
@@ -57,6 +57,39 @@ class WechatSendRequest extends FormRequest
                 $rules['data.description'] = 'nullable|string|max:500';
                 $rules['data.coverUrl'] = 'nullable|url|max:2000';
                 $rules['data.lyrics'] = 'nullable|string|max:1000';
+                break;
+
+            case 'postLink':
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.url'] = 'required|url|max:2000';
+                $rules['data.comment'] = 'nullable|string|max:1000';
+                break;
+
+            case 'postImages':
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.urls'] = 'required|array|max:9';
+                $rules['data.urls.*'] = 'required|url|max:2000';
+                break;
+
+            case 'postVideo':
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.url'] = 'required|url|max:2000';
+                $rules['data.thumbnailUrl'] = 'nullable|url|max:2000';
+                break;
+
+            case 'postMusic':
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.url'] = 'required|url|max:2000';
+                $rules['data.description'] = 'required|string|max:500';
+                $rules['data.comment'] = 'nullable|string|max:1000';
+                $rules['data.thumbImgUrl'] = 'nullable|url|max:2000';
+                break;
+
+            case 'postQQMusic':
+                $rules['data.title'] = 'required|string|max:200';
+                $rules['data.url'] = 'required|url|max:2000';
+                $rules['data.musicUrl'] = 'required|url|max:2000';
+                $rules['data.appInfo'] = 'nullable|string|max:500';
                 break;
         }
 

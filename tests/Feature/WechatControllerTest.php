@@ -491,3 +491,159 @@ describe('WechatController Error Handling', function () {
         Http::assertNothingSent();
     });
 });
+
+describe('WechatController Moments Publishing', function () {
+    
+    beforeEach(function () {
+        Sanctum::actingAs($this->user);
+    });
+    
+    test('publish link to moments successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postLink',
+            'to' => 'self',
+            'data' => [
+                'title' => 'API主动发送朋友圈链接消息',
+                'url' => 'https://example.com',
+                'comment' => '可选参数，即引用转发消息内容'
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
+    test('publish images to moments successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postImages',
+            'to' => 'self',
+            'data' => [
+                'title' => 'API主动发送朋友圈9宫格图片消息',
+                'urls' => [
+                    'https://example.com/image1.jpg',
+                    'https://example.com/image2.jpg',
+                    'https://example.com/image3.jpg',
+                    'https://example.com/image4.jpg'
+                ]
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
+    test('publish video to moments successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postVideo',
+            'to' => 'self',
+            'data' => [
+                'title' => 'API主动发送朋友圈视频消息',
+                'url' => 'https://example.com/video.mp4',
+                'thumbnailUrl' => 'https://example.com/thumbnail.jpg'
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
+    test('publish music to moments successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postMusic',
+            'to' => 'self',
+            'data' => [
+                'title' => 'API主动发送朋友圈音乐消息',
+                'url' => 'https://lytx2021.s3-ap-southeast-1.amazonaws.com/%E4%BD%A0%E7%9C%9F%E4%BC%9F%E5%A4%A7.mp3',
+                'description' => 'data必须包含3个参数',
+                'comment' => '可选参数，即引用转发消息内容',
+                'thumbImgUrl' => 'https://lytx2021.s3-ap-southeast-1.amazonaws.com/share/youtube/EMMU1YJadzE.jpg'
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
+    test('publish QQ music to moments successfully', function () {
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postQQMusic',
+            'to' => 'self',
+            'data' => [
+                'title' => 'QQ音乐分享',
+                'url' => 'https://y.qq.com/n/ryqq/songDetail/123456',
+                'musicUrl' => 'https://music.qq.com/play.mp3',
+                'appInfo' => 'QQ音乐应用信息'
+            ]
+        ]);
+        
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => '已提交设备发送'
+        ]);
+        
+        Http::assertSentCount(1);
+    });
+    
+    test('validates moments publishing fields', function () {
+        // 测试 postLink 验证
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postLink',
+            'to' => 'self',
+            'data' => [
+                'title' => str_repeat('a', 300), // 超过长度限制
+                'url' => 'invalid-url',
+                'comment' => str_repeat('a', 1100) // 超过长度限制
+            ]
+        ]);
+        
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['data.title', 'data.url', 'data.comment']);
+        
+        // 测试 postImages 验证
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postImages',
+            'to' => 'self',
+            'data' => [
+                'title' => str_repeat('a', 300), // 超过长度限制
+                'urls' => array_fill(0, 10, 'https://example.com/image.jpg') // 超过9个图片限制
+            ]
+        ]);
+        
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['data.title', 'data.urls']);
+        
+        // 测试 postMusic 验证
+        $response = $this->postJson('/api/wechat/send', [
+            'type' => 'postMusic',
+            'to' => 'self',
+            'data' => [
+                // 缺少必需字段
+                'url' => 'invalid-url'
+            ]
+        ]);
+        
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['data.title', 'data.url', 'data.description']);
+    });
+});
