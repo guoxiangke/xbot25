@@ -89,7 +89,7 @@ class SubscriptionHandler extends BaseXbotHandler
         }
 
         // 检查群内订阅权限，只允许 bluesky_still 在群里订阅
-        if ($isRoom && $context->wxid !== 'bluesky_still') {
+        if ($isRoom && $context->fromWxid !== 'bluesky_still') {
             $this->sendTextMessage($context, "群内订阅功能仅限管理员使用\n{$donateText}");
             return;
         }
