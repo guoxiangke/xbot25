@@ -1104,7 +1104,25 @@ class SelfMessageHandler extends BaseXbotHandler
             $groupConfigs .= "• room_msg: 无特例配置\n";
         }
 
-        // 2. 签到系统配置
+        // 2. 退群监控配置
+        $roomQuitConfigs = $this->getRoomQuitConfigs($wechatBot);
+        $roomQuitCount = count($roomQuitConfigs);
+        if ($roomQuitCount > 0) {
+            $groupConfigs .= "• room_quit: {$roomQuitCount}个群特例配置\n";
+        } else {
+            $groupConfigs .= "• room_quit: 无特例配置\n";
+        }
+
+        // 3. 群邀请别名配置
+        $roomAliases = $configManager->getAllRoomAliases();
+        $aliasCount = count($roomAliases);
+        if ($aliasCount > 0) {
+            $groupConfigs .= "• room_alias: {$aliasCount}个群别名配置\n";
+        } else {
+            $groupConfigs .= "• room_alias: 无别名配置\n";
+        }
+
+        // 4. 签到系统配置
         $checkInService = new CheckInPermissionService($wechatBot);
         $checkInRoomConfigs = $checkInService->getAllRoomCheckInConfigs();
         $checkInCount = count($checkInRoomConfigs);
@@ -1114,16 +1132,7 @@ class SelfMessageHandler extends BaseXbotHandler
             $groupConfigs .= "• check_in: 无特例配置\n";
         }
 
-        // 3. 退群监控配置
-        $roomQuitConfigs = $this->getRoomQuitConfigs($wechatBot);
-        $roomQuitCount = count($roomQuitConfigs);
-        if ($roomQuitCount > 0) {
-            $groupConfigs .= "• room_quit: {$roomQuitCount}个群特例配置\n";
-        } else {
-            $groupConfigs .= "• room_quit: 无特例配置\n";
-        }
-
-        // 4. YouTube 响应配置
+        // 5. YouTube 响应配置
         $youtubeRooms = $wechatBot->getMeta('youtube_allowed_rooms', []);
         $youtubeUsers = $wechatBot->getMeta('youtube_allowed_users', []);
         $youtubeCount = count($youtubeRooms) + count($youtubeUsers);
@@ -1131,15 +1140,6 @@ class SelfMessageHandler extends BaseXbotHandler
             $groupConfigs .= "• youtube: {$youtubeCount}个群/用户配置\n";
         } else {
             $groupConfigs .= "• youtube: 无配置\n";
-        }
-
-        // 5. 群邀请别名配置
-        $roomAliases = $configManager->getAllRoomAliases();
-        $aliasCount = count($roomAliases);
-        if ($aliasCount > 0) {
-            $groupConfigs .= "• room_alias: {$aliasCount}个群别名配置\n";
-        } else {
-            $groupConfigs .= "• room_alias: 无别名配置\n";
         }
 
         return $groupConfigs;
