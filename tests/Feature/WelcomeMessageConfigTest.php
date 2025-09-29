@@ -47,8 +47,8 @@ class WelcomeMessageConfigTest extends TestCase
         // 确保这是私聊（非群聊）
         $this->assertFalse($context->isRoom);
         
-        // 模拟用户发送的消息（非机器人）
-        $context->isFromBot = false;
+        // 模拟机器人发送的配置消息（管理员通过机器人发送）
+        $context->isFromBot = true;
         
         $handler = new SelfMessageHandler();
         
@@ -83,7 +83,7 @@ class WelcomeMessageConfigTest extends TestCase
             clientId: 123456
         );
         
-        $context->isFromBot = false;
+        $context->isFromBot = true;
         
         $handler = new SelfMessageHandler();
         $handler->handle($context, function($context) {

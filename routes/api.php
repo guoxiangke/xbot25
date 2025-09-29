@@ -43,6 +43,7 @@ Route::post('/xbot/license/info', function (Request $request) {
 use App\Http\Controllers\XbotController;
 use App\Http\Controllers\WechatController;
 use App\Http\Controllers\ChatwootController;
+use App\Http\Controllers\MaterialController;
 
 Route::any('/xbot/{winToken}', XbotController::class);
 
@@ -74,9 +75,22 @@ Route::any('/xbot/{winToken}', XbotController::class);
  * {"type":"text", "to":"friend_wxid", "data": {"content": "主消息"}, "addition": {"type":"link", "data": {"url":"https://example.com", "title":"附加链接"}}}
  */
 Route::group(['middleware' => ['auth:sanctum']], function () {
+    // WeChat API endpoints
     Route::post('/wechat/send', [WechatController::class, 'send']);
     Route::post('/wechat/add', [WechatController::class, 'add']);
     Route::get('/wechat/friends', [WechatController::class, 'getFriends']);
+    
+    // 永久素材管理 API endpoints
+    Route::get('/materials/stats', [MaterialController::class, 'stats']);
+    Route::get('/materials', [MaterialController::class, 'index']);
+    Route::post('/materials', [MaterialController::class, 'store']);
+    Route::get('/materials/{mediaId}', [MaterialController::class, 'show']);
+    Route::delete('/materials/{mediaId}', [MaterialController::class, 'destroy']);
+    
+    // 图文消息特殊接口
+    Route::post('/materials/article-image', [MaterialController::class, 'uploadArticleImage']);
+    Route::post('/materials/news', [MaterialController::class, 'storeNews']);
+    Route::put('/materials/news/{mediaId}', [MaterialController::class, 'updateNews']);
 });
 
 // Chatwoot webhook endpoint

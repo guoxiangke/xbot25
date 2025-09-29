@@ -50,6 +50,7 @@ class ConfigManager
     const GROUP_CONFIGS = [
         'room_alias' => '群邀请别名',
         'room_welcome_msgs' => '群新成员欢迎消息模板',
+        'room_timezone_special' => '群时区设置',
     ];
 
     /**
@@ -388,6 +389,12 @@ class ConfigManager
             }
         }
 
+        // room_timezone_special 使用集中化存储
+        if ($command === 'room_timezone_special') {
+            $timezoneMap = $this->wechatBot->getMeta('room_timezone_specials', []);
+            return $timezoneMap[$roomWxid] ?? $default;
+        }
+
         // 其他群配置使用原有存储方式
         $groupMeta = $this->wechatBot->getMeta("group.{$roomWxid}", []);
         return $groupMeta[$command] ?? (self::GROUP_DEFAULT_VALUES[$command] ?? $default);
@@ -422,6 +429,22 @@ class ConfigManager
         if ($command === 'room_welcome_msgs') {
             // 直接设置整个数组（value 应该是完整的数组）
             $this->wechatBot->setMeta('room_welcome_msgs', $value);
+            return true;
+        }
+
+        // room_timezone_special 使用集中化存储
+        if ($command === 'room_timezone_special') {
+            $timezoneMap = $this->wechatBot->getMeta('room_timezone_specials', []);
+            
+            if ($value === null) {
+                // 删除时区配置
+                unset($timezoneMap[$roomWxid]);
+            } else {
+                // 设置时区配置
+                $timezoneMap[$roomWxid] = $value;
+            }
+            
+            $this->wechatBot->setMeta('room_timezone_specials', $timezoneMap);
             return true;
         }
 

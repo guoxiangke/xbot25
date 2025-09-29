@@ -236,7 +236,7 @@ describe('Command Processing with Real Data', function () {
         Http::assertSent(function ($request) {
             $data = $request->data();
             $msg = XbotTestHelpers::extractMessageContent($data);
-            return $msg && str_contains($msg, 'AI机器人');
+            return $msg && str_contains($msg, 'Hi，我是AI');
         });
     });
     

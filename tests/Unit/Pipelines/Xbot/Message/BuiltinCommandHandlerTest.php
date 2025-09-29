@@ -36,7 +36,7 @@ describe('Command Recognition', function () {
         
         $this->handler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('Hi，我是一个AI机器人，暂支持以下指令：');
+        XbotTestHelpers::assertMessageSent('Hi，我是AI，支持以下指令：');
     });
     
     test('recognizes whoami command', function () {
@@ -91,7 +91,7 @@ describe('Command Recognition', function () {
         
         $this->handler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('Hi，我是一个AI机器人，暂支持以下指令：');
+        XbotTestHelpers::assertMessageSent('Hi，我是AI，支持以下指令：');
     });
     
     test('handles commands with extra spaces', function () {
@@ -102,7 +102,7 @@ describe('Command Recognition', function () {
         
         $this->handler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('Hi，我是一个AI机器人，暂支持以下指令：');
+        XbotTestHelpers::assertMessageSent('Hi，我是AI，支持以下指令：');
     });
     
     test('ignores non-command messages', function () {

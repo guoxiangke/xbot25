@@ -162,7 +162,7 @@ describe('Configuration Command Protection', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('/config room_msg 1')
+                ->withMessage('/config chatwoot 1')
                 ->from('wxid_user123') // 普通用户
                 ->build()
         );
@@ -252,7 +252,7 @@ describe('Configuration Command Protection', function () {
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             MessageDataBuilder::textMessage()
-                ->withMessage('  /set   room_msg   1  ')
+                ->withMessage('  /set   chatwoot   1  ')
                 ->from('wxid_user123')
                 ->build()
         );

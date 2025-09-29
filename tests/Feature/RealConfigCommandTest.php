@@ -42,10 +42,22 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
             'friend_welcome' => true
         ]);
         
+        // 设置Chatwoot配置以支持状态显示
+        $this->wechatBot->setMeta('chatwoot', [
+            'chatwoot_account_id' => 17,
+            'chatwoot_inbox_id' => 2,
+            'chatwoot_token' => 'test-token',
+            'chatwoot_endpoint_url' => 'https://test.chatwoot.com'
+        ]);
+        
         $context = XbotTestHelpers::createBotMessageContext(
             $this->wechatBot,
             '/config'
         );
+        
+        // 调试检查
+        expect($context->isFromBot)->toBeTrue();
+        expect($context->content)->toBe('/config');
         
         $this->selfHandler->handle($context, $this->next);
         
@@ -54,13 +66,18 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
             $data = $request->data();
             $message = XbotTestHelpers::extractMessageContent($data) ?? '';
             
+            // 调试输出实际的消息内容
+            if (!str_contains($message, '📋 当前配置状态：')) {
+                echo "实际收到的消息: " . $message . "\n";
+            }
+            
             return str_contains($message, '📋 当前配置状态：') &&
                    str_contains($message, '🌐 全局配置：') &&
-                   str_contains($message, '• chatwoot: ✅开启') &&
-                   str_contains($message, '• room_msg: ✅开启') &&
-                   str_contains($message, '• keyword_resources: ✅开启') &&
-                   str_contains($message, '• payment_auto: ✅开启') &&
-                   str_contains($message, '• check_in: ❌关闭') &&
+                   str_contains($message, '• chatwoot: ✅开启 Chatwoot同步') &&
+                   str_contains($message, '• room_msg: ✅开启 群消息处理') &&
+                   str_contains($message, '• keyword_resources: ✅开启 关键词资源响应') &&
+                   str_contains($message, '• payment_auto: ✅开启 自动收款') &&
+                   str_contains($message, '• check_in: ❎关闭 签到系统') &&
                    str_contains($message, '🔧 配置管理命令：') &&
                    str_contains($message, '/set <key> <value>') &&
                    str_contains($message, '/config <key> <value>');
@@ -87,7 +104,8 @@ describe('Real Configuration Commands Based on Manual Testing', function () {
         $this->wechatBot->setMeta('chatwoot', [
             'chatwoot_account_id' => 17,
             'chatwoot_inbox_id' => 2,
-            'chatwoot_token' => 'test-token'
+            'chatwoot_token' => 'test-token',
+            'chatwoot_endpoint_url' => 'https://test.chatwoot.com'
         ]);
         
         // 测试启用chatwoot
@@ -270,7 +288,8 @@ describe('Configuration Sequence Testing', function () {
         $this->wechatBot->setMeta('chatwoot', [
             'chatwoot_account_id' => 17,
             'chatwoot_inbox_id' => 2,
-            'chatwoot_token' => 'test-token'
+            'chatwoot_token' => 'test-token',
+            'chatwoot_endpoint_url' => 'https://test.chatwoot.com'
         ]);
         
         // 模拟手动测试中的配置序列
@@ -293,6 +312,7 @@ describe('Configuration Sequence Testing', function () {
             );
             
             $this->selfHandler->handle($context, $this->next);
+            
             
             XbotTestHelpers::assertMessageSent($expectedResponse);
             
@@ -361,11 +381,12 @@ describe('Configuration Display Format Validation', function () {
                 '• room_msg: ✅开启 群消息处理',
                 '• keyword_resources: ✅开启 关键词资源响应',
                 '• payment_auto: ✅开启 自动收款',
-                '• check_in: ❌关闭 签到系统',
+                '• check_in: ❎关闭 签到系统',
                 '🔧 配置管理命令：',
                 '/set <key> <value> - 设置配置项',
-                '/config <key> <value> - 设置配置项（与/set等效）',
+                '/config <key> <value> - 设置配置项',
                 '/get chatwoot - 查看Chatwoot配置详情',
+                '/get room_alias - 查看群邀请别名配置',
                 '/sync contacts - 同步联系人列表',
                 '/check online - 检查微信在线状态'
             ];

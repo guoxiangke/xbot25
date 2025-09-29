@@ -21,6 +21,9 @@ class StatisticsUnificationTest extends TestCase
     {
         parent::setUp();
         
+        // 设置重定向配置
+        config(['services.xbot.redirect' => 'http://localhost/redirect?url=']);
+        
         // 创建测试客户端和机器人
         $wechatClient = WechatClient::factory()->create();
         $this->wechatBot = WechatBot::factory()->create([
@@ -131,7 +134,7 @@ class StatisticsUnificationTest extends TestCase
             'addition' => [
                 'type' => 'link',
                 'data' => [
-                    'url' => 'https://example.com/video.mp4',
+                    'url' => 'https://r2share.example.com/video.mp4',
                     'title' => '测试视频'
                 ],
                 'statistics' => [

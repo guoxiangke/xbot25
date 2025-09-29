@@ -150,6 +150,11 @@ class ChatwootClient
      */
     public function sendMessageAsContact($contact, $content = 'hi', $isNewConversation = false)
     {
+        // 检查联系人数据是否有效
+        if (!$contact || !isset($contact['id'])) {
+            return null;
+        }
+        
         $url = "{$this->baseUrl}/{$this->api_version}/accounts/{$this->accountId}/contacts/{$contact['id']}/conversations";
         $conversation = $this->http->get($url)->json()['payload'][0] ?? $this->getConversation($contact);
         

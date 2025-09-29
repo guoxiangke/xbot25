@@ -56,7 +56,9 @@ class TextMessageHandler extends BaseXbotHandler
         
         // 群级别配置命令列表（这些命令只能在群里由机器人执行）
         $groupLevelCommands = [
-            'room_msg', 'check_in', 'youtube_room'
+            'room_msg', 'check_in', 'youtube_room',
+            // 别名
+            'room_listen', 'check_in_room', 'youtube'
         ];
         
         // 解析命令参数

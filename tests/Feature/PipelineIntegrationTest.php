@@ -174,7 +174,7 @@ describe('Handler Interaction and Priority', function () {
         Http::assertSent(function ($request) {
             $data = $request->data();
             return isset($data['type']) && $data['type'] === 'MT_SEND_TEXTMSG' 
-                && isset($data['data']['content']) && str_contains($data['data']['content'], 'AI机器人');
+                && isset($data['data']['content']) && str_contains($data['data']['content'], 'Hi，我是AI');
         });
         
         // 验证消息也被同步到Chatwoot（因为BuiltinCommandHandler继续传递）

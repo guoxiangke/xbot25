@@ -170,7 +170,7 @@ describe('Chatwoot Configuration', function () {
         
         Http::assertSent(function ($request) {
             $data = $request->data();
-            return str_contains(XbotTestHelpers::extractMessageContent($data), '❌ 无法启用 Chatwoot，缺少必要配置');
+            return str_contains(XbotTestHelpers::extractMessageContent($data), '❎ 无法启用 Chatwoot，缺少必要配置');
         });
     });
     
@@ -179,7 +179,8 @@ describe('Chatwoot Configuration', function () {
         $this->wechatBot->setMeta('chatwoot', [
             'chatwoot_account_id' => 1,
             'chatwoot_inbox_id' => 1,
-            'chatwoot_token' => 'test-token'
+            'chatwoot_token' => 'test-token',
+            'chatwoot_endpoint_url' => 'https://test.chatwoot.com'
         ]);
         
         $context = XbotTestHelpers::createBotMessageContext(
@@ -214,7 +215,7 @@ describe('Chatwoot Configuration', function () {
         
         $this->handler->handle($context, $this->next);
         
-        XbotTestHelpers::assertMessageSent('❌ Chatwoot账户ID 必须是大于0的数字');
+        XbotTestHelpers::assertMessageSent('❎ Chatwoot账户ID 必须是大于0的数字');
     });
     
     test('rejects zero values for numeric configs', function () {
@@ -226,7 +227,7 @@ describe('Chatwoot Configuration', function () {
         $this->handler->handle($context, $this->next);
         
         // 实际上代码将"0"视为空值，所以期望"不能为空"消息
-        XbotTestHelpers::assertMessageSent('❌ Chatwoot收件箱ID 的值不能为空');
+        XbotTestHelpers::assertMessageSent('❎ Chatwoot收件箱ID 的值不能为空');
     });
     
     test('accepts empty chatwoot token as valid value', function () {
@@ -238,7 +239,7 @@ describe('Chatwoot Configuration', function () {
         $this->handler->handle($context, $this->next);
         
         // 系统接受空字符串作为有效的token值
-        XbotTestHelpers::assertMessageSent('设置成功: ChatwootAPI令牌 = ""');
+        XbotTestHelpers::assertMessageSent('设置成功: ChatwootAPI令牌 = ');
     });
 });
 
@@ -249,7 +250,8 @@ describe('Get Chatwoot Command', function () {
         $this->wechatBot->setMeta('chatwoot', [
             'chatwoot_account_id' => 17,
             'chatwoot_inbox_id' => 2,
-            'chatwoot_token' => 'very-long-secret-token-12345'
+            'chatwoot_token' => 'very-long-secret-token-12345',
+            'chatwoot_endpoint_url' => 'https://test.chatwoot.com'
         ]);
         
         $context = XbotTestHelpers::createBotMessageContext(

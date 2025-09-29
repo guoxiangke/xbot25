@@ -32,6 +32,7 @@ final class XbotClient
         'INJECT_WECHAT' => 'MT_INJECT_WECHAT',
         'CLOSE_CLIENT' => 'MT_QUIT_WECHAT_MSG',
         'ACCEPT_FRIEND' => 'MT_ACCEPT_FRIEND_MSG',
+        'DELETE_FRIEND' => 'MT_DEL_FRIEND_MSG',
         'REFUSE_TRANSFER' => 'MT_REFUSE_FRIEND_WCPAY_MSG',
         'SEARCH_CONTACT' => 'MT_SEARCH_CONTACT_MSG',
         'ADD_FRIEND' => 'MT_ADD_SEARCH_CONTACT_MSG',
@@ -272,6 +273,16 @@ final class XbotClient
     public function updateFriendRemark(string $wxid, string $remark): ?Response
     {
         return $this->sendRequest(self::MESSAGE_TYPES['MODIFY_REMARK'], compact('wxid', 'remark'));
+    }
+
+    /**
+     * 删除好友
+     *
+     * @param string $wxid 要删除的好友微信ID
+     */
+    public function deleteFriend(string $wxid): ?Response
+    {
+        return $this->sendRequest(self::MESSAGE_TYPES['DELETE_FRIEND'], compact('wxid'));
     }
 
     // ========== 联系人和群组信息获取 ==========

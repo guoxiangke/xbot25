@@ -7,6 +7,7 @@ use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Analytics\CheckInAnalytics;
 use App\Services\CheckInPermissionService;
+use App\Services\Managers\ConfigManager;
 use Carbon\Carbon;
 use Closure;
 
@@ -103,7 +104,7 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processCheckIn(XbotMessageContext $context, string $roomWxid, string $fromWxid, string $fromRemark, string $keyword)
     {
-        $today = now()->startOfDay();
+        $today = $this->getTodayForRoom($context->wechatBot, $roomWxid);
 
         // 先检查今天是否已经签到
         $checkIn = CheckIn::where('content', $roomWxid)
@@ -124,7 +125,7 @@ class CheckInMessageHandler extends BaseXbotHandler
             $wasRecentlyCreated = true;
         }
 
-        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts(), $context->wechatBot);
         $stats = $service->getPersonalStats();
 
         $encourages = [
@@ -155,7 +156,7 @@ class CheckInMessageHandler extends BaseXbotHandler
             $this->sendTextMessage($context, $groupContent, $roomWxid);
 
             // 再发个人消息
-            $personalContent = "{$first}\n✊您已连续坚持了 {$stats['current_streak']} 天\n🏅您总共攒了 {$stats['total_days']} 枚🌟\n您是今天第 {$stats['rank']} 个签到的🥇\n给你一个大大的赞👍\n{$randomEncourage}";
+            $personalContent = "{$first}\n✊您已连续坚持了 {$stats['current_streak']} 天\n🏅您总共挣了 {$stats['total_days']} 枚🌟\n您是今天第 {$stats['rank']} 个签到的🥇\n给你一个大大的赞👍\n{$randomEncourage}";
             // $this->sendMessage($context, $personalContent, $fromWxid);
         } else {
             // 重复签到
@@ -225,7 +226,7 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processPersonalStats(XbotMessageContext $context, string $roomWxid, string $fromWxid, string $fromRemark)
     {
-        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts(), $context->wechatBot);
         $stats = $service->getPersonalStats();
 
         if ($stats['total_days'] == 0) {
@@ -276,6 +277,23 @@ class CheckInMessageHandler extends BaseXbotHandler
 
         // 私发详细统计
         $this->sendTextMessage($context, $text, $fromWxid);
+    }
+
+    /**
+     * 根据群的时区配置获取今日开始时间
+     */
+    private function getTodayForRoom($wechatBot, string $roomWxid): Carbon
+    {
+        $configManager = new ConfigManager($wechatBot);
+        
+        // 获取群的时区配置，默认为 +8 (Asia/Shanghai)
+        $timezoneOffset = $configManager->getGroupConfig('room_timezone_special', $roomWxid, 8);
+        
+        // 创建指定时区的今日开始时间
+        $now = Carbon::now();
+        $todayInTimezone = $now->utc()->addHours($timezoneOffset)->startOfDay();
+        
+        return $todayInTimezone;
     }
 
 }

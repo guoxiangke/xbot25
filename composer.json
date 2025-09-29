@@ -13,6 +13,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.6.4",
+        "overtrue/laravel-wechat": "^7.2",
         "plank/laravel-metable": "^6.2"
     },
     "require-dev": {

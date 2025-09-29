@@ -70,7 +70,7 @@ class RoomAliasSimpleTest extends TestCase
         
         // 确保这是私聊
         $this->assertFalse($context->isRoom);
-        $context->isFromBot = false;
+        $context->isFromBot = true;
         
         $handler = new RoomAliasHandler();
         
@@ -150,7 +150,7 @@ class RoomAliasSimpleTest extends TestCase
                 clientId: 123456
             );
             
-            $context->isFromBot = false;
+            $context->isFromBot = true;
             
             $processedContext = $handler->handle($context, function($context) {
                 return $context;

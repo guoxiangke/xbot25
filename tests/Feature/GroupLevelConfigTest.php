@@ -118,7 +118,7 @@ describe('Group Level Configuration Commands', function () {
         // 测试群级别配置在私聊中会失败
         $context = XbotTestHelpers::createBotMessageContext(
             $this->wechatBot,
-            '/set room_msg 1'
+            '/set youtube_room 1'
         );
         
         $this->selfHandler->handle($context, $this->next);

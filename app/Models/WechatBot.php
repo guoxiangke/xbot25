@@ -147,9 +147,9 @@ class WechatBot extends Model
                     break;
                 case 'link':
                     $url = $data['url'] ?? '';
-                    // 只对特定的r2share视频链接添加重定向
+                    // 对包含统计信息的链接添加重定向，但仅限于r2share域名的.mp4链接
                     if (isset($resource['statistics']) && 
-                        str_starts_with($url, 'https://r2share') && 
+                        str_contains($url, 'r2share') && 
                         str_ends_with($url, '.mp4')) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');

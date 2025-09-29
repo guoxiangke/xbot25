@@ -7,6 +7,7 @@ use App\Models\WechatBot;
 use App\Models\WechatClient;
 use Tests\Support\TestXbot;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 
 class WechatBotResourceSendTest extends TestCase
 {
@@ -18,6 +19,11 @@ class WechatBotResourceSendTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // 设置HTTP Mock
+        Http::fake([
+            '*' => Http::response(['success' => true], 200)
+        ]);
         
         // 创建测试客户端和机器人
         $wechatClient = WechatClient::factory()->create();

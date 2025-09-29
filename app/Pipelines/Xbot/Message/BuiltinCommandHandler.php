@@ -28,6 +28,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         '/get room_quit' => ['method' => 'redirectToSelfHandler', 'description' => '查看群退出监控配置', 'hidden' => true],
         '/get youtube' => ['method' => 'redirectToSelfHandler', 'description' => '查看YouTube响应配置', 'hidden' => true],
         '/get blacklist' => ['method' => 'redirectToSelfHandler', 'description' => '查看黑名单配置', 'hidden' => true],
+        '/get timezone' => ['method' => 'redirectToSelfHandler', 'description' => '查看群时区配置', 'hidden' => true],
         '/sync contacts' => ['method' => 'redirectToSelfHandler', 'description' => '同步联系人列表', 'hidden' => true],
         '/check online' => ['method' => 'redirectToSelfHandler', 'description' => '检查微信在线状态', 'hidden' => true],
     ];
@@ -121,6 +122,7 @@ class BuiltinCommandHandler extends BaseXbotHandler
         $helpText .= "/get room_quit - 查看群退出监控配置\n";
         $helpText .= "/get youtube - 查看YouTube响应配置\n";
         $helpText .= "/get blacklist - 查看黑名单配置\n";
+        $helpText .= "/get timezone - 查看时区配置\n";
         
         // 显示黑名单管理命令
         $helpText .= "\n🚫 黑名单管理命令：\n";

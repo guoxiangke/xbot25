@@ -26,6 +26,7 @@ class SelfMessageHandler extends BaseXbotHandler
         'youtube_room' => 'YouTube链接响应',
         'room_quit' => '退群监控',
         'room_alias' => '群邀请别名',
+        'room_timezone_special' => '群时区设置',
     ];
 
     /**
@@ -121,6 +122,13 @@ class SelfMessageHandler extends BaseXbotHandler
             return $context;
         }
 
+        // 处理 /get timezone 命令
+        if ($msg === '/get timezone') {
+            $this->handleGetTimezoneCommand($context);
+            $context->markAsProcessed(static::class);
+            return $context;
+        }
+
         // 处理 /sync contacts 命令
         if ($msg === '/sync contacts') {
             $this->handleSyncContactsCommand($context);
@@ -180,6 +188,12 @@ class SelfMessageHandler extends BaseXbotHandler
         // 处理黑名单命令
         if ($originalKey === 'blacklist') {
             $this->handleBlacklistCommand($context, $value);
+            return;
+        }
+        
+        // 处理时区设置命令
+        if ($originalKey === 'timezone') {
+            $this->handleTimezoneCommand($context, $value);
             return;
         }
         
@@ -315,8 +329,8 @@ class SelfMessageHandler extends BaseXbotHandler
     {
         $configManager = new ConfigManager($context->wechatBot);
         
-        // 验证值不为空
-        if (empty(trim($value))) {
+        // 验证值不为空（chatwoot_token 允许空字符串）
+        if (empty(trim($value)) && $key !== 'chatwoot_token') {
             $configName = $configManager->getConfigName($key);
             $this->sendTextMessage($context, "❎ {$configName} 的值不能为空");
             $this->markAsReplied($context);
@@ -450,7 +464,7 @@ class SelfMessageHandler extends BaseXbotHandler
                 $autoEnabledRoomMsg = $this->handleCheckInRoomConfig($context, $roomWxid, $boolValue);
                 $message = "群设置成功: {$configName} {$status}";
                 if ($autoEnabledRoomMsg) {
-                    $message .= "\n自动启用了该群的消息处理 (room_msg)";
+                    $message .= "\n自动启用了该群的消息监听";
                 }
                 $this->sendTextMessage($context, $message);
                 break;
@@ -1289,6 +1303,7 @@ class SelfMessageHandler extends BaseXbotHandler
         $inQuotes = false;
         $quoteChar = null;
         $escaped = false;
+        $wasInQuotes = false; // 跟踪是否处理过引号
         
         $chars = mb_str_split(trim($message));
         
@@ -1308,6 +1323,7 @@ class SelfMessageHandler extends BaseXbotHandler
             
             if (!$inQuotes && ($char === '"' || $char === "'")) {
                 $inQuotes = true;
+                $wasInQuotes = true;
                 $quoteChar = $char;
                 continue;
             }
@@ -1315,13 +1331,18 @@ class SelfMessageHandler extends BaseXbotHandler
             if ($inQuotes && $char === $quoteChar) {
                 $inQuotes = false;
                 $quoteChar = null;
+                // 引号结束时，将当前内容加入parts（即使是空字符串）
+                $parts[] = $current;
+                $current = '';
+                $wasInQuotes = false;
                 continue;
             }
             
             if (!$inQuotes && preg_match('/\s/', $char)) {
-                if ($current !== '') {
+                if ($current !== '' || $wasInQuotes) {
                     $parts[] = $current;
                     $current = '';
+                    $wasInQuotes = false;
                 }
                 continue;
             }
@@ -1329,11 +1350,118 @@ class SelfMessageHandler extends BaseXbotHandler
             $current .= $char;
         }
         
-        if ($current !== '') {
+        // 处理最后一个参数
+        if ($current !== '' || $wasInQuotes) {
             $parts[] = $current;
         }
         
         return $parts;
+    }
+
+    /**
+     * 处理时区设置命令
+     */
+    private function handleTimezoneCommand(XbotMessageContext $context, string $value): void
+    {
+        // 时区设置命令只能在群聊中执行
+        if (!$context->isRoom) {
+            $this->sendTextMessage($context, "❌ 时区设置只能在群聊中执行");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        $timezone = trim($value);
+        
+        // 验证时区格式：必须是 +8, -7 这样的格式
+        if (!preg_match('/^[+-]?\d{1,2}$/', $timezone)) {
+            $this->sendTextMessage($context, "❌ 时区格式错误\n正确格式：+8, -7, +0\n例如：/set timezone +8");
+            $this->markAsReplied($context);
+            return;
+        }
+        
+        // 转换为整数并验证范围
+        $timezoneOffset = (int) $timezone;
+        if ($timezoneOffset < -12 || $timezoneOffset > 12) {
+            $this->sendTextMessage($context, "❌ 时区偏移值超出范围\n支持范围：-12 到 +12\n您输入的：{$timezoneOffset}");
+            $this->markAsReplied($context);
+            return;
+        }
+
+        // 存储群时区配置
+        $configManager = new ConfigManager($context->wechatBot);
+        $roomWxid = $context->roomWxid;
+        
+        $configManager->setGroupConfig('room_timezone_special', $timezoneOffset, $roomWxid);
+        
+        // 格式化显示时区偏移
+        $displayTimezone = $timezoneOffset >= 0 ? "+{$timezoneOffset}" : (string) $timezoneOffset;
+        
+        $this->sendTextMessage($context, "✅ 群时区设置成功\n时区偏移: UTC{$displayTimezone}\n\n💡 该群的签到将基于此时区判断今日");
+        $this->markAsReplied($context);
+    }
+
+    /**
+     * 处理获取时区配置命令
+     */
+    private function handleGetTimezoneCommand(XbotMessageContext $context): void
+    {
+        $wechatBot = $context->wechatBot;
+        $configManager = new ConfigManager($wechatBot);
+        $contacts = $wechatBot->getMeta('contacts', []);
+        $roomTimezoneSpecials = $wechatBot->getMeta('room_timezone_specials', []);
+        
+        // 如果是群聊，只显示当前群的时区信息
+        if ($context->isRoom) {
+            $currentRoomWxid = $context->roomWxid;
+            $roomName = $contacts[$currentRoomWxid]['nickname'] ?? $contacts[$currentRoomWxid]['remark'] ?? $currentRoomWxid;
+            
+            if (isset($roomTimezoneSpecials[$currentRoomWxid])) {
+                // 当前群有时区配置
+                $timezoneOffset = $roomTimezoneSpecials[$currentRoomWxid];
+                $displayTimezone = $timezoneOffset >= 0 ? "+{$timezoneOffset}" : (string) $timezoneOffset;
+                $roomCurrentTime = now()->utc()->addHours($timezoneOffset)->format('Y-m-d H:i');
+                
+                $message = "🕐 时区: UTC{$displayTimezone}\n";
+                $message .= "   时间: {$roomCurrentTime}\n";
+                $message .= "   群名: $roomName\n";
+                $message .= "   群ID: $currentRoomWxid";
+            } else {
+                // 当前群使用默认时区
+                $currentTime = now()->setTimezone('Asia/Shanghai')->format('Y-m-d H:i');
+                $message = "🕐 时区: UTC+8 (默认)\n";
+                $message .= "   时间: {$currentTime}\n";
+                $message .= "   群名: $roomName\n";
+                $message .= "   群ID: $currentRoomWxid";
+            }
+        } else {
+            // 私聊中显示完整的时区配置状态
+            $currentTime = now()->setTimezone('Asia/Shanghai')->format('Y-m-d H:i');
+            
+            if (empty($roomTimezoneSpecials)) {
+                $message = "🕐 群时区配置状态\n\n❌ 暂无群级别时区配置\n\n🌐 默认时区: UTC+8\n🌐 默认时区时间: {$currentTime}\n\n💡 使用方法：\n在群聊中发送：/set timezone +8 设置该群时区";
+            } else {
+                $message = "🕐 群时区配置状态\n\n";
+                $message .= "🌐 默认时区: UTC+8\n";
+                $message .= "🌐 默认时区时间: {$currentTime}\n\n";
+                $message .= "✅ 已配置 " . count($roomTimezoneSpecials) . " 个群时区：\n\n";
+                
+                foreach ($roomTimezoneSpecials as $roomWxid => $timezoneOffset) {
+                    $roomName = $contacts[$roomWxid]['nickname'] ?? $contacts[$roomWxid]['remark'] ?? $roomWxid;
+                    $displayTimezone = $timezoneOffset >= 0 ? "+{$timezoneOffset}" : (string) $timezoneOffset;
+                    
+                    // 计算该时区的当前时间
+                    $roomCurrentTime = now()->utc()->addHours($timezoneOffset)->format('Y-m-d H:i');
+                    
+                    $message .= "🕐 时区: UTC{$displayTimezone}\n";
+                    $message .= "   时间: {$roomCurrentTime}\n";
+                    $message .= "   群名: $roomName\n";
+                    $message .= "   群ID: $roomWxid\n\n";
+                }
+            }
+        }
+        
+        $this->sendTextMessage($context, $message);
+        $this->markAsReplied($context);
     }
 
 }

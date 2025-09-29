@@ -3,6 +3,7 @@
 namespace App\Services\Analytics;
 
 use App\Models\CheckIn;
+use App\Services\Managers\ConfigManager;
 use Carbon\Carbon;
 
 /**
@@ -14,12 +15,14 @@ class CheckInAnalytics
     protected $wxid;
     protected $wxRoom;
     protected $contacts;
+    protected $wechatBot;
 
-    public function __construct(string $wxid, string $wxRoom, array $contacts)
+    public function __construct(string $wxid, string $wxRoom, array $contacts, $wechatBot = null)
     {
         $this->wxid = $wxid;
         $this->wxRoom = $wxRoom;
         $this->contacts = $contacts;
+        $this->wechatBot = $wechatBot;
     }
 
     public function getPersonalStats(): array
@@ -68,7 +71,7 @@ class CheckInAnalytics
 
     public function getTodayRank(): int
     {
-        $today = now()->startOfDay();
+        $today = $this->getTodayForRoom();
         return CheckIn::whereDate('check_in_at', $today)
             ->where('content', $this->wxRoom)
             ->count();
@@ -266,5 +269,27 @@ class CheckInAnalytics
             default:
                 return '🏅';
         }
+    }
+
+    /**
+     * 根据群的时区配置获取今日开始时间
+     */
+    private function getTodayForRoom(): Carbon
+    {
+        // 如果没有 wechatBot，使用默认时区 UTC+8
+        if (!$this->wechatBot) {
+            return now()->startOfDay();
+        }
+
+        $configManager = new ConfigManager($this->wechatBot);
+        
+        // 获取群的时区配置，默认为 +8 (Asia/Shanghai)
+        $timezoneOffset = $configManager->getGroupConfig('room_timezone_special', $this->wxRoom, 8);
+        
+        // 创建指定时区的今日开始时间
+        $now = Carbon::now();
+        $todayInTimezone = $now->utc()->addHours($timezoneOffset)->startOfDay();
+        
+        return $todayInTimezone;
     }
 }
