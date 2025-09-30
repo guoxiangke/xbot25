@@ -158,6 +158,9 @@ class EasyWeChatKeywordHandler
                     'MusicUrl' => $url,
                     'HQMusicUrl' => $url,
                     'ThumbMediaId' => $thumbMediaId,
+                    'thumburl' => $resource['image'] ?? '',
+                    'songalbumurl' => $resource['image'] ?? '',
+                    'songlyric' => $resource['lyrics'] ?? '',
                 ],
             ];
             return $musicResponse;
@@ -358,6 +361,9 @@ class EasyWeChatKeywordHandler
                     'musicurl' => $resource['music_url'] ?? $resource['url'] ?? '',
                     'hqmusicurl' => $resource['hq_music_url'] ?? $resource['url'] ?? '',
                     'thumb_media_id' => $resource['thumb_media_id'] ?? '0EiLlKqUqHoIZkYcahv0y0-L-gG7i2jJfmCL0OvqHC4',
+                    'thumburl' => $resource['image'] ?? '',
+                    'songalbumurl' => $resource['image'] ?? '',
+                    'songlyric' => $resource['lyrics'] ?? '',
                 ];
 
             case 'news':

@@ -13,9 +13,24 @@ class CheckIn extends Model
     protected $guarded = ['id', 'created_at', 'updated_at', 'deleted_at'];
     
     protected $casts = [
-        'check_in_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+    
+    /**
+     * 获取打卡时间（复用 created_at 字段）
+     */
+    public function getCheckInTimeAttribute()
+    {
+        return $this->created_at;
+    }
+    
+    /**
+     * 获取群聊房间ID（新字段名 chatroom）
+     */
+    public function getRoomWxidAttribute()
+    {
+        return $this->chatroom;
+    }
 }

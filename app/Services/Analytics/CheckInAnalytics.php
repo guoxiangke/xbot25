@@ -4,6 +4,7 @@ namespace App\Services\Analytics;
 
 use App\Models\CheckIn;
 use App\Services\Managers\ConfigManager;
+use App\Services\TimezoneHelper;
 use Carbon\Carbon;
 
 /**
@@ -28,10 +29,10 @@ class CheckInAnalytics
     public function getPersonalStats(): array
     {
         $dates = CheckIn::where('wxid', $this->wxid)
-            ->where('content', $this->wxRoom)
-            ->orderBy('check_in_at')
-            ->pluck('check_in_at')
-            ->map(fn($dt) => Carbon::parse($dt)->toDateString())
+            ->where('chatroom', $this->wxRoom)
+            ->orderBy('created_at')
+            ->pluck('created_at')
+            ->map(fn($dt) => TimezoneHelper::utcToGroupTimezoneDate(Carbon::parse($dt), $this->wechatBot, $this->wxRoom))
             ->unique()
             ->values();
 
@@ -71,9 +72,11 @@ class CheckInAnalytics
 
     public function getTodayRank(): int
     {
-        $today = $this->getTodayForRoom();
-        return CheckIn::whereDate('check_in_at', $today)
-            ->where('content', $this->wxRoom)
+        // 使用新的时区处理逻辑
+        [$todayStartUtc, $todayEndUtc] = TimezoneHelper::getTodayRangeInUtc($this->wechatBot, $this->wxRoom);
+        
+        return CheckIn::whereBetween('created_at', [$todayStartUtc, $todayEndUtc])
+            ->where('chatroom', $this->wxRoom)
             ->count();
     }
 
@@ -81,23 +84,43 @@ class CheckInAnalytics
     {
         $contacts = $this->contacts;
         
-        return CheckIn::select('wxid')
-            ->where('content', $this->wxRoom)
-            ->selectRaw('COUNT(DISTINCT DATE(check_in_at)) as total_days')
+        // 先获取所有用户的打卡记录，然后在PHP中处理时区转换和去重
+        $allUsers = CheckIn::select('wxid')
+            ->where('chatroom', $this->wxRoom)
             ->groupBy('wxid')
-            ->orderByDesc('total_days')
-            ->limit($limit)
-            ->get()
-            ->map(function ($item, $index) use ($contacts) {
-                $nickname = $this->getNicknameFromContacts($item->wxid, $contacts);
-                return [
-                    'rank' => $index + 1,
-                    'wxid' => $item->wxid,
-                    'nickname' => $nickname,
-                    'total_days' => $item->total_days,
-                ];
-            })
-            ->toArray();
+            ->get();
+        
+        $userStats = [];
+        
+        foreach ($allUsers as $user) {
+            $dates = CheckIn::where('wxid', $user->wxid)
+                ->where('chatroom', $this->wxRoom)
+                ->orderBy('created_at')
+                ->pluck('created_at')
+                ->map(fn($dt) => TimezoneHelper::utcToGroupTimezoneDate(Carbon::parse($dt), $this->wechatBot, $this->wxRoom))
+                ->unique()
+                ->count();
+            
+            $nickname = $this->getNicknameFromContacts($user->wxid, $contacts);
+            $userStats[] = [
+                'wxid' => $user->wxid,
+                'nickname' => $nickname,
+                'total_days' => $dates,
+            ];
+        }
+        
+        // 按总天数排序
+        usort($userStats, function ($a, $b) {
+            return $b['total_days'] <=> $a['total_days'];
+        });
+        
+        // 添加排名并限制数量
+        $ranking = array_slice($userStats, 0, $limit);
+        foreach ($ranking as $index => &$item) {
+            $item['rank'] = $index + 1;
+        }
+        
+        return $ranking;
     }
 
     public function getCurrentStreakRanking($limit = 10): array
@@ -105,7 +128,7 @@ class CheckInAnalytics
         $contacts = $this->contacts;
         
         $allUsers = CheckIn::select('wxid')
-            ->where('content', $this->wxRoom)
+            ->where('chatroom', $this->wxRoom)
             ->groupBy('wxid')
             ->get();
 
@@ -192,10 +215,10 @@ class CheckInAnalytics
     protected function calculateUserCurrentStreak(string $wxid): int
     {
         $dates = CheckIn::where('wxid', $wxid)
-            ->where('content', $this->wxRoom)
-            ->orderBy('check_in_at')
-            ->pluck('check_in_at')
-            ->map(fn($dt) => Carbon::parse($dt)->toDateString())
+            ->where('chatroom', $this->wxRoom)
+            ->orderBy('created_at')
+            ->pluck('created_at')
+            ->map(fn($dt) => TimezoneHelper::utcToGroupTimezoneDate(Carbon::parse($dt), $this->wechatBot, $this->wxRoom))
             ->unique()
             ->values();
 
@@ -271,25 +294,4 @@ class CheckInAnalytics
         }
     }
 
-    /**
-     * 根据群的时区配置获取今日开始时间
-     */
-    private function getTodayForRoom(): Carbon
-    {
-        // 如果没有 wechatBot，使用默认时区 UTC+8
-        if (!$this->wechatBot) {
-            return now()->startOfDay();
-        }
-
-        $configManager = new ConfigManager($this->wechatBot);
-        
-        // 获取群的时区配置，默认为 +8 (Asia/Shanghai)
-        $timezoneOffset = $configManager->getGroupConfig('room_timezone_special', $this->wxRoom, 8);
-        
-        // 创建指定时区的今日开始时间
-        $now = Carbon::now();
-        $todayInTimezone = $now->utc()->addHours($timezoneOffset)->startOfDay();
-        
-        return $todayInTimezone;
-    }
 }

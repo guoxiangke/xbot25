@@ -110,7 +110,7 @@ class XbotController extends Controller
         if (in_array($msgType, $stateTypes)) {
             // 客户端断开连接时需要创建新客户端
             if ($msgType == 'MT_CLIENT_DISCONTECTED') {
-                $xbot->createNewClient();
+                //$xbot->createNewClient();
                 $msgType = 'MT_USER_LOGOUT';
             }
 

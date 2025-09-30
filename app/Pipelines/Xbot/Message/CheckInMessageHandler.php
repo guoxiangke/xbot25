@@ -8,6 +8,7 @@ use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Analytics\CheckInAnalytics;
 use App\Services\CheckInPermissionService;
 use App\Services\Managers\ConfigManager;
+use App\Services\TimezoneHelper;
 use Carbon\Carbon;
 use Closure;
 
@@ -104,25 +105,55 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processCheckIn(XbotMessageContext $context, string $roomWxid, string $fromWxid, string $fromRemark, string $keyword)
     {
-        $today = $this->getTodayForRoom($context->wechatBot, $roomWxid);
+        // 使用新的时区处理逻辑
+        [$todayStartUtc, $todayEndUtc] = TimezoneHelper::getTodayRangeInUtc($context->wechatBot, $roomWxid);
+        $todayDateString = TimezoneHelper::getTodayDateString($context->wechatBot, $roomWxid);
+        
+        // 记录调试信息
+        $this->log(__FUNCTION__, [
+            'debug' => 'Starting check-in process',
+            'user' => $fromWxid,
+            'room' => $roomWxid,
+            'today_group_timezone' => $todayDateString,
+            'today_range_utc' => [$todayStartUtc->toDateTimeString() . ' UTC', $todayEndUtc->toDateTimeString() . ' UTC'],
+            'keyword' => $keyword
+        ]);
 
-        // 先检查今天是否已经签到
-        $checkIn = CheckIn::where('content', $roomWxid)
+        // 检查今天是否已经签到 - 查询created_at是否在群时区的今日范围内
+        $checkIn = CheckIn::where('chatroom', $roomWxid)
             ->where('wxid', $fromWxid)
-            ->whereDate('check_in_at', $today)
+            ->whereBetween('created_at', [$todayStartUtc, $todayEndUtc])
             ->first();
+
+        // 记录查询结果
+        $this->log(__FUNCTION__, [
+            'debug' => 'Check-in query result',
+            'user' => $fromWxid,
+            'room' => $roomWxid,
+            'query_range' => [$todayStartUtc->toDateTimeString() . ' UTC', $todayEndUtc->toDateTimeString() . ' UTC'],
+            'existing_checkin' => $checkIn ? $checkIn->toArray() : null,
+            'checkin_exists' => (bool) $checkIn
+        ]);
 
         if ($checkIn) {
             // 已存在签到记录
             $wasRecentlyCreated = false;
         } else {
-            // 创建新的签到记录
+            // 创建新的签到记录 - created_at会自动设置为当前UTC时间
             $checkIn = CheckIn::create([
-                'content' => $roomWxid,
-                'wxid' => $fromWxid,
-                'check_in_at' => $today
+                'chatroom' => $roomWxid,
+                'wxid' => $fromWxid
             ]);
             $wasRecentlyCreated = true;
+            
+            // 记录创建结果
+            $this->log(__FUNCTION__, [
+                'debug' => 'New check-in created',
+                'user' => $fromWxid,
+                'room' => $roomWxid,
+                'checkin_id' => $checkIn->id,
+                'created_at_utc' => $checkIn->created_at->toDateTimeString() . ' UTC'
+            ]);
         }
 
         $service = new CheckInAnalytics($fromWxid, $roomWxid, $context->getAllContacts(), $context->wechatBot);
@@ -174,7 +205,7 @@ class CheckInMessageHandler extends BaseXbotHandler
 
     protected function processCheckInRanking(XbotMessageContext $context, string $roomWxid)
     {
-        $service = new CheckInAnalytics('', $roomWxid, $context->getAllContacts());
+        $service = new CheckInAnalytics('', $roomWxid, $context->getAllContacts(), $context->wechatBot);
 
         $totalRanking = $service->getTotalDaysRanking(10);
         $streakRanking = $service->getCurrentStreakRanking(10);
@@ -279,21 +310,5 @@ class CheckInMessageHandler extends BaseXbotHandler
         $this->sendTextMessage($context, $text, $fromWxid);
     }
 
-    /**
-     * 根据群的时区配置获取今日开始时间
-     */
-    private function getTodayForRoom($wechatBot, string $roomWxid): Carbon
-    {
-        $configManager = new ConfigManager($wechatBot);
-        
-        // 获取群的时区配置，默认为 +8 (Asia/Shanghai)
-        $timezoneOffset = $configManager->getGroupConfig('room_timezone_special', $roomWxid, 8);
-        
-        // 创建指定时区的今日开始时间
-        $now = Carbon::now();
-        $todayInTimezone = $now->utc()->addHours($timezoneOffset)->startOfDay();
-        
-        return $todayInTimezone;
-    }
 
 }
