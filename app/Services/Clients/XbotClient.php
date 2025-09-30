@@ -827,7 +827,12 @@ final class XbotClient
         string $comment = '这是描述',
         string $thumbnailUrl = 'http://mmsns.c2c.wechat.com/mmsns/vRn02nrlYphiaibib27nbILHxvsD6UjZvclzGREZFciaFCmDt9jdhbHu7tL2DiaGjhGh61ibDauiaQWsIU/150'
     ): ?Response {
-        $musicXmlTemplate = '<TimelineObject><id><![CDATA[000]]></id><username><![CDATA[wxid_t36o5djpivk312]]></username><createTime><![CDATA[1661054193]]></createTime><contentDesc>' . $comment . '</contentDesc><contentDescShowType>0</contentDescShowType><contentDescScene>0</contentDescScene><private><![CDATA[0]]></private><contentDesc></contentDesc><contentattr><![CDATA[0]]></contentattr><sourceUserName></sourceUserName><sourceNickName></sourceNickName><statisticsData></statisticsData><weappInfo><appUserName></appUserName><pagePath></pagePath><version><![CDATA[0]]></version><debugMode><![CDATA[0]]></debugMode><shareActionId></shareActionId><isGame><![CDATA[0]]></isGame><messageExtraData></messageExtraData><subType><![CDATA[0]]></subType><preloadResources></preloadResources></weappInfo><canvasInfoXml></canvasInfoXml><ContentObject><contentStyle><![CDATA[4]]></contentStyle><contentSubStyle><![CDATA[0]]></contentSubStyle><title></title><description></description><contentUrl><![CDATA[' . $url . ']]></contentUrl><mediaList><media><id><![CDATA[00]]></id><type><![CDATA[3]]></type><title><![CDATA[' . $title . ']]></title><description><![CDATA[点击▶️收听  ' . $description . ']]></description><private><![CDATA[0]]></private><url type="0"><![CDATA[' . $url . ']]></url><thumb type="1"><![CDATA[' . $thumbnailUrl . ']]></thumb><videoDuration><![CDATA[0.0]]></videoDuration><lowBandUrl type="0"><![CDATA[' . $url . ']]></lowBandUrl><size totalSize="342.0" width="45.0" height="45.0"></size></media></mediaList></ContentObject><actionInfo><appMsg><mediaTagName></mediaTagName><messageExt></messageExt><messageAction></messageAction></appMsg></actionInfo><appInfo><id></id></appInfo><location poiClassifyId="" poiName="" poiAddress="" poiClassifyType="0" city=""></location><publicUserName></publicUserName><streamvideo><streamvideourl></streamvideourl><streamvideothumburl></streamvideothumburl><streamvideoweburl></streamvideoweburl></streamvideo></TimelineObject>';
+        // 清理HTML标签
+        $cleanTitle = $this->cleanHtmlTags($title);
+        $cleanDescription = $this->cleanHtmlTags($description);
+        $cleanComment = $this->cleanHtmlTags($comment);
+        
+        $musicXmlTemplate = '<TimelineObject><id><![CDATA[000]]></id><username><![CDATA[wxid_t36o5djpivk312]]></username><createTime><![CDATA[1661054193]]></createTime><contentDesc>' . $cleanComment . '</contentDesc><contentDescShowType>0</contentDescShowType><contentDescScene>0</contentDescScene><private><![CDATA[0]]></private><contentDesc></contentDesc><contentattr><![CDATA[0]]></contentattr><sourceUserName></sourceUserName><sourceNickName></sourceNickName><statisticsData></statisticsData><weappInfo><appUserName></appUserName><pagePath></pagePath><version><![CDATA[0]]></version><debugMode><![CDATA[0]]></debugMode><shareActionId></shareActionId><isGame><![CDATA[0]]></isGame><messageExtraData></messageExtraData><subType><![CDATA[0]]></subType><preloadResources></preloadResources></weappInfo><canvasInfoXml></canvasInfoXml><ContentObject><contentStyle><![CDATA[4]]></contentStyle><contentSubStyle><![CDATA[0]]></contentSubStyle><title></title><description></description><contentUrl><![CDATA[' . $url . ']]></contentUrl><mediaList><media><id><![CDATA[00]]></id><type><![CDATA[3]]></type><title><![CDATA[' . $cleanTitle . ']]></title><description><![CDATA[点击▶️收听  ' . $cleanDescription . ']]></description><private><![CDATA[0]]></private><url type="0"><![CDATA[' . $url . ']]></url><thumb type="1"><![CDATA[' . $thumbnailUrl . ']]></thumb><videoDuration><![CDATA[0.0]]></videoDuration><lowBandUrl type="0"><![CDATA[' . $url . ']]></lowBandUrl><size totalSize="342.0" width="45.0" height="45.0"></size></media></mediaList></ContentObject><actionInfo><appMsg><mediaTagName></mediaTagName><messageExt></messageExt><messageAction></messageAction></appMsg></actionInfo><appInfo><id></id></appInfo><location poiClassifyId="" poiName="" poiAddress="" poiClassifyType="0" city=""></location><publicUserName></publicUserName><streamvideo><streamvideourl></streamvideourl><streamvideothumburl></streamvideothumburl><streamvideoweburl></streamvideoweburl></streamvideo></TimelineObject>';
 
         return $this->publishMomentsPost($musicXmlTemplate);
     }
@@ -848,7 +853,12 @@ final class XbotClient
         string $comment = '这是描述',
         string $thumbnailUrl = 'http://shmmsns.qpic.cn/mmsns/R7EkLqfbhZdGKk2iaqGLC9qx1Hpgghjrict51nrzjDhvI4Q0k6ctac1Wia0OlbEdTu6IHtBicRVThVw/150'
     ): ?Response {
-        $qqMusicXmlTemplate = '<TimelineObject><id>111</id><username>000</username><createTime>1662997334</createTime><contentDesc>' . $comment . '</contentDesc><contentDescShowType>0</contentDescShowType><contentDescScene>4</contentDescScene><private>0</private><sightFolded>0</sightFolded><showFlag>0</showFlag><appInfo><id>wx5aa333606550dfd5</id><version>53</version><appName></appName><installUrl></installUrl><fromUrl></fromUrl><isForceUpdate>0</isForceUpdate><clickable>0</clickable></appInfo><sourceUserName></sourceUserName><sourceNickName></sourceNickName><statisticsData></statisticsData><statExtStr>GhQKEnd4NWFhMzMzNjA2NTUwZGZkNQ==</statExtStr><ContentObject><musicShareItem><mvSingerName>' . $description . '</mvSingerName><musicDuration>261877</musicDuration></musicShareItem><contentStyle>42</contentStyle><title></title><description></description><contentUrl>http://music.163.com/song/1938392288/?userid=1577032097</contentUrl><mediaList><media><id>3333</id><type>3</type><title>' . $title . '</title><description>444</description><private>0</private><userData></userData><subType>0</subType><videoSize width="0" height="0"></videoSize><url type="0" md5="" videomd5="">' . $url . '</url><lowBandUrl type="0">' . $url . '</lowBandUrl><thumb type="1">' . $thumbnailUrl . '</thumb></media></mediaList><musicShareItem><mvSingerName>吉拉朵5555</mvSingerName><musicDuration>261877</musicDuration></musicShareItem></ContentObject><actionInfo><scene>0</scene><type>0</type><url></url><appMsg><mediaTagName></mediaTagName><messageExt></messageExt><messageAction></messageAction><appid>wx5aa333606550dfd5</appid></appMsg><newWordingKey></newWordingKey><newtype>0</newtype><installedWording></installedWording><uninstalledWording></uninstalledWording></actionInfo><location poiClassifyId="" poiName="" poiAddress="" poiClassifyType="0" city=""></location><publicUserName></publicUserName><streamvideo><streamvideourl></streamvideourl><streamvideothumburl></streamvideothumburl><streamvideoweburl></streamvideoweburl></streamvideo></TimelineObject>';
+        // 清理HTML标签
+        $cleanTitle = $this->cleanHtmlTags($title);
+        $cleanDescription = $this->cleanHtmlTags($description);
+        $cleanComment = $this->cleanHtmlTags($comment);
+        
+        $qqMusicXmlTemplate = '<TimelineObject><id>111</id><username>000</username><createTime>1662997334</createTime><contentDesc>' . $cleanComment . '</contentDesc><contentDescShowType>0</contentDescShowType><contentDescScene>4</contentDescScene><private>0</private><sightFolded>0</sightFolded><showFlag>0</showFlag><appInfo><id>wx5aa333606550dfd5</id><version>53</version><appName></appName><installUrl></installUrl><fromUrl></fromUrl><isForceUpdate>0</isForceUpdate><clickable>0</clickable></appInfo><sourceUserName></sourceUserName><sourceNickName></sourceNickName><statisticsData></statisticsData><statExtStr>GhQKEnd4NWFhMzMzNjA2NTUwZGZkNQ==</statExtStr><ContentObject><musicShareItem><mvSingerName>' . $cleanDescription . '</mvSingerName><musicDuration>261877</musicDuration></musicShareItem><contentStyle>42</contentStyle><title></title><description></description><contentUrl>http://music.163.com/song/1938392288/?userid=1577032097</contentUrl><mediaList><media><id>3333</id><type>3</type><title>' . $cleanTitle . '</title><description>444</description><private>0</private><userData></userData><subType>0</subType><videoSize width="0" height="0"></videoSize><url type="0" md5="" videomd5="">' . $url . '</url><lowBandUrl type="0">' . $url . '</lowBandUrl><thumb type="1">' . $thumbnailUrl . '</thumb></media></mediaList><musicShareItem><mvSingerName>吉拉朵5555</mvSingerName><musicDuration>261877</musicDuration></musicShareItem></ContentObject><actionInfo><scene>0</scene><type>0</type><url></url><appMsg><mediaTagName></mediaTagName><messageExt></messageExt><messageAction></messageAction><appid>wx5aa333606550dfd5</appid></appMsg><newWordingKey></newWordingKey><newtype>0</newtype><installedWording></installedWording><uninstalledWording></uninstalledWording></actionInfo><location poiClassifyId="" poiName="" poiAddress="" poiClassifyType="0" city=""></location><publicUserName></publicUserName><streamvideo><streamvideourl></streamvideourl><streamvideothumburl></streamvideothumburl><streamvideoweburl></streamvideoweburl></streamvideo></TimelineObject>';
 
         return $this->publishMomentsPost($qqMusicXmlTemplate);
     }
@@ -877,7 +887,12 @@ final class XbotClient
         $coverUrl = $coverUrl??'https://mmecoa.qpic.cn/sz_mmecoa_png/dTE2nNAecJYUksGb1XOwruv2rxedibHdN7j0cgcpw8DibwhS23UGjnu9QibULUSfyjtINNticX4saqZ8cYRJmUHFeQ/640?wx_fmt=png&amp;from=appmsg';
 
         $appInfo = $this->getRandomAppInfo();
-        $musicXml = "<?xml version=\"1.0\"?>\n<msg><appmsg appid=\"{$appInfo['id']}\" sdkver=\"0\"><title>{$title}</title><des>{$description}</des><type>3</type><action>view</action><dataurl>{$url}</dataurl><thumburl>{$coverUrl}</thumburl><songlyric>{$lyrics}</songlyric><appattach><cdnthumbaeskey /><aeskey /></appattach><webviewshared><jsAppId><![CDATA[]]></jsAppId></webviewshared><mpsharetrace><hasfinderelement>0</hasfinderelement></mpsharetrace><secretmsg><isscrectmsg>0</isscrectmsg></secretmsg></appmsg><fromusername>{$this->botWxid}</fromusername><scene>0</scene><appinfo><version>29</version><appname>{$appInfo['name']}</appname></appinfo><commenturl></commenturl>\n</msg>\n";
+        
+        // 清理HTML标签
+        $cleanTitle = $this->cleanHtmlTags($title);
+        $cleanDescription = $this->cleanHtmlTags($description);
+        
+        $musicXml = "<?xml version=\"1.0\"?>\n<msg><appmsg appid=\"{$appInfo['id']}\" sdkver=\"0\"><title>{$cleanTitle}</title><des>{$cleanDescription}</des><type>3</type><action>view</action><dataurl>{$url}</dataurl><thumburl>{$coverUrl}</thumburl><songlyric>{$lyrics}</songlyric><appattach><cdnthumbaeskey /><aeskey /></appattach><webviewshared><jsAppId><![CDATA[]]></jsAppId></webviewshared><mpsharetrace><hasfinderelement>0</hasfinderelement></mpsharetrace><secretmsg><isscrectmsg>0</isscrectmsg></secretmsg></appmsg><fromusername>{$this->botWxid}</fromusername><scene>0</scene><appinfo><version>29</version><appname>{$appInfo['name']}</appname></appinfo><commenturl></commenturl>\n</msg>\n";
 
         return $this->sendXMLMessage($musicXml, $targetWxid);
     }
@@ -937,5 +952,30 @@ final class XbotClient
     public function getHttpClient(): PendingRequest
     {
         return $this->httpClient;
+    }
+
+    /**
+     * 清理HTML标签，移除样式标签和其他HTML元素
+     * 
+     * @param string $text
+     * @return string
+     */
+    private function cleanHtmlTags(string $text): string
+    {
+        if (empty($text)) {
+            return $text;
+        }
+
+        // 移除所有HTML标签，包括样式标签
+        $cleanText = strip_tags($text);
+        
+        // 解码HTML实体（在strip_tags之后，避免将&lt;&gt;解码后被当作标签移除）
+        $cleanText = html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        
+        // 去除多余的空白字符（包括换行符、制表符、不间断空格等）
+        $cleanText = preg_replace('/[\s\x{00A0}]+/u', ' ', $cleanText);
+        
+        // 去除首尾空格
+        return trim($cleanText);
     }
 }

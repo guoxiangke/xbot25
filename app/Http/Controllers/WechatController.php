@@ -67,9 +67,6 @@ class WechatController extends Controller
             ->first();
     }
 
-    /**
-     * 发送消息的统一处理方法
-     */
     private function sendMessage(XbotClient $xbot, string $type, array $data, string $to): void
     {
         switch ($type) {
@@ -103,8 +100,61 @@ class WechatController extends Controller
                 $xbot->sendMusic(
                     $to,
                     $data['url'],
-                    $this->cleanHtmlTags($data['title'] ?? ''),
-                    $this->cleanHtmlTags($data['description'] ?? ''),
+                    $data['title'] ?? '',
+                    $data['description'] ?? '',
+                    $data['coverUrl'] ?? null,
+                    $data['lyrics'] ?? null
+                );
+                break;
+                
+            default:
+                throw new \InvalidArgumentException("不支持的消息类型: {$type}");
+        }
+    }
+
+    public function send(string $to, string $type, array $data)
+    {
+        $wechatClient = WechatClient::where('token', session('selected_client'))->firstOrFail();
+        $xbot = new XbotClient($wechatClient->endpoint);
+
+        switch ($type) {
+            case 'text':
+                $xbot->sendTextMessage($to, $data['content']);
+                break;
+
+            case 'at':
+                $xbot->sendAtMessage(
+                    $to,
+                    $data['content'],
+                    $data['atList'] ?? [],
+                    $data['atAll'] ?? false
+                );
+                break;
+
+            case 'link':
+                $xbot->sendLinkMessage(
+                    $to,
+                    $data['title'],
+                    $data['description'],
+                    $data['url'],
+                    $data['thumbUrl'] ?? null
+                );
+                break;
+
+            case 'image':
+                $xbot->sendImageMessage($to, $data['imagePath']);
+                break;
+
+            case 'video':
+                $xbot->sendVideoMessage($to, $data['videoPath']);
+                break;
+                
+            case 'music':
+                $xbot->sendMusic(
+                    $to,
+                    $data['url'],
+                    $data['title'] ?? '',
+                    $data['description'] ?? '',
                     $data['coverUrl'] ?? null,
                     $data['lyrics'] ?? null
                 );
@@ -136,17 +186,17 @@ class WechatController extends Controller
 
             case 'postMusic':
                 $xbot->publishMusicToMoments(
-                    $this->cleanHtmlTags($data['title']),
+                    $data['title'],
                     $data['url'],
-                    $this->cleanHtmlTags($data['description']),
-                    $this->cleanHtmlTags($data['comment'] ?? ''),
+                    $data['description'],
+                    $data['comment'] ?? '',
                     $data['thumbImgUrl'] ?? null
                 );
                 break;
 
             case 'postQQMusic':
                 $xbot->publishQQMusicToMoments(
-                    $this->cleanHtmlTags($data['title']),
+                    $data['title'],
                     $data['url'],
                     $data['musicUrl'],
                     $data['appInfo'] ?? null
@@ -155,75 +205,6 @@ class WechatController extends Controller
                 
             default:
                 throw new \InvalidArgumentException("不支持的消息类型: {$type}");
-        }
-    }
-
-    /**
-     * 发送微信消息
-     * 
-     * 支持发送多种类型的消息：
-     * - text: 文本消息
-     * - at: @消息（群聊中@指定成员）
-     * - link: 链接消息
-     * - card: 名片消息
-     * - image: 图片消息
-     * - music: 音乐消息
-     * - postLink: 发布链接到朋友圈
-     * - postImages: 发布图片到朋友圈（支持九宫格）
-     * - postVideo: 发布视频到朋友圈
-     * - postMusic: 发布音乐到朋友圈
-     * - postQQMusic: 发布QQ音乐到朋友圈
-     * 
-     * 可选的 addition 字段支持发送附加消息
-     * 
-     * @param WechatSendRequest $request 验证过的请求数据
-     * @return JsonResponse
-     * 
-     * @example 
-     * POST /api/wechat/send
-     * {
-     *   "type": "text",
-     *   "to": "friend_wxid",
-     *   "data": {"content": "Hello"}
-     * }
-     */
-    public function send(WechatSendRequest $request): JsonResponse
-    {
-        try {
-            $wechatBot = $this->getOnlineWechatBot();
-            
-            if (!$wechatBot) {
-                if (!auth()->id()) {
-                    return $this->errorResponse('用户绑定数据认证失败！请检查/重新生成token', 401);
-                }
-                return $this->errorResponse('设备不在线,或改用户未绑定设备', 400);
-            }
-
-            $xbot = $wechatBot->xbot();
-            
-            // 发送主消息
-            $this->sendMessage($xbot, $request['type'], $request['data'], $request['to']);
-
-            // 发送附加消息（如果存在）
-            if (isset($request['addition'])) {
-                $this->sendMessage(
-                    $xbot, 
-                    $request['addition']['type'], 
-                    $request['addition']['data'], 
-                    $request['to']
-                );
-            }
-
-            return $this->successResponse('已提交设备发送');
-            
-        } catch (\Exception $e) {
-            Log::error('WeChat send message failed', [
-                'error' => $e->getMessage(),
-                'request' => $request->all(),
-                'user_id' => auth()->id()
-            ]);
-            
-            return $this->errorResponse('消息发送失败，请稍后重试', 500);
         }
     }
 
@@ -337,28 +318,4 @@ class WechatController extends Controller
         }
     }
 
-    /**
-     * 清理HTML标签，移除样式标签和其他HTML元素
-     * 
-     * @param string $text
-     * @return string
-     */
-    private function cleanHtmlTags(string $text): string
-    {
-        if (empty($text)) {
-            return $text;
-        }
-
-        // 移除所有HTML标签，包括样式标签
-        $cleanText = strip_tags($text);
-        
-        // 解码HTML实体（在strip_tags之后，避免将&lt;&gt;解码后被当作标签移除）
-        $cleanText = html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        
-        // 去除多余的空白字符（包括换行符、制表符、不间断空格等）
-        $cleanText = preg_replace('/[\s\x{00A0}]+/u', ' ', $cleanText);
-        
-        // 去除首尾空格
-        return trim($cleanText);
-    }
 }

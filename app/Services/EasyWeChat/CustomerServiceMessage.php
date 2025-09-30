@@ -250,8 +250,8 @@ class CustomerServiceMessage
             case 'music':
                 return $this->sendMusic(
                     $openid,
-                    $this->cleanHtmlTags($messageData['title'] ?? ''),
-                    $this->cleanHtmlTags($messageData['description'] ?? ''),
+                    $messageData['title'] ?? '',
+                    $messageData['description'] ?? '',
                     $messageData['musicurl'] ?? $messageData['music_url'] ?? '',
                     $messageData['hqmusicurl'] ?? $messageData['hq_music_url'] ?? '',
                     $messageData['thumb_media_id'] ?? ''
@@ -263,8 +263,8 @@ class CustomerServiceMessage
                 } else {
                     return $this->sendSingleNews(
                         $openid,
-                        $this->cleanHtmlTags($messageData['title'] ?? ''),
-                        $this->cleanHtmlTags($messageData['description'] ?? ''),
+                        $messageData['title'] ?? '',
+                        $messageData['description'] ?? '',
                         $messageData['url'] ?? '',
                         $messageData['picurl'] ?? $messageData['pic_url'] ?? ''
                     );
@@ -343,28 +343,4 @@ class CustomerServiceMessage
         }
     }
 
-    /**
-     * 清理HTML标签，移除样式标签和其他HTML元素
-     * 
-     * @param string $text
-     * @return string
-     */
-    private function cleanHtmlTags(string $text): string
-    {
-        if (empty($text)) {
-            return $text;
-        }
-
-        // 移除所有HTML标签，包括样式标签
-        $cleanText = strip_tags($text);
-        
-        // 解码HTML实体（在strip_tags之后，避免将&lt;&gt;解码后被当作标签移除）
-        $cleanText = html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        
-        // 去除多余的空白字符（包括换行符、制表符、不间断空格等）
-        $cleanText = preg_replace('/[\s\x{00A0}]+/u', ' ', $cleanText);
-        
-        // 去除首尾空格
-        return trim($cleanText);
-    }
 }

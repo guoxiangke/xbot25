@@ -153,8 +153,8 @@ class EasyWeChatKeywordHandler
             $musicResponse = [
                 'MsgType' => 'music',
                 'Music' => [
-                    'Title' => $this->cleanHtmlTags($musicData['title'] ?? '音频资源'),
-                    'Description' => $this->cleanHtmlTags($musicData['description'] ?? ''),
+                    'Title' => $musicData['title'] ?? '音频资源',
+                    'Description' => $musicData['description'] ?? '',
                     'MusicUrl' => $url,
                     'HQMusicUrl' => $url,
                     'ThumbMediaId' => $thumbMediaId,
@@ -349,15 +349,15 @@ class EasyWeChatKeywordHandler
                     'type' => 'video',
                     'media_id' => $resource['media_id'] ?? '',
                     'thumb_media_id' => $resource['thumb_media_id'] ?? '',
-                    'title' => $this->cleanHtmlTags($resource['title'] ?? ''),
-                    'description' => $this->cleanHtmlTags($resource['description'] ?? ''),
+                    'title' => $resource['title'] ?? '',
+                    'description' => $resource['description'] ?? '',
                 ];
 
             case 'music':
                 return [
                     'type' => 'music',
-                    'title' => $this->cleanHtmlTags($resource['title'] ?? ''),
-                    'description' => $this->cleanHtmlTags($resource['description'] ?? ''),
+                    'title' => $resource['title'] ?? '',
+                    'description' => $resource['description'] ?? '',
                     'musicurl' => $resource['music_url'] ?? $resource['url'] ?? '',
                     'hqmusicurl' => $resource['hq_music_url'] ?? $resource['url'] ?? '',
                     'thumb_media_id' => $resource['thumb_media_id'] ?? '0EiLlKqUqHoIZkYcahv0y0-L-gG7i2jJfmCL0OvqHC4',
@@ -375,8 +375,8 @@ class EasyWeChatKeywordHandler
                 } else {
                     return [
                         'type' => 'news',
-                        'title' => $this->cleanHtmlTags($resource['title'] ?? ''),
-                        'description' => $this->cleanHtmlTags($resource['description'] ?? ''),
+                        'title' => $resource['title'] ?? '',
+                        'description' => $resource['description'] ?? '',
                         'url' => $resource['url'] ?? '',
                         'picurl' => $resource['pic_url'] ?? $resource['image'] ?? '',
                     ];
@@ -394,28 +394,4 @@ class EasyWeChatKeywordHandler
         }
     }
 
-    /**
-     * 清理HTML标签，移除样式标签和其他HTML元素
-     * 
-     * @param string $text
-     * @return string
-     */
-    private function cleanHtmlTags(string $text): string
-    {
-        if (empty($text)) {
-            return $text;
-        }
-
-        // 移除所有HTML标签，包括样式标签
-        $cleanText = strip_tags($text);
-        
-        // 解码HTML实体（在strip_tags之后，避免将&lt;&gt;解码后被当作标签移除）
-        $cleanText = html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        
-        // 去除多余的空白字符（包括换行符、制表符、不间断空格等）
-        $cleanText = preg_replace('/[\s\x{00A0}]+/u', ' ', $cleanText);
-        
-        // 去除首尾空格
-        return trim($cleanText);
-    }
 }
