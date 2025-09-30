@@ -103,8 +103,8 @@ class WechatController extends Controller
                 $xbot->sendMusic(
                     $to,
                     $data['url'],
-                    $data['title'] ?? '',
-                    $data['description'] ?? '',
+                    $this->cleanHtmlTags($data['title'] ?? ''),
+                    $this->cleanHtmlTags($data['description'] ?? ''),
                     $data['coverUrl'] ?? null,
                     $data['lyrics'] ?? null
                 );
@@ -136,17 +136,17 @@ class WechatController extends Controller
 
             case 'postMusic':
                 $xbot->publishMusicToMoments(
-                    $data['title'],
+                    $this->cleanHtmlTags($data['title']),
                     $data['url'],
-                    $data['description'],
-                    $data['comment'] ?? '',
+                    $this->cleanHtmlTags($data['description']),
+                    $this->cleanHtmlTags($data['comment'] ?? ''),
                     $data['thumbImgUrl'] ?? null
                 );
                 break;
 
             case 'postQQMusic':
                 $xbot->publishQQMusicToMoments(
-                    $data['title'],
+                    $this->cleanHtmlTags($data['title']),
                     $data['url'],
                     $data['musicUrl'],
                     $data['appInfo'] ?? null
@@ -335,5 +335,30 @@ class WechatController extends Controller
             
             return $this->errorResponse('获取好友列表失败，请稍后重试', 500);
         }
+    }
+
+    /**
+     * 清理HTML标签，移除样式标签和其他HTML元素
+     * 
+     * @param string $text
+     * @return string
+     */
+    private function cleanHtmlTags(string $text): string
+    {
+        if (empty($text)) {
+            return $text;
+        }
+
+        // 移除所有HTML标签，包括样式标签
+        $cleanText = strip_tags($text);
+        
+        // 解码HTML实体（在strip_tags之后，避免将&lt;&gt;解码后被当作标签移除）
+        $cleanText = html_entity_decode($cleanText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        
+        // 去除多余的空白字符（包括换行符、制表符、不间断空格等）
+        $cleanText = preg_replace('/[\s\x{00A0}]+/u', ' ', $cleanText);
+        
+        // 去除首尾空格
+        return trim($cleanText);
     }
 }
