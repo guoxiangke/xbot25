@@ -71,14 +71,34 @@ class CheckInAnalytics
     }
 
     public function getTodayRank(): int
-    {
-        // 使用新的时区处理逻辑
-        [$todayStartUtc, $todayEndUtc] = TimezoneHelper::getTodayRangeInUtc($this->wechatBot, $this->wxRoom);
-        
-        return CheckIn::whereBetween('created_at', [$todayStartUtc, $todayEndUtc])
-            ->where('chatroom', $this->wxRoom)
-            ->count();
+{
+    // 如果没有指定用户，返回0
+    if (empty($this->wxid)) {
+        return 0;
     }
+    
+    // 使用新的时区处理逻辑
+    [$todayStartUtc, $todayEndUtc] = TimezoneHelper::getTodayRangeInUtc($this->wechatBot, $this->wxRoom);
+    
+    // 查找当前用户今天的打卡记录
+    $userCheckIn = CheckIn::where('wxid', $this->wxid)
+        ->where('chatroom', $this->wxRoom)
+        ->whereBetween('created_at', [$todayStartUtc, $todayEndUtc])
+        ->first();
+    
+    // 如果用户今天没有打卡，返回0
+    if (!$userCheckIn) {
+        return 0;
+    }
+    
+    // 计算比这个用户更早打卡的人数 + 1 = 用户排名
+    $earlierCount = CheckIn::where('chatroom', $this->wxRoom)
+        ->whereBetween('created_at', [$todayStartUtc, $todayEndUtc])
+        ->where('created_at', '<', $userCheckIn->created_at)
+        ->count();
+    
+    return $earlierCount + 1;
+}
 
     public function getTotalDaysRanking($limit = 10): array
     {
