@@ -487,24 +487,15 @@ final class XbotClient
      * @param string $description 链接描述
      */
     public function sendLink(
-        string $targetWxid,
+        string $to_wxid,
         string $url,
-        string $imageUrl = 'https://res.wx.qq.com/t/wx_fed/wechat-main-page/wechat-main-page-oversea-new/res/static/img/3ou3PnG.png',
         string $title = '链接标题',
-        string $description = '链接描述'
-    ): ?Response {
-        // 使用默认缩略图
-        $defaultImageUrl = 'https://mmecoa.qpic.cn/sz_mmecoa_png/dTE2nNAecJa6NSAyu8czRDDDkuZZRiayAYu74347VUy625LJ7eDibDeV6ulcLeWjkrJIe9DgdG5ibcibRazp4eyVqg/640?wx_fmt=png&amp;from=appmsg';
-
+        string $desc = '链接描述',
+        string $image_url = 'https://res.wx.qq.com/t/wx_fed/wechat-main-page/wechat-main-page-oversea-new/res/static/img/3ou3PnG.png'
+     ): ?Response {
         return $this->sendRequest(
             self::MESSAGE_TYPES['SEND_LINK'],
-            [
-                'to_wxid' => $targetWxid,
-                'url' => $url,
-                'image_url' => $defaultImageUrl,
-                'title' => $title,
-                'desc' => $description
-            ]
+            get_defined_vars()
         );
     }
 

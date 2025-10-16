@@ -148,14 +148,14 @@ class WechatBot extends Model
                 case 'link':
                     $url = $data['url'] ?? '';
                     // 对包含统计信息的链接添加重定向，但仅限于r2share域名的.mp4链接
-                    if (isset($resource['statistics']) && 
-                        str_contains($url, 'r2share') && 
+                    if (isset($resource['statistics']) &&
+                        str_contains($url, 'r2share') &&
                         str_ends_with($url, '.mp4')) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
-                    $xbot->sendLink($to, $url, $data['image'] ?? '', $data['title'] ?? '', $data['description'] ?? '');
+                    $xbot->sendLink($to, $url, $data['title'] ?? '', $data['description'] ?? '',$data['image'] ?? '');
                     break;
                 case 'music':
                     $url = $data['url'] ?? '';
