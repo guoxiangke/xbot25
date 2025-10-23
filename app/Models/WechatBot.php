@@ -123,7 +123,7 @@ class WechatBot extends Model
     {
         // 敏感词替换映射
         $sensitiveWords = [
-            '基督教' => 'JDJ',
+            // '基督教' => 'JDJ',
             // 可以继续添加更多敏感词映射
         ];
 
@@ -132,6 +132,22 @@ class WechatBot extends Model
         }
 
         return $text;
+    }
+
+    /**
+     * 过滤description并限制字数
+     */
+    private static function filterDescription(string $description): string
+    {
+        // 先进行敏感词过滤
+        $filtered = self::filterSensitiveWords($description);
+        
+        // 限制字数不超过30字（中文字符按1个字符计算）
+        if (mb_strlen($filtered, 'UTF-8') > 30) {
+            $filtered = mb_substr($filtered, 0, 30, 'UTF-8');
+        }
+        
+        return $filtered;
     }
 
     /**
@@ -175,7 +191,7 @@ class WechatBot extends Model
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
-                    $description = self::filterSensitiveWords($data['description'] ?? '');
+                    $description = self::filterDescription($data['description'] ?? '');
                     $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     break;
                 case 'music':
@@ -186,7 +202,7 @@ class WechatBot extends Model
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
-                    $description = self::filterSensitiveWords($data['description'] ?? '');
+                    $description = self::filterDescription($data['description'] ?? '');
                     $xbot->sendMusic($to, $url, $title, $description, $data['image'] ?? null, $data['lrc'] ?? null);
                     break;
                 default:
