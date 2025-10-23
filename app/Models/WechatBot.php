@@ -123,7 +123,8 @@ class WechatBot extends Model
     {
         // 敏感词替换映射
         $sensitiveWords = [
-            // '基督教' => 'JDJ',
+            '基督教' => 'JDJ',
+            '信仰'  => 'XY',
             // 可以继续添加更多敏感词映射
         ];
 
