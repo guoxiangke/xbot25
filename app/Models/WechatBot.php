@@ -117,6 +117,24 @@ class WechatBot extends Model
     }
 
     /**
+     * 敏感词过滤
+     */
+    private static function filterSensitiveWords(string $text): string
+    {
+        // 敏感词替换映射
+        $sensitiveWords = [
+            '基督教' => 'JDJ',
+            // 可以继续添加更多敏感词映射
+        ];
+
+        foreach ($sensitiveWords as $sensitive => $replacement) {
+            $text = str_replace($sensitive, $replacement, $text);
+        }
+
+        return $text;
+    }
+
+    /**
      * 发送资源消息到指定wxid列表
      */
     public function send(array $tos, array $resource): void
@@ -138,7 +156,8 @@ class WechatBot extends Model
         foreach ($tos as $to) {
             switch ($type) {
                 case 'text':
-                    $xbot->sendTextMessage($to, $data['content'] ?? '');
+                    $content = self::filterSensitiveWords($data['content'] ?? '');
+                    $xbot->sendTextMessage($to, $content);
                     break;
                 case 'image':
                     if (isset($data['url'])) {
@@ -155,7 +174,9 @@ class WechatBot extends Model
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
-                    $xbot->sendLink($to, $url, $data['title'] ?? '', $data['description'] ?? '',$data['image'] ?? '');
+                    $title = self::filterSensitiveWords($data['title'] ?? '');
+                    $description = self::filterSensitiveWords($data['description'] ?? '');
+                    $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     break;
                 case 'music':
                     $url = $data['url'] ?? '';
@@ -164,7 +185,9 @@ class WechatBot extends Model
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
-                    $xbot->sendMusic($to, $url, $data['title'] ?? '', $data['description'] ?? '', $data['image'] ?? null, $data['lrc'] ?? null);
+                    $title = self::filterSensitiveWords($data['title'] ?? '');
+                    $description = self::filterSensitiveWords($data['description'] ?? '');
+                    $xbot->sendMusic($to, $url, $title, $description, $data['image'] ?? null, $data['lrc'] ?? null);
                     break;
                 default:
                     Log::warning('Unknown resource type', ['type' => $type]);
@@ -214,22 +237,22 @@ class WechatBot extends Model
      */
     public function getResouce($keyword){
         $cacheKey = "resources.{$keyword}";
-        
+
         // 先检查缓存是否存在
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
-        
+
         // 发起API请求
         $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
-        
+
         if($response->ok() && $data = $response->json()){
             // 只有成功获取到资源时才缓存
             $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
             Cache::put($cacheKey, $data, $secondsUntilTomorrow);
             return $data;
         }
-        
+
         // 无效结果不进行缓存，直接返回false
         return false;
     }
