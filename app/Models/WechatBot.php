@@ -192,7 +192,14 @@ class WechatBot extends Model
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
-                    $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
+                    // 如果是 mp4
+                    if(str_contains($url, '.mp4')){
+                        $content = "$url\n\n$title\n$description";
+                        $xbot->sendTextMessage($to, $content);
+                    }else{
+                        $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
+                    }
+
                     break;
                 case 'music':
                     $url = $data['url'] ?? '';
