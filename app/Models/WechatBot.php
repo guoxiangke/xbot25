@@ -194,7 +194,8 @@ class WechatBot extends Model
                     $description = self::filterDescription($data['description'] ?? '');
                     // 如果是 mp4
                     if(str_contains($url, '.mp4')){
-                        $content = "$url\n\n$title\n$description";
+                        $content = "请使用复制链接到浏览器打开\n\n$title\n$description";
+                        $xbot->sendTextMessage($to, $url);
                         $xbot->sendTextMessage($to, $content);
                     }else{
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
