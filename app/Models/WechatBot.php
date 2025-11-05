@@ -188,7 +188,7 @@ class WechatBot extends Model
                         str_ends_with($url, '.mp4')) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
+                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=复制结束';
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
