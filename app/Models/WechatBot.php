@@ -188,15 +188,14 @@ class WechatBot extends Model
                         str_ends_with($url, '.mp4')) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=复制结束';
+                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=end';
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
                     // 如果是 mp4
                     if(str_contains($url, '.mp4')){
-                        $content = "请复制上面文字，在手机浏览器中打开，或复制到 #小程序://真爱聆听/ApWmhzC5QJ56kMy 粘贴链接，即可畅通观看视频\n\n视频标题：$title\n\n视频描述：$description";
                         $url = substr($url, 8);
-                        $xbot->sendTextMessage($to, $url);
+                        $content = "复制开始处 $url 复制结束，复制时不要包含前后的汉字。 在手机浏览器中粘贴打开，或粘贴到 #小程序://真爱聆听/ApWmhzC5QJ56kMy 粘贴链接，即可畅通观看视频\n\n视频标题：$title\n\n视频描述：$description";
                         $xbot->sendTextMessage($to, $content);
                     }else{
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
