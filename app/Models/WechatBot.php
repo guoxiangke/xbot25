@@ -195,6 +195,8 @@ class WechatBot extends Model
                     // 如果是 mp4
                     if(str_contains($url, '.mp4')){
                         $content = "若无法观看，请复制链接到手机浏览器中粘贴打开，或到 #小程序://真爱聆听/ApWmhzC5QJ56kMy 粘贴链接，即可畅通观看视频\n\n视频标题：$title\n\n视频描述：$description";
+                        $url = substr($url, 8);
+                        $url = "复制下面一段 $url";
                         $xbot->sendTextMessage($to, $url);
                         $xbot->sendTextMessage($to, $content);
                     }else{
