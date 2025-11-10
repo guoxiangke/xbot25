@@ -195,7 +195,7 @@ class WechatBot extends Model
                     $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     // 如果是 mp4
                     if(str_contains($url, '.mp4')){
-                        $content = "若视频被微信阻拦，请复制链接在手机浏览器中粘贴打开\n\n标题：$title\n\n描述：$description";
+                        $content = "若被微信拦截，请复制链接后在手机浏览器中粘贴打开";
                         // $xbot->sendTextMessage($to, $url);
                         $xbot->sendTextMessage($to, $content);
                     }
