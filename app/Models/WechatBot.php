@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WechatBot extends Model
 {
@@ -188,19 +189,20 @@ class WechatBot extends Model
                         str_ends_with($url, '.mp4')) {
                         $dataUrl = parse_url($data['url'], PHP_URL_PATH);
                         $vid = basename($dataUrl,'.mp4');
+                        $path = Str::between($dataUrl, '/', '.mp4');
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
-                    $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
-                    // 如果是 /tmpshare/vid.mp4
-                    if(str_contains($url, '.mp4') && str_contains($url, 'tmpshare')){
-                        $xbot->sendTextMessage($to, $vid);
-                        $content = "无法播放视频？请复制编码到 #小程序://真爱聆听/SbUMxQ0vsi3Bg1q 中粘贴后点ok";
+                    if(str_contains($url, '.mp4')){
+                        $xbot->sendTextMessage($to, $path);
+                        $content = "无法播放视频？请复制编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
                         $xbot->sendTextMessage($to, $content);
+                    }else {
+                        $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     }
 
                     break;
