@@ -186,6 +186,8 @@ class WechatBot extends Model
                     if (isset($resource['statistics']) &&
                         str_contains($url, 'r2share') &&
                         str_ends_with($url, '.mp4')) {
+                        $dataUrl = parse_url($data['url'], PHP_URL_PATH);
+                        $vid = basename($dataUrl,'.mp4');
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
                         $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
@@ -193,9 +195,10 @@ class WechatBot extends Model
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
                     $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
-                    // 如果是 mp4
-                    if(str_contains($url, '.mp4')){
-                        $content = "若被微信拦截，请复制链接后在手机浏览器中粘贴打开";
+                    // 如果是 /tmpshare/vid.mp4
+                    if(str_contains($url, '.mp4')&&str_contains($url, 'tmpshare')){
+                        $xbot->sendTextMessage($to, $vid);
+                        $content = "无法播放视频？请复制编码到 #小程序://真爱聆听/SbUMxQ0vsi3Bg1q 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
                         $xbot->sendTextMessage($to, $content);
                     }
