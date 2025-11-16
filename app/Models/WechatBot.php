@@ -196,7 +196,7 @@ class WechatBot extends Model
                     $description = self::filterDescription($data['description'] ?? '');
                     $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     // 如果是 /tmpshare/vid.mp4
-                    if(str_contains($url, '.mp4')&&str_contains($url, 'tmpshare')){
+                    if(str_contains($url, '.mp4') && str_contains($url, 'tmpshare')){
                         $xbot->sendTextMessage($to, $vid);
                         $content = "无法播放视频？请复制编码到 #小程序://真爱聆听/SbUMxQ0vsi3Bg1q 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
