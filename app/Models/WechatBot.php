@@ -185,7 +185,6 @@ class WechatBot extends Model
                     $url = $data['url'] ?? '';
                     // 对包含统计信息的链接添加重定向，但仅限于r2share域名的.mp4链接
                     if (isset($resource['statistics']) &&
-                        str_contains($url, 'r2share') &&
                         str_ends_with($url, '.mp4')) {
                         $dataUrl = parse_url($data['url'], PHP_URL_PATH);
                         $vid = basename($dataUrl,'.mp4');
@@ -196,7 +195,7 @@ class WechatBot extends Model
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
-                    if(str_contains($url, '.mp4')){
+                    if(str_contains($data['url'], '.mp4')){
                         $xbot->sendTextMessage($to, $path);
                         $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
