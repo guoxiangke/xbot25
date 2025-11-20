@@ -196,10 +196,10 @@ class WechatBot extends Model
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
                     if(str_contains($data['url'], '.mp4')){
-                        $xbot->sendTextMessage($to, $path);
+                        // $xbot->sendTextMessage($to, $path);
                         $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
-                        $xbot->sendTextMessage($to, $content);
+                        // $xbot->sendTextMessage($to, $content);
                         $url = "https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?path=$path";
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     }else {
