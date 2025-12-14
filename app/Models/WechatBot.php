@@ -200,7 +200,8 @@ class WechatBot extends Model
                         $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
                         // $xbot->sendTextMessage($to, $url);
                         // $xbot->sendTextMessage($to, $content);
-                        $url = "https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?path=$path";
+                        $ymd = date('Ymd');
+                        $url = "https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?path=$path&random=$ymd";
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     }else {
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
