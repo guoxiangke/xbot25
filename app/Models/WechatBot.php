@@ -201,7 +201,7 @@ class WechatBot extends Model
                         // $xbot->sendTextMessage($to, $url);
                         // $xbot->sendTextMessage($to, $content);
                         $ymd = date('Ymd');
-                        $url = "https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?path=$path&random=$ymd";
+                        $url = "https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?path={$path}&random={$ymd}";
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
                     }else {
                         $xbot->sendLink($to, $url, $title, $description, $data['image'] ?? '');
