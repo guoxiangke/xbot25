@@ -89,8 +89,19 @@ class SubscriptionHandler extends BaseXbotHandler
         }
 
         // 检查群内订阅权限，只允许 bluesky_still 在群里订阅
-        if ($isRoom && $context->fromWxid !== 'bluesky_still') {
-            $this->sendTextMessage($context, "群内订阅功能仅限管理员使用\n{$donateText}");
+        $allowedUsers = [
+            'bluesky_still' => 'me',
+            'wxid_t36o5djpivk312'=>'AI助理',
+            'keke302'=>'小永主号yongbuzhixi_love',
+            'wxid_hvdb5uu5724h22'=>'友5',
+            'wxid_5tg2zseg8xfj12'=>'牧笛哥 教会NO1 已解封',
+            'wxid_8mxsul3gb3fg12'=>'平安路上,号角2 李恒',
+            'wxid_pazf6v5v748o12'=>'✅微信9 卢牧师',
+            'wxid_n85vgjxv5p0a22'=>'微信10 号角1',
+            'wxid_7nof1pauaqyd22'=>'友四love_yongbuzhixi_com',
+        ];
+        if ($isRoom && !in_array($context->fromWxid, array_keys($allowedUsers))) {
+            $this->sendTextMessage($context, "群内订阅失败\n资源有限，鼓励共享\n{$donateText}");
             return;
         }
 
