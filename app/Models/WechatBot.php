@@ -207,10 +207,10 @@ class WechatBot extends Model
                         //          'path'   => $path,
                         //          'random' => $ymd,
                         //      ]);
-                        // $xbot->sendLink($to, $url, $image, $title, $description);
+                        // $xbot->sendLink($to, $url, $title, $description, $image);
                         // $xbot->sendTextMessage($to, $url);
                     }else{
-                        $xbot->sendLink($to, $url, $image, $title, $description);
+                        $xbot->sendLink($to, $url, $title, $description, $image);
                     }
 
                     break;
