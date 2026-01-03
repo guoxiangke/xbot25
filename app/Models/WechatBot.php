@@ -184,6 +184,7 @@ class WechatBot extends Model
                 case 'link':
                     $url = $data['url'] ?? '';
                     // 对包含统计信息的链接添加重定向，但仅限于r2share域名的.mp4链接
+                    $path = null;
                     if (isset($resource['statistics']) &&
                         str_ends_with($url, '.mp4')) {
                         $dataUrl = parse_url($data['url'], PHP_URL_PATH);
@@ -197,10 +198,14 @@ class WechatBot extends Model
                     $description = self::filterDescription($data['description'] ?? '');
                     $image = $data['image'] ?? '';
                     if(str_contains($data['url'], '.mp4')){
-                        $xbot->sendTextMessage($to, $path);
-                        $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
-                        // $xbot->sendTextMessage($to, $url);
-                        $xbot->sendTextMessage($to, $content);
+                        if($path){
+                            $xbot->sendTextMessage($to, $path);
+                            $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
+                            // $xbot->sendTextMessage($to, $url);
+                            $xbot->sendTextMessage($to, $content);
+                        }else{
+                            $xbot->sendLink($to, $url, $title, $description, $image);
+                        }
                         // $ymd = date('Ymd');
                         // $url = 'https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?' 
                         //      . http_build_query([
