@@ -25,8 +25,11 @@ Route::post('/xbot/login', function (Request $request) {
     ];
 });
 Route::post('/xbot/heartbeat', function (Request $request) {
-    // Log::warning('XBOT_HEARTBEAT',[$request->all()]);
+    Log::warning('XBOT_HEARTBEAT',[$request->all()]);
     // {"secret":"x x x x"}
+    // $timestamp = now()->setTimezone('Asia/Shanghai')->format('Y-m-d H:i:s');
+    $timestamp = time();
+    \File::put(storage_path('app/public/xbot-live.txt'), $timestamp . PHP_EOL);
     return [
         "err_code"=> 0,
         "expired_in"=> 2499184
