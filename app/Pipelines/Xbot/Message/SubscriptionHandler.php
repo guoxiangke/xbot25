@@ -93,6 +93,7 @@ class SubscriptionHandler extends BaseXbotHandler
             'bluesky_still' => 'me',
             'wxid_t36o5djpivk312'=>'AI助理',
             'keke302'=>'小永主号yongbuzhixi_love',
+            'yongbuzhixi_love'=>'永不止息',
             'wxid_hvdb5uu5724h22'=>'友5',
             'wxid_5tg2zseg8xfj12'=>'牧笛哥 教会NO1 已解封',
             'wxid_8mxsul3gb3fg12'=>'平安路上,号角2 李恒',
