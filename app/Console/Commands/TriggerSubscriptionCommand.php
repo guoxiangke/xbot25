@@ -54,12 +54,8 @@ class TriggerSubscriptionCommand extends Command
             $resource = $wechatBot->getResouce($keyword);
             
             if (!$resource) {
-                // 如果没有找到资源，发送关键词本身
-                $resource = [
-                    'type' => 'text',
-                    'data' => ['content' => $keyword]
-                ];
-                $this->warn("关键词 '{$keyword}' 没有找到对应资源，将发送关键词本身");
+                $this->warn("关键词 '{$keyword}' 没有找到对应资源，跳过发送");
+                continue;
             }
 
             // 发送资源及其所有附加内容
