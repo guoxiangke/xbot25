@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\XbotSubscription;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class TriggerSubscriptionCommand extends Command
 {
@@ -54,6 +55,7 @@ class TriggerSubscriptionCommand extends Command
             $resource = $wechatBot->getResouce($keyword);
             
             if (!$resource) {
+                Log::warning("关键词 '{$keyword}' 没有找到对应资源，跳过发送");
                 $this->warn("关键词 '{$keyword}' 没有找到对应资源，跳过发送");
                 continue;
             }

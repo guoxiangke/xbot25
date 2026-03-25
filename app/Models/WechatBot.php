@@ -287,6 +287,10 @@ class WechatBot extends Model
         $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
 
         if($response->ok() && $data = $response->json()){
+            // 资源接口返回error字段表示资源不存在，不缓存
+            if(isset($data['error'])){
+                return false;
+            }
             // 只有成功获取到资源时才缓存
             $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
             Cache::put($cacheKey, $data, $secondsUntilTomorrow);
