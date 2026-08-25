@@ -2,43 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\XbotWebhookRequest;
 use App\Models\WechatBot;
 use App\Models\WechatClient;
-use App\Services\Clients\XbotClient;
-use App\Services\Processors\ContactSyncProcessor;
-use App\Services\StateHandlers\QrCodeStateHandler;
-use App\Services\StateHandlers\LoginStateHandler;
-use App\Services\StateHandlers\LogoutStateHandler;
-use App\Pipelines\Xbot\State\OwnerDataStateHandler;
-use App\Pipelines\Xbot\XbotMessageContext;
-use App\Pipelines\Xbot\State\ZombieCheckHandler;
 use App\Pipelines\Xbot\Contact\FriendRequestHandler;
 use App\Pipelines\Xbot\Contact\NotificationHandler;
 use App\Pipelines\Xbot\Contact\SearchContactHandler;
-use App\Pipelines\Xbot\Message\SystemMessageHandler;
-use App\Pipelines\Xbot\Message\SelfMessageHandler;
 use App\Pipelines\Xbot\Message\BuiltinCommandHandler;
-use App\Pipelines\Xbot\Message\VoiceMessageHandler;
-use App\Pipelines\Xbot\Message\VoiceTransMessageHandler;
-use App\Pipelines\Xbot\Message\ImageMessageHandler;
+use App\Pipelines\Xbot\Message\ChatwootHandler;
+use App\Pipelines\Xbot\Message\CheckInMessageHandler;
 use App\Pipelines\Xbot\Message\EmojiMessageHandler;
-use App\Pipelines\Xbot\Message\LinkMessageHandler;
-use App\Pipelines\Xbot\Message\PaymentMessageHandler;
 use App\Pipelines\Xbot\Message\FileVideoMessageHandler;
+use App\Pipelines\Xbot\Message\ImageMessageHandler;
+use App\Pipelines\Xbot\Message\KeywordResponseHandler;
+use App\Pipelines\Xbot\Message\LinkMessageHandler;
 use App\Pipelines\Xbot\Message\LocationMessageHandler;
 use App\Pipelines\Xbot\Message\OtherAppMessageHandler;
-use App\Pipelines\Xbot\Message\KeywordResponseHandler;
-use App\Pipelines\Xbot\Message\SubscriptionHandler;
-use App\Pipelines\Xbot\Message\TextMessageHandler;
-use App\Pipelines\Xbot\Message\CheckInMessageHandler;
+use App\Pipelines\Xbot\Message\PaymentMessageHandler;
 use App\Pipelines\Xbot\Message\RoomAliasHandler;
+use App\Pipelines\Xbot\Message\SelfMessageHandler;
+use App\Pipelines\Xbot\Message\SubscriptionHandler;
+use App\Pipelines\Xbot\Message\SystemMessageHandler;
+use App\Pipelines\Xbot\Message\TextMessageHandler;
+use App\Pipelines\Xbot\Message\VoiceMessageHandler;
+use App\Pipelines\Xbot\Message\VoiceTransMessageHandler;
 use App\Pipelines\Xbot\Message\WebhookHandler;
-use App\Pipelines\Xbot\Message\ChatwootHandler;
+use App\Pipelines\Xbot\State\OwnerDataStateHandler;
+use App\Pipelines\Xbot\State\ZombieCheckHandler;
+use App\Pipelines\Xbot\XbotMessageContext;
+use App\Services\Clients\XbotClient;
+use App\Services\Processors\ContactSyncProcessor;
+use App\Services\StateHandlers\LoginStateHandler;
+use App\Services\StateHandlers\LogoutStateHandler;
+use App\Services\StateHandlers\QrCodeStateHandler;
+use Illuminate\Http\Response;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Response;
 
 /**
  * Xbot Webhook 控制器
@@ -63,7 +62,7 @@ class XbotController extends Controller
             $result = $this->dispatch($validatedData);
 
             return $this->createTextResponse($result);
-            
+
         } catch (\Exception $e) {
             return $this->createTextResponse($e->getMessage());
         }
@@ -75,7 +74,7 @@ class XbotController extends Controller
     private function createTextResponse($data): Response
     {
         $content = $data ?? 'ok';
-        
+
         return new Response(
             $content,
             200,
@@ -94,7 +93,8 @@ class XbotController extends Controller
         // 客户端连接消息
         if ($msgType == 'MT_CLIENT_CONTECTED') {
             sleep(1);
-            return "processed client connected";
+
+            return 'processed client connected';
         }
 
         // 状态消息类型
@@ -103,14 +103,14 @@ class XbotController extends Controller
             'MT_USER_LOGIN',
             'MT_USER_LOGOUT',
             'MT_DATA_OWNER_MSG',
-            'MT_CLIENT_DISCONTECTED'
+            'MT_CLIENT_DISCONTECTED',
         ];
 
         // 处理状态消息
         if (in_array($msgType, $stateTypes)) {
             // 客户端断开连接时需要创建新客户端
             if ($msgType == 'MT_CLIENT_DISCONTECTED') {
-                //$xbot->createNewClient();
+                // $xbot->createNewClient();
                 $msgType = 'MT_USER_LOGOUT';
             }
 
@@ -122,15 +122,16 @@ class XbotController extends Controller
             $messageTime = $requestRawData['time'];
             $currentTime = time();
             $timeDiff = $currentTime - $messageTime;
-            
+
             if ($timeDiff > 3600) {
                 Log::info(__FUNCTION__, [
                     'message_time' => date('Y-m-d H:i:s', $messageTime),
                     'current_time' => date('Y-m-d H:i:s', $currentTime),
                     'diff_seconds' => $timeDiff,
                     'msg_type' => $msgType,
-                    'message' => '忽略超过1小时的消息'
+                    'message' => '忽略超过1小时的消息',
                 ]);
+
                 return "ignored: message too old ($timeDiff seconds)";
             }
         }
@@ -138,38 +139,49 @@ class XbotController extends Controller
         // 黑名单检查 - 在找到WechatBot后进行检查
         if ($wechatBot && $this->shouldCheckBlacklist($msgType)) {
             $fromWxid = $requestRawData['from_wxid'] ?? null;
-            
+
             if ($fromWxid && $this->isInBlacklist($wechatBot, $fromWxid)) {
                 Log::info(__FUNCTION__, [
                     'msg_type' => $msgType,
                     'from_wxid' => $fromWxid,
-                    'message' => '黑名单用户消息被拦截'
+                    'message' => '黑名单用户消息被拦截',
                 ]);
-                return "ignored: blacklisted user message";
+
+                return 'ignored: blacklisted user message';
             }
         }
 
         // 联系人同步相关消息
         $contactTypes = [
             'MT_DATA_FRIENDS_MSG',
-            'MT_DATA_CHATROOMS_MSG', 
+            'MT_DATA_CHATROOMS_MSG',
             'MT_DATA_PUBLICS_MSG',
             'MT_DATA_WXID_MSG',
-            'MT_DATA_CHATROOM_MEMBERS_MSG'
+            'MT_DATA_CHATROOM_MEMBERS_MSG',
         ];
 
         if (in_array($msgType, $contactTypes)) {
+            if (! $wechatBot) {
+                Log::warning('联系人同步消息无法找到WechatBot实例', [
+                    'msg_type' => $msgType,
+                    'client_id' => $clientId,
+                ]);
+
+                return "error: WechatBot not found for contact sync $msgType (client_id: $clientId)";
+            }
             $this->contactSyncProcessor->processContactSync($wechatBot, $requestRawData, $msgType);
+
             return "processed contact sync: $msgType";
         }
 
         // 检查是否找到了WechatBot实例
-        if (!$wechatBot) {
+        if (! $wechatBot) {
             Log::warning('无法找到WechatBot实例', [
                 'msg_type' => $msgType,
                 'client_id' => $clientId,
-                'xbot_wxid' => $xbotWxid ?? 'null'
+                'xbot_wxid' => $xbotWxid ?? 'null',
             ]);
+
             return "error: WechatBot not found for $msgType (client_id: $clientId)";
         }
 
@@ -204,15 +216,16 @@ class XbotController extends Controller
      */
     private function handleOwnerDataMessage(?WechatBot $wechatBot, int $clientId): string
     {
-        if (!$wechatBot) {
+        if (! $wechatBot) {
             Log::warning('Owner data message received but no WechatBot found', ['client_id' => $clientId]);
+
             return 'processed MT_DATA_OWNER_MSG without WechatBot';
         }
 
         // 直接调用OwnerDataStateHandler处理
-        $handler = new OwnerDataStateHandler();
+        $handler = new OwnerDataStateHandler;
         $handler->handle($wechatBot, $clientId);
-        
+
         return 'processed MT_DATA_OWNER_MSG';
     }
 
@@ -241,7 +254,7 @@ class XbotController extends Controller
             $basicFilterPassed = $filter->shouldProcess($context->roomWxid, $messageContent);
 
             // 如果基本过滤不通过，检查是否为特殊消息需要放行
-            if (!$basicFilterPassed) {
+            if (! $basicFilterPassed) {
                 // 检查是否为群级别配置命令（这些命令需要始终放行）
                 $isGroupConfigCommand = $this->isGroupConfigCommand($messageContent);
 
@@ -350,21 +363,21 @@ class XbotController extends Controller
     private function isCheckInMessage(string $messageContent): bool
     {
         $trimmedMessage = trim($messageContent);
-        
+
         // 签到相关的消息模式
         $checkInPatterns = [
             '/^签到$/u',
-            '/^打卡$/u', 
+            '/^打卡$/u',
             '/^check\s*in$/i',
             '/^checkin$/i',
         ];
-        
+
         foreach ($checkInPatterns as $pattern) {
             if (preg_match($pattern, $trimmedMessage)) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -376,7 +389,7 @@ class XbotController extends Controller
         // 对所有用户消息进行黑名单检查
         $userMessageTypes = [
             'MT_RECV_TEXT_MSG',
-            'MT_RECV_PICTURE_MSG', 
+            'MT_RECV_PICTURE_MSG',
             'MT_RECV_VOICE_MSG',
             'MT_RECV_VIDEO_MSG',
             'MT_RECV_FILE_MSG',
@@ -384,9 +397,9 @@ class XbotController extends Controller
             'MT_RECV_EMOJI_MSG',
             'MT_RECV_LOCATION_MSG',
             'MT_RECV_OTHER_APP_MSG',
-            'MT_TRANS_VOICE_MSG'
+            'MT_TRANS_VOICE_MSG',
         ];
-        
+
         return in_array($msgType, $userMessageTypes);
     }
 
@@ -396,6 +409,7 @@ class XbotController extends Controller
     private function isInBlacklist(\App\Models\WechatBot $wechatBot, string $wxid): bool
     {
         $configManager = new \App\Services\Managers\ConfigManager($wechatBot);
+
         return $configManager->isInBlacklist($wxid);
     }
 }

@@ -2,22 +2,23 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Plank\Metable\Metable;
 use App\Services\Clients\XbotClient;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Plank\Metable\Metable;
 
 class WechatBot extends Model
 {
     use HasFactory, Metable;
 
     protected $guarded = ['id', 'created_at', 'updated_at', 'deleted_at'];
+
     protected $dates = ['created_at', 'updated_at', 'deleted_at', 'login_at', 'is_live_at', 'expires_at'];
+
     protected $casts = [
         'login_at' => 'datetime',
         'is_live_at' => 'datetime',
@@ -26,11 +27,13 @@ class WechatBot extends Model
 
     use Metable;
 
-    public function xbot($clientId=99){
+    public function xbot($clientId = 99)
+    {
         // 如果数据中存在，则从数据库中去，如果没有，从参数中取，如果还没有，给一个默认值1
-        $clientId = $this->client_id??$clientId??-1;
+        $clientId = $this->client_id ?? $clientId ?? -1;
         $wechatClient = WechatClient::where('id', $this->wechat_client_id)->firstOrFail();
         $winClientUri = $wechatClient->endpoint;
+
         return new XbotClient($winClientUri, $this->wxid, $clientId, $wechatClient->file_path ?? '');
     }
 
@@ -39,14 +42,13 @@ class WechatBot extends Model
         return $this->belongsTo(WechatClient::class);
     }
 
-
-
     // 返回 以wxid为key的联系人数组
-    public function handleContacts($data){
+    public function handleContacts($data)
+    {
         $contacts = $this->getMeta('contacts', []);
-        foreach ($data as $contact){
+        foreach ($data as $contact) {
             // 确保 $contact 是数组类型，跳过无效数据
-            if (!is_array($contact) || !isset($contact['wxid'])) {
+            if (! is_array($contact) || ! isset($contact['wxid'])) {
                 continue;
             }
 
@@ -73,7 +75,7 @@ class WechatBot extends Model
         $labels = [
             1 => '微信好友',
             2 => '微信群',
-            3 => '微信订阅号'
+            3 => '微信订阅号',
         ];
 
         return $labels[$type] ?? '未知';
@@ -124,7 +126,7 @@ class WechatBot extends Model
     {
         // 敏感词替换映射
         $sensitiveWords = [
-            '信仰'  => 'XY',
+            '信仰' => 'XY',
             // 可以继续添加更多敏感词映射
         ];
 
@@ -142,12 +144,12 @@ class WechatBot extends Model
     {
         // 先进行敏感词过滤
         $filtered = self::filterSensitiveWords($description);
-        
+
         // 限制字数不超过30字（中文字符按1个字符计算）
         if (mb_strlen($filtered, 'UTF-8') > 30) {
             $filtered = mb_substr($filtered, 0, 30, 'UTF-8');
         }
-        
+
         return $filtered;
     }
 
@@ -158,7 +160,7 @@ class WechatBot extends Model
     {
         $xbot = $this->xbot($this->client_id);
 
-        if (!isset($resource['data'])) {
+        if (! isset($resource['data'])) {
             return;
         }
 
@@ -183,39 +185,17 @@ class WechatBot extends Model
                     break;
                 case 'link':
                     $url = $data['url'] ?? '';
-                    // 对包含统计信息的链接添加重定向，但仅限于r2share域名的.mp4链接
-                    $path = null;
+                    // 对包含统计信息的.mp4链接添加重定向
                     if (isset($resource['statistics']) &&
                         str_ends_with($url, '.mp4')) {
-                        $dataUrl = parse_url($data['url'], PHP_URL_PATH);
-                        $vid = basename($dataUrl,'.mp4');
-                        $path = Str::between($dataUrl, '/', '.mp4');
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
+                        $url = config('services.xbot.redirect').urlencode($data['url']).'?'.$tags.'%26to='.$to;
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
                     $image = $data['image'] ?? '';
-                    if(str_contains($data['url'], '.mp4')){
-                        if($path && str_contains($data['url'], 'jiangyongliu')){
-                            $xbot->sendTextMessage($to, $path);
-                            $content = "👆观看视频？请复制上面👆的编码到 #小程序://真爱聆听/wpx2WE1YFqWsyOt 中粘贴后点ok";
-                            $xbot->sendTextMessage($to, $content);
-                        }else{
-                            $xbot->sendLink($to, $url, $title, $description, $image);    
-                        }
-                        // $ymd = date('Ymd');
-                        // $url = 'https://gz-1258120611.cos.ap-guangzhou.myqcloud.com/player.html?' 
-                        //      . http_build_query([
-                        //          'path'   => $path,
-                        //          'random' => $ymd,
-                        //      ]);
-                        // $xbot->sendLink($to, $url, $title, $description, $image);
-                        // $xbot->sendTextMessage($to, $url);
-                    }else{
-                        $xbot->sendLink($to, $url, $title, $description, $image);
-                    }
+                    $xbot->sendLink($to, $url, $title, $description, $image);
 
                     break;
                 case 'music':
@@ -223,7 +203,7 @@ class WechatBot extends Model
                     if (isset($resource['statistics'])) {
                         $resource['statistics']['bot'] = $this->id;
                         $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect') . urlencode($data['url']) . "?" . $tags . '%26to=' . $to;
+                        $url = config('services.xbot.redirect').urlencode($data['url']).'?'.$tags.'%26to='.$to;
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
@@ -275,7 +255,8 @@ class WechatBot extends Model
      * 获取关键词对应的资源
      * 从KeywordResponseHandler移动到此处，以便订阅系统复用
      */
-    public function getResouce($keyword){
+    public function getResouce($keyword)
+    {
         $cacheKey = "resources.{$keyword}";
 
         // 先检查缓存是否存在
@@ -286,14 +267,15 @@ class WechatBot extends Model
         // 发起API请求
         $response = Http::get(config('services.xbot.resource_endpoint')."{$keyword}");
 
-        if($response->ok() && $data = $response->json()){
+        if ($response->ok() && $data = $response->json()) {
             // 资源接口返回error字段表示资源不存在，不缓存
-            if(isset($data['error'])){
+            if (isset($data['error'])) {
                 return false;
             }
             // 只有成功获取到资源时才缓存
             $secondsUntilTomorrow = Carbon::tomorrow('Asia/Shanghai')->timestamp - now()->timestamp;
             Cache::put($cacheKey, $data, $secondsUntilTomorrow);
+
             return $data;
         }
 
@@ -324,7 +306,7 @@ class WechatBot extends Model
                 'message' => 'XbotIsLive 程序崩溃时,已下线！',
                 'wxid' => $this->wxid,
                 'client_id' => $this->client_id,
-                'name' => $this->name
+                'name' => $this->name,
             ]);
 
             $this->login_at = null;
@@ -337,5 +319,4 @@ class WechatBot extends Model
 
         return true;
     }
-
 }
