@@ -5,9 +5,8 @@ namespace App\Pipelines\Xbot\Message;
 use App\Pipelines\Xbot\BaseXbotHandler;
 use App\Pipelines\Xbot\XbotMessageContext;
 use App\Services\Managers\ConfigManager;
+use App\Services\Managers\ResourceChannelResolver;
 use Closure;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 /**
@@ -18,12 +17,12 @@ class KeywordResponseHandler extends BaseXbotHandler
 {
     public function handle(XbotMessageContext $context, Closure $next)
     {
-        if (!$this->shouldProcess($context)) {
+        if (! $this->shouldProcess($context)) {
             return $next($context);
         }
 
         // 只处理文本消息和语音转文本消息
-        if (!$this->isMessageType($context, ['MT_RECV_TEXT_MSG', 'MT_TRANS_VOICE_MSG'])) {
+        if (! $this->isMessageType($context, ['MT_RECV_TEXT_MSG', 'MT_TRANS_VOICE_MSG'])) {
             return $next($context);
         }
 
@@ -45,12 +44,18 @@ class KeywordResponseHandler extends BaseXbotHandler
 
         // 检查资源系统是否启用
         $configManager = new ConfigManager($context->wechatBot);
-        if (!$configManager->isEnabled('keyword_resources')) {
+        if (! $configManager->isEnabled('keyword_resources')) {
             return $next($context);
         }
 
         // 处理关键词
         $keyword = $this->preprocessKeyword($content);
+
+        // 频道级开关：请求资源「之前」先按本地关键词区间映射判断频道是否被禁用，禁用则不发起请求
+        $channel = ResourceChannelResolver::resolve($keyword);
+        if ($channel !== null && ! $configManager->isResourceChannelEnabled($channel)) {
+            return $next($context);
+        }
 
         // 获取资源
         $resource = $context->wechatBot->getResouce($keyword);
@@ -61,7 +66,7 @@ class KeywordResponseHandler extends BaseXbotHandler
 
             $this->log(__FUNCTION__, ['message' => 'Keyword response sent',
                 'keyword' => $keyword,
-                'to' => $context->wxid
+                'to' => $context->wxid,
             ]);
 
             // 关键词响应后继续处理，让原始消息也发送到Chatwoot
@@ -71,7 +76,6 @@ class KeywordResponseHandler extends BaseXbotHandler
         // 没有匹配的关键词，继续到下一个处理器
         return $next($context);
     }
-
 
     /**
      * 提取消息内容
@@ -120,8 +124,14 @@ class KeywordResponseHandler extends BaseXbotHandler
     private function handleYouTubeLink(XbotMessageContext $context, string $content, Closure $next)
     {
         // 检查是否在允许的群组或用户中
-        if (!$this->isYouTubeAllowed($context)) {
+        if (! $this->isYouTubeAllowed($context)) {
             // 不在允许的群组中，直接跳过，不响应
+            return $next($context);
+        }
+
+        // 频道级开关：请求「之前」判断 youtube 频道是否对当前 bot 禁用，禁用则不发起请求
+        $configManager = new ConfigManager($context->wechatBot);
+        if (! $configManager->isResourceChannelEnabled('youtube')) {
             return $next($context);
         }
 
@@ -135,7 +145,7 @@ class KeywordResponseHandler extends BaseXbotHandler
             $this->log(__FUNCTION__, ['message' => 'YouTube link response sent',
                 'content' => $content,
                 'to' => $context->wxid,
-                'is_room' => $context->isRoom
+                'is_room' => $context->isRoom,
             ]);
 
             // YouTube 响应后继续处理，让原始消息也发送到Chatwoot
@@ -153,13 +163,13 @@ class KeywordResponseHandler extends BaseXbotHandler
     {
         // 获取 YouTube 允许的群组列表
         $allowedRooms = $context->wechatBot->getMeta('youtube_allowed_rooms', [
-            "26570621741@chatroom",
-            "18403467252@chatroom",  // Youtube精选
-            "34974119368@chatroom",
-            "57526085509@chatroom",  // LFC活力生命
-            "58088888496@chatroom",  // 活泼的生命
-            "57057092201@chatroom",  // 每天一章
-            "51761446745@chatroom",  // Linda
+            '26570621741@chatroom',
+            '18403467252@chatroom',  // Youtube精选
+            '34974119368@chatroom',
+            '57526085509@chatroom',  // LFC活力生命
+            '58088888496@chatroom',  // 活泼的生命
+            '57057092201@chatroom',  // 每天一章
+            '51761446745@chatroom',  // Linda
         ]);
 
         // 获取 YouTube 允许的用户列表
