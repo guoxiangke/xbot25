@@ -1,4 +1,3 @@
-version: '3'
 services:
   app:
     build:
@@ -12,8 +11,8 @@ services:
       - ./:/app
     environment:
       CONTAINER_ROLE: app
-    entrypoint: php artisan octane:start --watch
-#    entrypoint: php artisan serve --port 8000 --host 0.0.0.0
+    entrypoint: php artisan octane:start
+#   entrypoint: php artisan octane:start --host=0.0.0.0 --port=8000 --watch
 
   scheduler:
     depends_on:
