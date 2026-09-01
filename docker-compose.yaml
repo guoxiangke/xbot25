@@ -6,7 +6,7 @@ services:
     image: guoxiangke/xbot25
     restart: unless-stopped
     ports:
-      - "80:8000"
+      - "8802:8000"
     volumes:
       - ./:/app
     environment:
