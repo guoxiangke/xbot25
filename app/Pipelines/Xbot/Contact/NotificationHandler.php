@@ -166,14 +166,46 @@ class NotificationHandler extends BaseXbotHandler
     }
 
     /**
+     * 从联系人通知（MT_CONTACT_ADD_NOITFY_MSG / MT_CONTACT_DEL_NOTIFY_MSG）中提取联系人 wxid
+     *
+     * 这类通知的 payload 是一个联系人对象，wxid 放在 `wxid` 字段，而不是消息类的 `from_wxid`：
+     * {"account":"","avatar":"","nickname":"上帝的女儿","remark":"","sex":0,"wxid":"wxid_xxx"}
+     * 兼容 from_wxid 与嵌套 data 只是为了防御异常 payload。
+     */
+    private function extractContactWxid(array $data): ?string
+    {
+        return $this->firstNonEmpty([
+            $data['wxid'] ?? null,
+            $data['from_wxid'] ?? null,
+        ]);
+    }
+
+    /**
+     * 返回第一个非空字符串，全为空时返回 null
+     *
+     * 微信下发的联系人字段常常是空字符串而非 null（例如新好友的 remark 多为 ''），
+     * 用 ?? 串联会取到空串，必须显式判断。
+     */
+    private function firstNonEmpty(array $values): ?string
+    {
+        foreach ($values as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * 处理好友添加通知（同意好友请求后）
      * 参考旧代码中 MT_CONTACT_ADD_NOITFY_MSG 的处理逻辑
      */
     private function handleContactAddNotification(XbotMessageContext $context): void
     {
         $data = $context->requestRawData;
-        $newFriendWxid = $data['from_wxid'] ?? ($data['data']['from_wxid'] ?? null);
-        
+        $newFriendWxid = $this->extractContactWxid($data);
+
         if (!$newFriendWxid) {
             $this->logError('Invalid contact add notification data', [
                 'data' => $data
@@ -193,7 +225,7 @@ class NotificationHandler extends BaseXbotHandler
             // 检查是否需要发送欢迎消息
             $configManager = new ConfigManager($context->wechatBot);
             
-            if ($configManager->hasWelcomeMessage()) {
+            if ($configManager->shouldSendWelcomeMessage()) {
                 // 延迟5-10分钟发送欢迎消息
                 $delay = rand(300, 600);
                 
@@ -223,8 +255,8 @@ class NotificationHandler extends BaseXbotHandler
     private function handleContactDeleteNotification(XbotMessageContext $context): void
     {
         $data = $context->requestRawData;
-        $deletedFriendWxid = $data['from_wxid'] ?? ($data['data']['from_wxid'] ?? null);
-        
+        $deletedFriendWxid = $this->extractContactWxid($data);
+
         if (!$deletedFriendWxid) {
             $this->logError('Invalid contact delete notification data', [
                 'data' => $data
@@ -378,10 +410,18 @@ class NotificationHandler extends BaseXbotHandler
     private function convertContactAddToTextMessage(XbotMessageContext $context, string $friendWxid): void
     {
         $contacts = $context->wechatBot->getMeta('contacts', []);
-        $nickname = $contacts[$friendWxid]['nickname'] ?? $contacts[$friendWxid]['remark'] ?? $friendWxid;
-        
+        $contact = $contacts[$friendWxid] ?? [];
+
+        // 通知 payload 自带 nickname/remark，而此时 getFriendsList() 往往还没回填 contacts，
+        // 所以优先取 payload 里的值
+        $nickname = $this->firstNonEmpty([
+            $context->requestRawData['nickname'] ?? null,
+            $contact['nickname'] ?? null,
+            $contact['remark'] ?? null,
+        ]) ?? $friendWxid;
+
         $textMessage = "新好友添加成功：{$nickname}";
-        $this->convertToSystemMessage($context, $textMessage);
+        $this->convertToSystemMessage($context, $textMessage, $friendWxid);
     }
 
     /**
@@ -390,18 +430,28 @@ class NotificationHandler extends BaseXbotHandler
     private function convertContactDeleteToTextMessage(XbotMessageContext $context, string $friendWxid): void
     {
         $textMessage = "好友已被移除：{$friendWxid}";
-        $this->convertToSystemMessage($context, $textMessage);
+        $this->convertToSystemMessage($context, $textMessage, $friendWxid);
     }
 
     /**
      * 转换为系统消息
      */
-    private function convertToSystemMessage(XbotMessageContext $context, string $message): void
+    private function convertToSystemMessage(XbotMessageContext $context, string $message, ?string $conversationWxid = null): void
     {
         $context->requestRawData['origin_msg_type'] = $context->msgType;
         $context->requestRawData['from_wxid'] = $context->wechatBot->wxid; // 改为bot发送
         $context->msgType = 'MT_RECV_TEXT_MSG';
         $context->requestRawData['msg'] = $message;
+
+        // 联系人通知的 payload 里没有 from_wxid/to_wxid，Context 构造时算出的
+        // wxid、fromWxid 都是空串。这里必须显式修正会话归属，
+        // 否则下游 ChatwootHandler 会拿着空 wxid 去建会话。
+        if ($conversationWxid) {
+            $context->requestRawData['to_wxid'] = $conversationWxid;
+            $context->fromWxid = $context->wechatBot->wxid;
+            $context->isFromBot = true;
+            $context->wxid = $conversationWxid;
+        }
     }
 
     /**

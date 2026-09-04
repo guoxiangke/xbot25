@@ -104,6 +104,12 @@ php artisan queue:listen
 - contacts 队列可以使用较少的 worker 数量
 - default 队列使用更多 worker 确保消息及时处理
 
+> ⚠️ **新增 Job 时不要随意 `onQueue()` 一个新队列名。**
+> worker 只消费 `default` 和 `contacts`（见 `docker-compose.yaml` 的 queue 服务、`queue-manager.sh`）。
+> 派发到其他队列名的 job 会永久堆积在 `jobs` 表里不被执行，且没有任何报错。
+> 确需新队列，必须同时更新上述两处启动命令。
+> 参见 `.claude/done/2026-09-03-friend-welcome-message-fix.md`（好友欢迎消息因此静默失效）。
+
 ## API Endpoints
 
 ### Core Endpoints

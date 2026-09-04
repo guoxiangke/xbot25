@@ -28,8 +28,7 @@ class ProcessFriendRequestJob implements ShouldQueue
         public int $wechatBotId,
         public array $friendRequestData
     ) {
-        // 设置队列名称
-        $this->onQueue('friend_requests');
+        // 走 default 队列：线上 worker 只消费 default 和 contacts
     }
 
     public function handle(): void
@@ -92,7 +91,7 @@ class ProcessFriendRequestJob implements ShouldQueue
      */
     private function getTodayStats(ConfigManager $configManager): array
     {
-        $stats = $configManager->getStringConfig('daily_stats', []);
+        $stats = $configManager->getDailyStats();
         $today = now()->toDateString();
         
         // 如果不是今天的数据，重置统计
@@ -116,7 +115,7 @@ class ProcessFriendRequestJob implements ShouldQueue
         $stats['count'] += 1;
         $stats['last_processed'] = now()->toDateTimeString();
         
-        $configManager->setStringConfig('daily_stats', $stats);
+        $configManager->setDailyStats($stats);
     }
 
     /**
@@ -158,9 +157,12 @@ class ProcessFriendRequestJob implements ShouldQueue
                 'message' => 'ProcessFriendRequestJob: Friend request processed successfully'
             ]);
 
-            // 如果启用欢迎消息，等待一段时间后发送欢迎消息
-            if ($configManager->isWelcomeMessageEnabled()) {
-                $this->scheduleWelcomeMessage($wechatBot, $encryptusername, $configManager);
+            // 如果设置了欢迎消息模板，等待一段时间后发送
+            // 判断标准与手动同意路径（NotificationHandler）保持一致：只看模板是否设置
+            $newFriendWxid = $this->friendRequestData['wxid'] ?? '';
+
+            if ($newFriendWxid !== '' && $configManager->shouldSendWelcomeMessage()) {
+                $this->scheduleWelcomeMessage($wechatBot, $newFriendWxid, $configManager);
             }
 
         } catch (\Exception $e) {
@@ -224,7 +226,7 @@ class ProcessFriendRequestJob implements ShouldQueue
     public static function calculateSmartDelay(ConfigManager $configManager): int
     {
         $dailyLimit = (int) $configManager->getStringConfig('friend_daily_limit', 50);
-        $todayStats = $configManager->getStringConfig('daily_stats', []);
+        $todayStats = $configManager->getDailyStats();
         $todayCount = $todayStats['count'] ?? 0;
         
         // 剩余可处理数量

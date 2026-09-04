@@ -60,6 +60,7 @@ class ConfigManager
     const DEFAULT_VALUES = [
         'payment_auto' => true, // 自动收款默认开启
         'friend_auto_accept' => false, // 自动同意好友请求默认关闭
+        'friend_welcome' => true, // 新好友欢迎消息默认开启（是否真的发送仍取决于有没有设置 welcome_msg）
     ];
 
     /**
@@ -67,7 +68,8 @@ class ConfigManager
      */
     const STRING_DEFAULT_VALUES = [
         'friend_daily_limit' => 50,
-        'welcome_msg' => '@nickname 你好，欢迎你！',
+        // 注意：welcome_msg 故意不设默认值。
+        // 好友欢迎消息「未设置就不发」，若在此给默认模板会让 hasWelcomeMessage() 恒为 true。
     ];
 
     /**
@@ -418,6 +420,15 @@ class ConfigManager
             return $default;
         }
 
+        // room_welcome_msgs 使用集中化存储（数组格式）
+        // 必须放在下面的 `! $roomWxid` 提前返回之前：$roomWxid 为空时要返回整张映射表，
+        // 否则调用方拿到空数组后整体覆写，会清掉其他群已设置的欢迎语。
+        if ($command === 'room_welcome_msgs') {
+            $welcomeMsgs = $this->wechatBot->getMeta('room_welcome_msgs', []);
+
+            return $roomWxid ? ($welcomeMsgs[$roomWxid] ?? $default) : $welcomeMsgs;
+        }
+
         if (! $roomWxid) {
             return self::GROUP_DEFAULT_VALUES[$command] ?? $default;
         }
@@ -427,19 +438,6 @@ class ConfigManager
             $aliasMap = $this->wechatBot->getMeta('room_alias', []);
 
             return $aliasMap[$roomWxid] ?? $default;
-        }
-
-        // room_welcome_msgs 使用集中化存储（数组格式）
-        if ($command === 'room_welcome_msgs') {
-            if ($roomWxid) {
-                // 获取特定群的欢迎消息
-                $welcomeMsgs = $this->wechatBot->getMeta('room_welcome_msgs', []);
-
-                return $welcomeMsgs[$roomWxid] ?? $default;
-            } else {
-                // 获取所有群的欢迎消息数组
-                return $this->wechatBot->getMeta('room_welcome_msgs', $default);
-            }
         }
 
         // room_timezone_special 使用集中化存储
@@ -574,21 +572,56 @@ class ConfigManager
     }
 
     /**
+     * 好友请求每日处理统计
+     *
+     * 这是运行时状态而非用户可配置项，所以不放进 STRING_CONFIGS，直接读写 meta。
+     * （此前用 setStringConfig('daily_stats', ...) 写入，因 daily_stats 不在 STRING_CONFIGS 中
+     *   而被静默丢弃，导致每日上限从未生效。）
+     */
+    public function getDailyStats(): array
+    {
+        $stats = $this->wechatBot->getMeta('friend_daily_stats', []);
+
+        return is_array($stats) ? $stats : [];
+    }
+
+    /**
+     * 写入好友请求每日处理统计
+     */
+    public function setDailyStats(array $stats): bool
+    {
+        $this->wechatBot->setMeta('friend_daily_stats', $stats);
+
+        return true;
+    }
+
+    /**
      * 检查好友欢迎消息是否设置（仅检查消息模板是否存在）
      */
     public function hasWelcomeMessage(): bool
     {
         $welcomeMsg = $this->getStringConfig('welcome_msg');
 
-        return ! empty(trim($welcomeMsg));
+        return trim((string) $welcomeMsg) !== '';
     }
 
     /**
-     * 检查欢迎消息功能是否启用
+     * 检查欢迎消息功能开关是否启用（默认开启，供用户显式关闭）
      */
     public function isWelcomeMessageEnabled(): bool
     {
         return $this->isEnabled('friend_welcome');
+    }
+
+    /**
+     * 是否应该给新好友发送欢迎消息
+     *
+     * 手动同意（NotificationHandler）与自动同意（ProcessFriendRequestJob）
+     * 两条路径统一使用本方法，避免判断标准分裂。
+     */
+    public function shouldSendWelcomeMessage(): bool
+    {
+        return $this->isWelcomeMessageEnabled() && $this->hasWelcomeMessage();
     }
 
     /**
