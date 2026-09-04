@@ -76,13 +76,20 @@ test('模板不含 @nickname 时原样发送', function () {
     );
 });
 
-test('未设置模板时不发送任何消息', function () {
+test('未设置模板时发送内置默认模板', function () {
+    $this->wechatBot->setMeta('contacts', [
+        'wxid_new_friend' => ['nickname' => '上帝的女儿', 'remark' => ''],
+    ]);
+
     (new SendWelcomeMessageJob($this->wechatBot->id, 'wxid_new_friend'))->handle();
 
-    Http::assertNothingSent();
+    Http::assertSent(
+        fn ($request) => $request['data']['content'] === '上帝的女儿 你好，欢迎你！'
+    );
 });
 
-test('模板为空白字符时不发送', function () {
+test('模板被显式写成空白时不发送', function () {
+    // /set welcome_msg 会拒绝空值，正常路径不会出现；这里是数据异常时的保护
     $this->wechatBot->setMeta('welcome_msg', '   ');
 
     (new SendWelcomeMessageJob($this->wechatBot->id, 'wxid_new_friend'))->handle();
@@ -99,13 +106,13 @@ test('显式关闭 friend_welcome 后不发送', function () {
     Http::assertNothingSent();
 });
 
-test('friend_welcome 默认开启，设了模板即可发送', function () {
-    // 不显式设置 friend_welcome_enabled，只设模板
-    $this->wechatBot->setMeta('welcome_msg', '欢迎你');
-
+test('friend_welcome 默认开启，无需任何配置即可发送', function () {
+    // 既不设 friend_welcome_enabled 也不设 welcome_msg，走完全默认的路径
     (new SendWelcomeMessageJob($this->wechatBot->id, 'wxid_new_friend'))->handle();
 
-    Http::assertSent(fn ($request) => $request['data']['content'] === '欢迎你');
+    Http::assertSent(
+        fn ($request) => $request['data']['content'] === 'wxid_new_friend 你好，欢迎你！'
+    );
 });
 
 test('机器人不存在时安全退出', function () {

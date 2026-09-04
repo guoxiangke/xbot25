@@ -60,7 +60,7 @@ class ConfigManager
     const DEFAULT_VALUES = [
         'payment_auto' => true, // 自动收款默认开启
         'friend_auto_accept' => false, // 自动同意好友请求默认关闭
-        'friend_welcome' => true, // 新好友欢迎消息默认开启（是否真的发送仍取决于有没有设置 welcome_msg）
+        'friend_welcome' => true, // 新好友欢迎消息默认开启，未自定义模板时发送内置默认模板
     ];
 
     /**
@@ -68,8 +68,9 @@ class ConfigManager
      */
     const STRING_DEFAULT_VALUES = [
         'friend_daily_limit' => 50,
-        // 注意：welcome_msg 故意不设默认值。
-        // 好友欢迎消息「未设置就不发」，若在此给默认模板会让 hasWelcomeMessage() 恒为 true。
+        // 未自定义时使用这个内置默认模板，即新好友默认就会收到欢迎消息。
+        // 要完全不发，用 /set friend_welcome 0 关闭开关。
+        'welcome_msg' => '@nickname 你好，欢迎你！',
     ];
 
     /**
@@ -600,6 +601,8 @@ class ConfigManager
      */
     public function hasWelcomeMessage(): bool
     {
+        // 未自定义时 getStringConfig 会回退到内置默认模板，
+        // 所以正常情况下恒为 true；仅当 meta 被显式写成空白时才为 false。
         $welcomeMsg = $this->getStringConfig('welcome_msg');
 
         return trim((string) $welcomeMsg) !== '';

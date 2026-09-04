@@ -82,9 +82,24 @@ describe('好友添加通知', function () {
         Queue::assertNotPushed(SendWelcomeMessageJob::class);
     });
 
-    test('未设置欢迎消息模板时不派发任务', function () {
-        // 不设置 welcome_msg：此前因 STRING_DEFAULT_VALUES 有非空默认值，
-        // hasWelcomeMessage() 恒为 true，会给从没配过模板的 bot 发默认欢迎语
+    test('未设置欢迎消息模板时仍派发任务（使用内置默认模板）', function () {
+        $context = XbotTestHelpers::createMessageContext(
+            $this->wechatBot,
+            ['wxid' => 'wxid_new_friend'],
+            'MT_CONTACT_ADD_NOITFY_MSG'
+        );
+
+        $this->handler->handle($context, $this->next);
+
+        Queue::assertPushed(
+            SendWelcomeMessageJob::class,
+            fn ($job) => $job->targetWxid === 'wxid_new_friend'
+        );
+    });
+
+    test('显式关闭 friend_welcome 后不派发任务', function () {
+        $this->wechatBot->setMeta('friend_welcome_enabled', false);
+
         $context = XbotTestHelpers::createMessageContext(
             $this->wechatBot,
             ['wxid' => 'wxid_new_friend'],
@@ -96,7 +111,7 @@ describe('好友添加通知', function () {
         Queue::assertNotPushed(SendWelcomeMessageJob::class);
     });
 
-    test('模板为空白字符时不派发任务', function () {
+    test('模板被显式写成空白时不派发任务', function () {
         $this->wechatBot->setMeta('welcome_msg', '   ');
 
         $context = XbotTestHelpers::createMessageContext(
