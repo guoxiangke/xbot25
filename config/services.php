@@ -44,6 +44,10 @@ return [
         // 'test_endpoint' => env('XBOT_TEST_ENDPOINT', 'http://localhost/api/wechat/send'),
         'donate' => env('WECHAT_PAY_TXT', ''),
     ],
+    'wechat_ios' => [
+        'base_url' => env('WECHAT_IOS_BASE_URL', 'http://100.84.180.5:19088'),
+        'app_id' => env('WECHAT_IOS_APP_ID', 'wx6618f1cfc6c132f8'),
+    ],
     'bark' => [
         'url' => env('BARK_NOTIFY', ''), // bark 推送 token
     ],

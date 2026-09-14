@@ -763,8 +763,10 @@ final class XbotClient
     public function publishVideoToMoments(
         string $title,
         string $videoUrl,
-        string $thumbnailUrl = 'https://img9.doubanio.com/view/puppy_image/raw/public/1771365ca98ig9er706.jpg'
+        ?string $thumbnailUrl = null
     ): ?Response {
+        $thumbnailUrl ??= 'https://img9.doubanio.com/view/puppy_image/raw/public/1771365ca98ig9er706.jpg';
+
         $videoXmlTemplate = '<TimelineObject><id>1234567890</id><username>0000</username><createTime>1661025740</createTime><contentDesc>' . $title . '</contentDesc><contentDescShowType>0</contentDescShowType><contentDescScene>0</contentDescScene><private>0</private><sightFolded>0</sightFolded><showFlag>0</showFlag><appInfo><id></id><version></version><appName></appName><installUrl></installUrl><fromUrl></fromUrl><isForceUpdate>0</isForceUpdate></appInfo><sourceUserName></sourceUserName><sourceNickName></sourceNickName><statisticsData></statisticsData><statExtStr></statExtStr><ContentObject><contentStyle>15</contentStyle><title>0000微信小视频</title><description>Sight</description><mediaList><media><id>13933693810826481954</id><type>6</type><title></title><description>0000视频发送</description><private>0</private><userData></userData><subType>0</subType><videoSize width="720" height="1280"></videoSize><url type="1" md5="" videomd5="">' . $videoUrl . '</url><thumb type="1">' . $thumbnailUrl . '</thumb><size width="720" height="1280" totalSize="000"></size><videoDuration>2.035011</videoDuration></media></mediaList><contentUrl>https://support.weixin.qq.com/cgi-bin/mmsupport-bin/readtemplate?t=page/common_page__upgrade&amp;v=1</contentUrl></ContentObject><actionInfo><appMsg><messageAction></messageAction></appMsg></actionInfo><location poiClassifyId="" poiName="" poiAddress="" poiClassifyType="0" city=""></location><publicUserName></publicUserName><streamvideo><streamvideourl></streamvideourl><streamvideothumburl></streamvideothumburl><streamvideoweburl></streamvideoweburl></streamvideo></TimelineObject>';
 
         return $this->publishMomentsPost($videoXmlTemplate);
@@ -816,8 +818,10 @@ final class XbotClient
         string $url,
         string $description = '朋友圈音乐消息描述',
         string $comment = '这是描述',
-        string $thumbnailUrl = 'http://mmsns.c2c.wechat.com/mmsns/vRn02nrlYphiaibib27nbILHxvsD6UjZvclzGREZFciaFCmDt9jdhbHu7tL2DiaGjhGh61ibDauiaQWsIU/150'
+        ?string $thumbnailUrl = null
     ): ?Response {
+        $thumbnailUrl ??= 'http://mmsns.c2c.wechat.com/mmsns/vRn02nrlYphiaibib27nbILHxvsD6UjZvclzGREZFciaFCmDt9jdhbHu7tL2DiaGjhGh61ibDauiaQWsIU/150';
+
         // 清理HTML标签
         $cleanTitle = $this->cleanHtmlTags($title);
         $cleanDescription = $this->cleanHtmlTags($description);
@@ -842,8 +846,10 @@ final class XbotClient
         string $url,
         string $description = '朋友圈QQ音乐消息描述',
         string $comment = '这是描述',
-        string $thumbnailUrl = 'http://shmmsns.qpic.cn/mmsns/R7EkLqfbhZdGKk2iaqGLC9qx1Hpgghjrict51nrzjDhvI4Q0k6ctac1Wia0OlbEdTu6IHtBicRVThVw/150'
+        ?string $thumbnailUrl = null
     ): ?Response {
+        $thumbnailUrl ??= 'http://shmmsns.qpic.cn/mmsns/R7EkLqfbhZdGKk2iaqGLC9qx1Hpgghjrict51nrzjDhvI4Q0k6ctac1Wia0OlbEdTu6IHtBicRVThVw/150';
+
         // 清理HTML标签
         $cleanTitle = $this->cleanHtmlTags($title);
         $cleanDescription = $this->cleanHtmlTags($description);

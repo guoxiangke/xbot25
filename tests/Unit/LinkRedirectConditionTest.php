@@ -125,9 +125,9 @@ class LinkRedirectConditionTest extends TestCase
         $this->assertStringNotContainsString('redirect', $url, 'r2share非mp4链接不应该包含重定向');
     }
 
-    public function test_mp4_link_non_r2share_no_redirect()
+    public function test_mp4_link_non_r2share_also_gets_redirect()
     {
-        // .mp4但不是r2share的链接，不应该添加重定向
+        // 重定向条件已不再限制 r2share 域名，任何带统计信息的 .mp4 链接都会重定向
         $resource = [
             'type' => 'link',
             'data' => [
@@ -149,8 +149,8 @@ class LinkRedirectConditionTest extends TestCase
         $this->assertEquals('sendLink', $calls[0]['method']);
         
         $url = $calls[0]['args'][1];
-        $this->assertEquals('https://example.com/video.mp4', $url, '非r2share的mp4链接应该保持原样');
-        $this->assertStringNotContainsString('redirect', $url, '非r2share的mp4链接不应该包含重定向');
+        $this->assertStringContainsString('redirect', $url, '带统计信息的mp4链接应该包含重定向');
+        $this->assertStringContainsString('bot=1', $url, 'URL应该包含bot参数');
     }
 
     public function test_r2share_mp4_without_statistics_no_redirect()

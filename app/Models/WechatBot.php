@@ -122,7 +122,7 @@ class WechatBot extends Model
     /**
      * 敏感词过滤
      */
-    private static function filterSensitiveWords(string $text): string
+    public static function filterSensitiveWords(string $text): string
     {
         // 敏感词替换映射
         $sensitiveWords = [
@@ -140,7 +140,7 @@ class WechatBot extends Model
     /**
      * 过滤description并限制字数
      */
-    private static function filterDescription(string $description): string
+    public static function filterDescription(string $description): string
     {
         // 先进行敏感词过滤
         $filtered = self::filterSensitiveWords($description);
@@ -151,6 +151,18 @@ class WechatBot extends Model
         }
 
         return $filtered;
+    }
+
+    /**
+     * 构造带统计参数的跳转链接
+     * link / music 以及 iOS 微信发送链路共用
+     */
+    public static function buildTrackedUrl(array $statistics, string $url, string $to, int|string $bot): string
+    {
+        $statistics['bot'] = $bot;
+        $tags = http_build_query($statistics, '', '%26');
+
+        return config('services.xbot.redirect').urlencode($url).'?'.$tags.'%26to='.$to;
     }
 
     /**
@@ -188,9 +200,7 @@ class WechatBot extends Model
                     // 对包含统计信息的.mp4链接添加重定向
                     if (isset($resource['statistics']) &&
                         str_ends_with($url, '.mp4')) {
-                        $resource['statistics']['bot'] = $this->id;
-                        $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect').urlencode($data['url']).'?'.$tags.'%26to='.$to;
+                        $url = self::buildTrackedUrl($resource['statistics'], $url, $to, $this->id);
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');
@@ -201,9 +211,7 @@ class WechatBot extends Model
                 case 'music':
                     $url = $data['url'] ?? '';
                     if (isset($resource['statistics'])) {
-                        $resource['statistics']['bot'] = $this->id;
-                        $tags = http_build_query($resource['statistics'], '', '%26');
-                        $url = config('services.xbot.redirect').urlencode($data['url']).'?'.$tags.'%26to='.$to;
+                        $url = self::buildTrackedUrl($resource['statistics'], $url, $to, $this->id);
                     }
                     $title = self::filterSensitiveWords($data['title'] ?? '');
                     $description = self::filterDescription($data['description'] ?? '');

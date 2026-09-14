@@ -106,61 +106,8 @@ class WechatController extends Controller
                     $data['lyrics'] ?? null
                 );
                 break;
-                
-            default:
-                throw new \InvalidArgumentException("不支持的消息类型: {$type}");
-        }
-    }
 
-    public function send(string $to, string $type, array $data)
-    {
-        $wechatClient = WechatClient::where('token', session('selected_client'))->firstOrFail();
-        $xbot = new XbotClient($wechatClient->endpoint);
-
-        switch ($type) {
-            case 'text':
-                $xbot->sendTextMessage($to, $data['content']);
-                break;
-
-            case 'at':
-                $xbot->sendAtMessage(
-                    $to,
-                    $data['content'],
-                    $data['atList'] ?? [],
-                    $data['atAll'] ?? false
-                );
-                break;
-
-            case 'link':
-                $xbot->sendLinkMessage(
-                    $to,
-                    $data['title'],
-                    $data['description'],
-                    $data['url'],
-                    $data['thumbUrl'] ?? null
-                );
-                break;
-
-            case 'image':
-                $xbot->sendImageMessage($to, $data['imagePath']);
-                break;
-
-            case 'video':
-                $xbot->sendVideoMessage($to, $data['videoPath']);
-                break;
-                
-            case 'music':
-                $xbot->sendMusic(
-                    $to,
-                    $data['url'],
-                    $data['title'] ?? '',
-                    $data['description'] ?? '',
-                    $data['coverUrl'] ?? null,
-                    $data['lyrics'] ?? null
-                );
-                break;
-
-            // 朋友圈发布操作
+            // 以下为朋友圈发布，发布到机器人自己的朋友圈，不需要接收方
             case 'postLink':
                 $xbot->publishLinkToMoments(
                     $data['title'],
@@ -170,10 +117,7 @@ class WechatController extends Controller
                 break;
 
             case 'postImages':
-                $xbot->publishImagesToMoments(
-                    $data['title'],
-                    $data['urls']
-                );
+                $xbot->publishImagesToMoments($data['title'], $data['urls']);
                 break;
 
             case 'postVideo':
@@ -197,15 +141,56 @@ class WechatController extends Controller
             case 'postQQMusic':
                 $xbot->publishQQMusicToMoments(
                     $data['title'],
-                    $data['url'],
                     $data['musicUrl'],
-                    $data['appInfo'] ?? null
+                    $data['description'] ?? '',
+                    $data['appInfo'] ?? '',
+                    $data['thumbImgUrl'] ?? null
                 );
                 break;
-                
+
             default:
                 throw new \InvalidArgumentException("不支持的消息类型: {$type}");
         }
+    }
+
+    /**
+     * 发送消息
+     *
+     * 支持文本、@消息、链接、名片、图片、音乐，以及朋友圈发布
+     * 带 addition 时，主消息发送后再发送一条附加消息
+     *
+     * @example
+     * POST /api/wechat/send
+     * {
+     *   "type": "text",
+     *   "to": "friend_wxid",
+     *   "data": {"content": "Hello"},
+     *   "addition": {"type": "link", "data": {"url": "https://example.com"}}
+     * }
+     */
+    public function send(WechatSendRequest $request): JsonResponse
+    {
+        $wechatBot = $this->getOnlineWechatBot();
+
+        if (! $wechatBot) {
+            return $this->errorResponse('设备不在线,或改用户未绑定设备');
+        }
+
+        $xbot = $wechatBot->xbot();
+        $to = $request->input('to');
+
+        $this->sendMessage($xbot, $request->input('type'), $request->input('data', []), $to);
+
+        if ($request->filled('addition')) {
+            $this->sendMessage(
+                $xbot,
+                $request->input('addition.type'),
+                $request->input('addition.data', []),
+                $to
+            );
+        }
+
+        return $this->successResponse('已提交设备发送');
     }
 
     /**
