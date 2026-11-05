@@ -902,8 +902,9 @@ final class XbotClient
      */
     private function getRandomAppInfo(): array
     {
+        return ['name' => '永不止息', 'id' => 'wx0b796b3ff40a2007'];
         // 默认使用微信电脑版
-        return ['name' => '微信电脑版', 'id' => 'wx6618f1cfc6c132f8'];
+        // return ['name' => '微信电脑版', 'id' => 'wx6618f1cfc6c132f8'];
 
         // 可选的其他应用（已注释，需要时可取消注释）
         /*
