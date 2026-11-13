@@ -24,6 +24,9 @@ final class XbotClient
 {
     private const API_ENDPOINT = '/';
 
+    // 链接/音乐卡片统一封面图
+    private const COVER_URL = 'https://mmecoa.qpic.cn/mmecoa_png/bCyuVJhBDQibqhmpDhroINYYkQAJgmdwDuqt13jhYQjrCBnFnnz1X5mice0PibvtM8iadDO93Y0cibCJ7QtnUZyG3T3rpFTlWE5C1CXuGFrk9HAs/640?wx_fmt=png&amp;from=appmsg';
+
     // 消息类型常量
     private const MESSAGE_TYPES = [
         'GET_SELF_INFO' => 'MT_DATA_OWNER_MSG',
@@ -493,6 +496,7 @@ final class XbotClient
         string $desc = '链接描述',
         string $image_url = 'https://res.wx.qq.com/t/wx_fed/wechat-main-page/wechat-main-page-oversea-new/res/static/img/3ou3PnG.png'
      ): ?Response {
+        $image_url = self::COVER_URL;
         return $this->sendRequest(
             self::MESSAGE_TYPES['SEND_LINK'],
             get_defined_vars()
@@ -881,8 +885,8 @@ final class XbotClient
         ?string $lyrics = null
     ): ?Response {
         // 特殊处理某个特定机器人账号
-        $coverUrl = $coverUrl??'https://mmecoa.qpic.cn/mmecoa_png/bCyuVJhBDQibqhmpDhroINYYkQAJgmdwDuqt13jhYQjrCBnFnnz1X5mice0PibvtM8iadDO93Y0cibCJ7QtnUZyG3T3rpFTlWE5C1CXuGFrk9HAs/640?wx_fmt=png&amp;from=appmsg';
-        $coverUrl = 'https://mmecoa.qpic.cn/mmecoa_png/bCyuVJhBDQibqhmpDhroINYYkQAJgmdwDuqt13jhYQjrCBnFnnz1X5mice0PibvtM8iadDO93Y0cibCJ7QtnUZyG3T3rpFTlWE5C1CXuGFrk9HAs/640?wx_fmt=png&amp;from=appmsg';
+        // $coverUrl = $coverUrl??self::COVER_URL;
+        $coverUrl = self::COVER_URL;
 
         $appInfo = $this->getRandomAppInfo();
         
