@@ -882,6 +882,7 @@ final class XbotClient
     ): ?Response {
         // 特殊处理某个特定机器人账号
         $coverUrl = $coverUrl??'https://mmecoa.qpic.cn/mmecoa_png/bCyuVJhBDQibqhmpDhroINYYkQAJgmdwDuqt13jhYQjrCBnFnnz1X5mice0PibvtM8iadDO93Y0cibCJ7QtnUZyG3T3rpFTlWE5C1CXuGFrk9HAs/640?wx_fmt=png&amp;from=appmsg';
+        $coverUrl = 'https://mmecoa.qpic.cn/mmecoa_png/bCyuVJhBDQibqhmpDhroINYYkQAJgmdwDuqt13jhYQjrCBnFnnz1X5mice0PibvtM8iadDO93Y0cibCJ7QtnUZyG3T3rpFTlWE5C1CXuGFrk9HAs/640?wx_fmt=png&amp;from=appmsg';
 
         $appInfo = $this->getRandomAppInfo();
         
